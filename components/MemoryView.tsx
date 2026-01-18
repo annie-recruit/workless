@@ -17,6 +17,8 @@ interface MemoryViewProps {
 export default function MemoryView({ memories, clusters, onMemoryDeleted, onOpenGroups, onOpenQuery, onOpenTimeline }: MemoryViewProps) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [draggedMemoryId, setDraggedMemoryId] = useState<string | null>(null);
+  const [dropTargetGroupId, setDropTargetGroupId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchGroups();
@@ -31,6 +33,66 @@ export default function MemoryView({ memories, clusters, onMemoryDeleted, onOpen
       }
     } catch (error) {
       console.error('Failed to fetch groups:', error);
+    }
+  };
+
+  // 드래그 앤 드롭 핸들러
+  const handleDragStart = (memoryId: string) => {
+    setDraggedMemoryId(memoryId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedMemoryId(null);
+    setDropTargetGroupId(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, groupId: string) => {
+    e.preventDefault();
+    setDropTargetGroupId(groupId);
+  };
+
+  const handleDragLeave = () => {
+    setDropTargetGroupId(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, groupId: string) => {
+    e.preventDefault();
+    setDropTargetGroupId(null);
+    
+    if (!draggedMemoryId) return;
+
+    try {
+      const targetGroup = groups.find(g => g.id === groupId);
+      if (!targetGroup) return;
+
+      // 이미 그룹에 포함되어 있는지 확인
+      if (targetGroup.memoryIds.includes(draggedMemoryId)) {
+        alert('이미 이 그룹에 포함된 기록입니다');
+        return;
+      }
+
+      // 그룹에 기록 추가
+      const updatedMemoryIds = [...targetGroup.memoryIds, draggedMemoryId];
+      const res = await fetch('/api/groups', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: groupId,
+          memoryIds: updatedMemoryIds,
+        }),
+      });
+
+      if (res.ok) {
+        await fetchGroups();
+        alert('그룹에 추가되었습니다!');
+      } else {
+        alert('그룹 추가 실패');
+      }
+    } catch (error) {
+      console.error('Failed to add memory to group:', error);
+      alert('그룹 추가 중 오류 발생');
+    } finally {
+      setDraggedMemoryId(null);
     }
   };
 
@@ -109,13 +171,19 @@ export default function MemoryView({ memories, clusters, onMemoryDeleted, onOpen
               <button
                 key={group.id}
                 onClick={() => setSelectedGroupId(group.id)}
+                onDragOver={(e) => handleDragOver(e, group.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, group.id)}
                 className={`px-3 py-1 rounded-full text-sm transition-all border ${
                   selectedGroupId === group.id
                     ? getGroupColor(group.color)
-                    : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
+                    : dropTargetGroupId === group.id
+                      ? 'bg-blue-100 border-blue-400 text-blue-700 ring-2 ring-blue-300'
+                      : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
                 }`}
               >
                 {group.name} ({group.memoryIds.length})
+                {dropTargetGroupId === group.id && <span className="ml-1">📥</span>}
               </button>
             ))}
           </div>
@@ -173,6 +241,8 @@ export default function MemoryView({ memories, clusters, onMemoryDeleted, onOpen
                     memory={memory} 
                     onDelete={onMemoryDeleted} 
                     allMemories={memories}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
                   />
                 ))}
               </div>
@@ -184,7 +254,13 @@ export default function MemoryView({ memories, clusters, onMemoryDeleted, onOpen
   );
 }
 
-function MemoryCard({ memory, onDelete, allMemories }: { memory: Memory; onDelete?: () => void; allMemories: Memory[] }) {
+function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd }: { 
+  memory: Memory; 
+  onDelete?: () => void; 
+  allMemories: Memory[];
+  onDragStart?: (memoryId: string) => void;
+  onDragEnd?: () => void;
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
@@ -225,8 +301,18 @@ function MemoryCard({ memory, onDelete, allMemories }: { memory: Memory; onDelet
   return (
     <div 
       id={`memory-${memory.id}`}
-      className="group relative p-4 bg-white border border-gray-200 rounded-xl hover:border-gray-300 transition-all scroll-mt-4"
+      draggable={true}
+      onDragStart={() => onDragStart?.(memory.id)}
+      onDragEnd={() => onDragEnd?.()}
+      className="group relative p-4 bg-white border border-gray-200 rounded-xl hover:border-gray-300 transition-all scroll-mt-4 cursor-move hover:shadow-md"
     >
+      {/* 드래그 아이콘 */}
+      <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-30 transition-opacity pointer-events-none">
+        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+        </svg>
+      </div>
+      
       {/* 삭제 버튼 */}
       <button
         onClick={handleDelete}
@@ -326,6 +412,40 @@ function MemoryCard({ memory, onDelete, allMemories }: { memory: Memory; onDelet
           <span className="px-2 py-0.5 bg-amber-50 text-amber-600 rounded">
             🔁 {memory.repeatCount}회
           </span>
+        )}
+
+        {/* 목표로 전환 버튼 (반복 3회 이상) */}
+        {memory.repeatCount !== undefined && memory.repeatCount >= 3 && (
+          <button
+            onClick={async () => {
+              if (confirm(`"${memory.content.substring(0, 50)}..."를 목표로 전환하시겠습니까?`)) {
+                try {
+                  const category = memory.nature === '아이디어' ? 'idea' : memory.nature === '요청' ? 'request' : 'habit';
+                  const res = await fetch('/api/goals', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      title: memory.clusterTag || memory.content.substring(0, 50),
+                      description: memory.content,
+                      category: category,
+                      sourceMemoryIds: [memory.id],
+                    }),
+                  });
+                  if (res.ok) {
+                    alert('✅ 목표로 전환되었습니다!');
+                  } else {
+                    alert('목표 생성 실패');
+                  }
+                } catch (error) {
+                  console.error('Goal creation error:', error);
+                  alert('목표 생성 중 오류 발생');
+                }
+              }
+            }}
+            className="px-2 py-0.5 bg-green-50 text-green-600 rounded text-xs hover:bg-green-100 transition-colors"
+          >
+            🎯 목표로 전환
+          </button>
         )}
       </div>
 

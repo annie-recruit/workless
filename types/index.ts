@@ -52,6 +52,22 @@ export interface Group {
   updatedAt: number;
 }
 
+// 목표
+export interface Goal {
+  id: string;
+  title: string;            // 목표 제목
+  description?: string;     // 목표 설명
+  category: 'idea' | 'request' | 'habit';  // 아이디어/요청/습관
+  status: 'active' | 'completed' | 'archived';  // 상태
+  progress: number;         // 진행률 (0-100)
+  sourceMemoryIds: string[]; // 이 목표를 만든 기억들
+  milestones?: { text: string; completed: boolean }[];  // 마일스톤
+  targetDate?: number;      // 목표 달성 날짜 (timestamp)
+  createdAt: number;
+  updatedAt: number;
+  completedAt?: number;
+}
+
 // AI 분류 결과
 export interface AIClassification {
   topic: string;

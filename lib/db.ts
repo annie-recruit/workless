@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { Memory, Cluster, Attachment, Group } from '@/types';
+import { Memory, Cluster, Attachment, Group, Goal } from '@/types';
 import { nanoid } from 'nanoid';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
@@ -54,9 +54,25 @@ db.exec(`
     updatedAt INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS goals (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    category TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    progress INTEGER DEFAULT 0,
+    sourceMemoryIds TEXT NOT NULL,
+    milestones TEXT,
+    targetDate INTEGER,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL,
+    completedAt INTEGER
+  );
+
   CREATE INDEX IF NOT EXISTS idx_memories_clusterTag ON memories(clusterTag);
   CREATE INDEX IF NOT EXISTS idx_memories_topic ON memories(topic);
   CREATE INDEX IF NOT EXISTS idx_groups_isAIGenerated ON groups(isAIGenerated);
+  CREATE INDEX IF NOT EXISTS idx_goals_status ON goals(status);
 `);
 
 // Memory CRUD
@@ -334,6 +350,112 @@ export const groupDb = {
       ...row,
       memoryIds: JSON.parse(row.memoryIds),
       isAIGenerated: row.isAIGenerated === 1,
+    };
+  },
+};
+
+// Goal CRUD
+export const goalDb = {
+  // 생성
+  create(title: string, sourceMemoryIds: string[], category: 'idea' | 'request' | 'habit', description?: string): Goal {
+    const goal: Goal = {
+      id: nanoid(),
+      title,
+      description,
+      category,
+      status: 'active',
+      progress: 0,
+      sourceMemoryIds,
+      milestones: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    const stmt = db.prepare(`
+      INSERT INTO goals (id, title, description, category, status, progress, sourceMemoryIds, milestones, targetDate, createdAt, updatedAt, completedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      goal.id,
+      goal.title,
+      goal.description || null,
+      goal.category,
+      goal.status,
+      goal.progress,
+      JSON.stringify(goal.sourceMemoryIds),
+      goal.milestones ? JSON.stringify(goal.milestones) : null,
+      goal.targetDate || null,
+      goal.createdAt,
+      goal.updatedAt,
+      goal.completedAt || null
+    );
+
+    return goal;
+  },
+
+  // 조회
+  getById(id: string): Goal | null {
+    const stmt = db.prepare('SELECT * FROM goals WHERE id = ?');
+    const row = stmt.get(id) as any;
+    if (!row) return null;
+    return this.parseRow(row);
+  },
+
+  // 전체 조회
+  getAll(): Goal[] {
+    const stmt = db.prepare('SELECT * FROM goals ORDER BY updatedAt DESC');
+    const rows = stmt.all() as any[];
+    return rows.map(row => this.parseRow(row));
+  },
+
+  // 상태별 조회
+  getByStatus(status: 'active' | 'completed' | 'archived'): Goal[] {
+    const stmt = db.prepare('SELECT * FROM goals WHERE status = ? ORDER BY updatedAt DESC');
+    const rows = stmt.all(status) as any[];
+    return rows.map(row => this.parseRow(row));
+  },
+
+  // 업데이트
+  update(id: string, updates: Partial<Goal>) {
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (key !== 'id' && key !== 'createdAt') {
+        fields.push(`${key} = ?`);
+        if (key === 'sourceMemoryIds' && Array.isArray(value)) {
+          values.push(JSON.stringify(value));
+        } else if (key === 'milestones' && Array.isArray(value)) {
+          values.push(JSON.stringify(value));
+        } else {
+          values.push(value);
+        }
+      }
+    });
+
+    if (fields.length === 0) return;
+
+    fields.push('updatedAt = ?');
+    values.push(Date.now());
+    values.push(id);
+
+    const stmt = db.prepare(`UPDATE goals SET ${fields.join(', ')} WHERE id = ?`);
+    stmt.run(...(values as any[]));
+  },
+
+  // 삭제
+  delete(id: string) {
+    const stmt = db.prepare('DELETE FROM goals WHERE id = ?');
+    stmt.run(id);
+  },
+
+  // Row 파싱
+  parseRow(row: any): Goal {
+    return {
+      ...row,
+      sourceMemoryIds: JSON.parse(row.sourceMemoryIds),
+      milestones: row.milestones ? JSON.parse(row.milestones) : [],
     };
   },
 };
