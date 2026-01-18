@@ -85,12 +85,24 @@ export default function MemoryView({ memories, clusters, onMemoryDeleted, onOpen
       if (res.ok) {
         await fetchGroups();
         alert('그룹에 추가되었습니다!');
+        // 햅틱 피드백 (성공)
+        if ('vibrate' in navigator) {
+          navigator.vibrate([10, 50, 10]);
+        }
       } else {
         alert('그룹 추가 실패');
+        // 햅틱 피드백 (에러)
+        if ('vibrate' in navigator) {
+          navigator.vibrate([30, 50, 30]);
+        }
       }
     } catch (error) {
       console.error('Failed to add memory to group:', error);
       alert('그룹 추가 중 오류 발생');
+      // 햅틱 피드백 (에러)
+      if ('vibrate' in navigator) {
+        navigator.vibrate([30, 50, 30]);
+      }
     } finally {
       setDraggedMemoryId(null);
     }

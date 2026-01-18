@@ -24,4 +24,24 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  /* 모바일 최적화 */
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+
+/* 터치 피드백 효과 */
+button:active, a:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease-in-out;
+}
+
+/* 스와이프 제스처 지원 */
+.swipeable {
+  touch-action: pan-y;
+}
+
+/* 모바일에서 스크롤 부드럽게 */
+* {
+  -webkit-overflow-scrolling: touch;
 }
