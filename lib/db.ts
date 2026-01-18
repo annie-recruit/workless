@@ -112,7 +112,7 @@ export const memoryDb = {
   // 업데이트
   update(id: string, updates: Partial<Memory>): void {
     const fields = [];
-    const values = [];
+    const values: any[] = [];
 
     for (const [key, value] of Object.entries(updates)) {
       if (key === 'id' || key === 'createdAt') continue;
@@ -194,7 +194,7 @@ export const clusterDb = {
   // 업데이트
   update(id: string, updates: Partial<Cluster>): void {
     const fields = ['updatedAt = ?'];
-    const values = [Date.now()];
+    const values: any[] = [Date.now()];
 
     for (const [key, value] of Object.entries(updates)) {
       if (key === 'id' || key === 'createdAt' || key === 'updatedAt') continue;
@@ -289,7 +289,7 @@ export const groupDb = {
   // 업데이트
   update(id: string, updates: Partial<Group>): void {
     const fields = ['updatedAt = ?'];
-    const values = [Date.now()];
+    const values: any[] = [Date.now()];
 
     for (const [key, value] of Object.entries(updates)) {
       if (key === 'id' || key === 'createdAt' || key === 'updatedAt') continue;
