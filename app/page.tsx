@@ -6,12 +6,13 @@ import MemoryView from '@/components/MemoryView';
 import QueryPanel from '@/components/QueryPanel';
 import InsightsPanel from '@/components/InsightsPanel';
 import GroupManager from '@/components/GroupManager';
+import TimelineView from '@/components/TimelineView';
 import { Memory } from '@/types';
 
 export default function Home() {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [clusters, setClusters] = useState<Map<string, Memory[]>>(new Map());
-  const [showModal, setShowModal] = useState<'groups' | 'query' | null>(null);
+  const [showModal, setShowModal] = useState<'groups' | 'query' | 'timeline' | null>(null);
   const [loading, setLoading] = useState(false);
   const [showInsights, setShowInsights] = useState(true); // 인사이트 패널 토글
 
@@ -93,6 +94,7 @@ export default function Home() {
                 onMemoryDeleted={fetchMemories}
                 onOpenGroups={() => setShowModal('groups')}
                 onOpenQuery={() => setShowModal('query')}
+                onOpenTimeline={() => setShowModal('timeline')}
               />
             )}
           </div>
@@ -168,6 +170,27 @@ export default function Home() {
             </div>
             <div className="flex-1 overflow-y-auto p-6">
               <QueryPanel />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 타임라인 모달 */}
+      {showModal === 'timeline' && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-end p-4 border-b border-gray-200">
+              <button
+                onClick={() => setShowModal(null)}
+                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <TimelineView memories={memories} />
             </div>
           </div>
         </div>

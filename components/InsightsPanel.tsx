@@ -7,6 +7,7 @@ interface Insights {
   topTopics: { topic: string; count: number }[];
   trends: string[];
   suggestions: string[];
+  keywordCloud?: { keyword: string; count: number }[];
 }
 
 export default function InsightsPanel() {
@@ -90,6 +91,50 @@ export default function InsightsPanel() {
             {insights.summary}
           </p>
         </div>
+
+        {/* 키워드 클라우드 */}
+        {insights.keywordCloud && insights.keywordCloud.length > 0 && (
+          <div className="bg-gradient-to-br from-violet-50 to-fuchsia-50 p-5 rounded-xl border border-violet-200">
+            <h3 className="text-sm font-semibold text-gray-700 mb-4">☁️ 키워드 클라우드</h3>
+            <div className="flex flex-wrap gap-2 justify-center items-center min-h-[120px]">
+              {insights.keywordCloud.map((item, idx) => {
+                const maxCount = insights.keywordCloud![0].count;
+                const minSize = 12;
+                const maxSize = 32;
+                const fontSize = minSize + ((item.count / maxCount) * (maxSize - minSize));
+                const opacity = 0.5 + (item.count / maxCount) * 0.5;
+                
+                // 다양한 색상 배열
+                const colors = [
+                  'text-blue-600',
+                  'text-purple-600',
+                  'text-pink-600',
+                  'text-indigo-600',
+                  'text-violet-600',
+                  'text-fuchsia-600',
+                  'text-cyan-600',
+                  'text-sky-600',
+                ];
+                const color = colors[idx % colors.length];
+                
+                return (
+                  <button
+                    key={idx}
+                    className={`${color} font-bold hover:scale-110 transition-transform cursor-pointer hover:opacity-100`}
+                    style={{ 
+                      fontSize: `${fontSize}px`,
+                      opacity: opacity,
+                      lineHeight: '1.2',
+                    }}
+                    title={`${item.keyword}: ${item.count}개 기록`}
+                  >
+                    {item.keyword}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* 주요 주제 */}
         {insights.topTopics.length > 0 && (

@@ -295,24 +295,65 @@ JSON 형식:
   return indices.map((idx: number) => memories[idx]?.id).filter(Boolean);
 }
 
-// 요약 생성
+// 요약 생성 (개선된 버전)
 export async function generateSummary(query: string, memories: Memory[]): Promise<string> {
+  // 시간순 정렬
+  const sortedMemories = [...memories].sort((a, b) => a.createdAt - b.createdAt);
+  
+  // 주제별, 성격별 분석
+  const byTopic = sortedMemories.reduce((acc, m) => {
+    const topic = m.topic || '미분류';
+    if (!acc[topic]) acc[topic] = [];
+    acc[topic].push(m);
+    return acc;
+  }, {} as Record<string, Memory[]>);
+
+  const byNature = sortedMemories.reduce((acc, m) => {
+    const nature = m.nature || '단순기록';
+    if (!acc[nature]) acc[nature] = [];
+    acc[nature].push(m);
+    return acc;
+  }, {} as Record<string, Memory[]>);
+
+  // 클러스터 태그 분석
+  const clusterTags = [...new Set(sortedMemories.map(m => m.clusterTag).filter(Boolean))];
+
   const prompt = `
-사용자 질문: "${query}"
+당신은 개인 비서입니다. 사용자가 자신의 기록에 대해 질문했습니다.
 
-관련 기억들:
-${memories.map(m => `- ${m.content} (${new Date(m.createdAt).toLocaleDateString()})`).join('\n')}
+[사용자 질문]
+"${query}"
 
-위 기억들을 바탕으로 사용자 질문에 대한 요약을 해줘.
-- 핵심만 간단히
-- 시간 순서나 주제별로 정리
-- 너무 형식적이지 않게, 친근한 톤으로
+[분석 정보]
+- 총 ${memories.length}개의 관련 기록 발견
+- 주제별: ${Object.keys(byTopic).map(topic => `${topic}(${byTopic[topic].length}개)`).join(', ')}
+- 성격별: ${Object.keys(byNature).map(nature => `${nature}(${byNature[nature].length}개)`).join(', ')}
+- 주요 키워드: ${clusterTags.slice(0, 5).join(', ')}
+
+[관련 기억들] (시간순)
+${sortedMemories.map((m, idx) => {
+  const date = new Date(m.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+  const tags = [m.nature, m.clusterTag].filter(Boolean).join(' • ');
+  return `${idx + 1}. [${date}] ${m.content.substring(0, 150)}${m.content.length > 150 ? '...' : ''}
+   ${tags ? `   태그: ${tags}` : ''}`;
+}).join('\n\n')}
+
+위 정보를 바탕으로 사용자 질문에 대한 깊이 있는 답변을 작성해주세요:
+
+1. **전체 개요**: 질문과 관련된 기록들의 전반적인 맥락과 흐름
+2. **시간순 흐름**: 기록이 어떻게 발전/변화했는지
+3. **핵심 인사이트**: 패턴, 반복되는 주제, 주목할 점
+4. **구체적 내용**: 중요한 기록들의 주요 내용
+5. **결론 및 제안**: 이 기록들이 시사하는 것, 다음 행동 제안
+
+친근하고 깊이 있는 톤으로 작성해주세요. 단순 나열이 아닌, 맥락과 통찰을 담아주세요.
 `;
 
   const response = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [{ role: 'user', content: prompt }],
-    temperature: 0.7,
+    temperature: 0.8,
+    max_tokens: 1500, // 더 긴 응답 허용
   });
 
   return response.choices[0].message.content || '요약 생성 실패';
@@ -371,6 +412,7 @@ export async function generateInsights(memories: Memory[]): Promise<{
   topTopics: { topic: string; count: number }[];
   trends: string[];
   suggestions: string[];
+  keywordCloud?: { keyword: string; count: number }[];
 }> {
   if (memories.length === 0) {
     return {
@@ -378,6 +420,7 @@ export async function generateInsights(memories: Memory[]): Promise<{
       topTopics: [],
       trends: [],
       suggestions: ['첫 기억을 기록해보세요!'],
+      keywordCloud: [],
     };
   }
 
@@ -394,31 +437,72 @@ export async function generateInsights(memories: Memory[]): Promise<{
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  // AI에게 인사이트 요청
-  const recentMemories = memories.slice(0, 30);
+  // 키워드 클라우드 생성 (clusterTag 기반)
+  const keywordCounts = new Map<string, number>();
+  memories.forEach(m => {
+    if (m.clusterTag) {
+      keywordCounts.set(m.clusterTag, (keywordCounts.get(m.clusterTag) || 0) + 1);
+    }
+  });
+
+  const keywordCloud = Array.from(keywordCounts.entries())
+    .map(([keyword, count]) => ({ keyword, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 20); // 상위 20개 키워드
+
+  // AI에게 인사이트 요청 (개선된 버전)
+  const recentMemories = memories.slice(0, 40); // 더 많은 기록 분석
+  
+  // 시간대별 분포 분석
+  const now = Date.now();
+  const last7Days = memories.filter(m => now - m.createdAt < 7 * 24 * 60 * 60 * 1000);
+  const last30Days = memories.filter(m => now - m.createdAt < 30 * 24 * 60 * 60 * 1000);
+  
+  // 반복 기록 분석
+  const repeatedMemories = memories.filter(m => m.repeatCount && m.repeatCount > 1);
   
   const prompt = `
-당신은 개인 비서입니다. 사용자의 기록들을 분석해서 인사이트를 제공해주세요.
+당신은 개인 비서입니다. 사용자의 기록들을 깊이 있게 분석해서 의미 있는 인사이트를 제공해주세요.
 
 [전체 통계]
-- 총 기억 개수: ${memories.length}개
+- 총 기억: ${memories.length}개
+- 최근 7일: ${last7Days.length}개 (평균 ${(last7Days.length / 7).toFixed(1)}개/일)
+- 최근 30일: ${last30Days.length}개
+- 반복된 기록: ${repeatedMemories.length}개
 - 가장 많은 주제: ${topTopics.map(t => `${t.topic}(${t.count}개)`).join(', ')}
+- 주요 키워드: ${keywordCloud.slice(0, 10).map(k => k.keyword).join(', ')}
 
-[최근 30개 기억] (시간순)
-${recentMemories.map(m => `- [${m.topic}/${m.nature}] ${m.content.substring(0, 100)}...`).join('\n')}
+[최근 기록들] (시간순, 최신 40개)
+${recentMemories.map((m, idx) => {
+  const date = new Date(m.createdAt);
+  const daysAgo = Math.floor((now - m.createdAt) / (24 * 60 * 60 * 1000));
+  const timeLabel = daysAgo === 0 ? '오늘' : daysAgo === 1 ? '어제' : `${daysAgo}일 전`;
+  return `${idx + 1}. [${timeLabel}] [${m.nature}] ${m.content.substring(0, 120)}...
+   키워드: ${m.clusterTag || '없음'}${m.repeatCount && m.repeatCount > 1 ? ` (${m.repeatCount}회 반복)` : ''}`;
+}).join('\n')}
 
-다음을 분석해주세요:
+다음을 심층 분석해주세요:
 
-1. **전체 요약**: 사용자가 최근에 어떤 것들에 관심을 가지고 있는지 2-3문장으로
-2. **트렌드**: 최근 변화나 패턴 (예: "최근 업무 관련 기록이 증가했어요", "학습에 대한 관심이 높아지고 있어요")
-3. **제안**: 실용적인 행동 제안 3개
+1. **전체 요약**: 사용자의 최근 관심사와 활동 패턴을 구체적으로 3-4문장으로 (단순 나열이 아닌 맥락과 의미 중심)
 
-친근하고 격려하는 톤으로 작성해주세요.
+2. **트렌드** (3-4개): 
+   - 시간에 따른 변화 (주제, 빈도, 성격)
+   - 반복되는 패턴이나 관심사
+   - 새로 나타난 주제나 사라진 주제
+   - 각 트렌드는 구체적이고 실질적으로
+
+3. **제안** (3-4개):
+   - 반복되는 고민/아이디어 → 구체적 행동 제안
+   - 놓치고 있을 수 있는 기회
+   - 다음 단계로 넘어갈 수 있는 방법
+   - 각 제안은 실행 가능하고 구체적으로
+
+격려하고 통찰력 있는 톤으로, 단순 정보 나열이 아닌 의미 있는 인사이트를 제공해주세요.
 
 JSON 형식:
 {
   "summary": "...",
-  "trends": ["트렌드1", "트렌드2"],
+  "trends": ["트렌드1", "트렌드2", "트렌드3"],
   "suggestions": ["제안1", "제안2", "제안3"]
 }
 `;
@@ -426,7 +510,8 @@ JSON 형식:
   const response = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [{ role: 'user', content: prompt }],
-    temperature: 0.7,
+    temperature: 0.8,
+    max_tokens: 1200,
     response_format: { type: 'json_object' },
   });
 
@@ -437,6 +522,7 @@ JSON 형식:
     topTopics,
     trends: result.trends || [],
     suggestions: result.suggestions || [],
+    keywordCloud,
   };
 }
 
