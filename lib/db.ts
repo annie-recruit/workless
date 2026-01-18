@@ -1,8 +1,23 @@
 import Database from 'better-sqlite3';
 import { Memory, Cluster, Attachment, Group } from '@/types';
 import { nanoid } from 'nanoid';
+import { mkdirSync } from 'fs';
+import { join } from 'path';
 
-const db = new Database('workless.db');
+// Railway 볼륨 또는 로컬 data 디렉토리 사용
+const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH || join(process.cwd(), 'data');
+
+// 디렉토리가 없으면 생성
+try {
+  mkdirSync(dataDir, { recursive: true });
+} catch (err) {
+  // 이미 존재하는 경우 무시
+}
+
+const dbPath = join(dataDir, 'workless.db');
+const db = new Database(dbPath);
+
+console.log(`📊 Database path: ${dbPath}`);
 
 // 테이블 초기화
 db.exec(`

@@ -56,32 +56,16 @@ export default function Home() {
         {/* 헤더 배너 - 전체 폭 */}
         <header className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50">
           <div className="container mx-auto px-4 py-12">
-            <div className="relative z-10 flex items-center justify-between">
-              <div>
-                <h1 className="text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', letterSpacing: '-0.05em' }}>
-                  Workless
-                </h1>
-                <div className="flex items-center gap-3">
-                  <div className="h-px w-12 bg-gradient-to-r from-blue-400 to-purple-400"></div>
-                  <p className="text-slate-300 text-base font-light">
-                    알아서 정리해주는 개인 비서
-                  </p>
-                </div>
+            <div className="relative z-10">
+              <h1 className="text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', letterSpacing: '-0.05em' }}>
+                Workless
+              </h1>
+              <div className="flex items-center gap-3">
+                <div className="h-px w-12 bg-gradient-to-r from-blue-400 to-purple-400"></div>
+                <p className="text-slate-300 text-base font-light">
+                  알아서 정리해주는 개인 비서
+                </p>
               </div>
-              
-              {/* 인사이트 토글 버튼 */}
-              <button
-                onClick={() => setShowInsights(!showInsights)}
-                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white rounded-lg transition-colors border border-white/20"
-                title={showInsights ? "인사이트 숨기기" : "인사이트 보기"}
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                <span className="text-sm font-medium">
-                  {showInsights ? "인사이트 숨기기" : "인사이트 보기"}
-                </span>
-              </button>
             </div>
             {/* 미니멀 장식 요소 */}
             <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-blue-500/10 to-transparent rounded-full blur-3xl"></div>
@@ -117,10 +101,31 @@ export default function Home() {
 
       {/* 사이드 패널 (인사이트) - 토글 가능 */}
       <div 
-        className={`bg-white border-l border-gray-200 shadow-lg overflow-hidden transition-all duration-300 ease-in-out ${
+        className={`relative bg-white border-l border-gray-200 shadow-lg overflow-hidden transition-all duration-300 ease-in-out ${
           showInsights ? 'w-96' : 'w-0'
         }`}
       >
+        {/* 토글 버튼 - 사이드 패널 왼쪽 */}
+        <button
+          onClick={() => setShowInsights(!showInsights)}
+          className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full bg-white border border-gray-200 hover:bg-gray-50 transition-all duration-200 shadow-lg ${
+            showInsights ? 'rounded-l-lg' : 'rounded-lg -translate-x-4'
+          }`}
+          style={{ padding: '12px 6px' }}
+          title={showInsights ? "인사이트 숨기기" : "인사이트 보기"}
+        >
+          <svg 
+            className={`w-4 h-4 text-gray-600 transition-transform duration-300 ${
+              showInsights ? 'rotate-0' : 'rotate-180'
+            }`} 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+        
         {showInsights && <InsightsPanel />}
       </div>
 

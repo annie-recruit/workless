@@ -10,6 +10,9 @@
 public/uploads/**
 !public/uploads/.gitkeep
 
+# 데이터 디렉토리 (Railway 볼륨)
+data/
+
 # 일반
 .env.local
 .env
