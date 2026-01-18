@@ -1,13 +1,13 @@
-import type { NextConfig } from "next";
-import withPWA from 'next-pwa';
+const withPWA = require('next-pwa');
 
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   /* config options here */
   // Turbopack 비활성화 (PWA 호환성)
   turbopack: {},
 };
 
-export default withPWA({
+module.exports = withPWA({
   dest: 'public',
   register: true,
   skipWaiting: true,
