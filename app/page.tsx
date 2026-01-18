@@ -52,6 +52,30 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex relative">
+      {/* 토글 버튼 - 항상 보임 */}
+      <button
+        onClick={() => setShowInsights(!showInsights)}
+        className={`fixed top-1/2 -translate-y-1/2 bg-white border border-gray-200 hover:bg-gray-50 transition-all duration-300 shadow-lg z-50 ${
+          showInsights ? 'right-[384px]' : 'right-0'
+        }`}
+        style={{ 
+          padding: '12px 6px',
+          borderRadius: showInsights ? '8px 0 0 8px' : '8px'
+        }}
+        title={showInsights ? "인사이트 숨기기" : "인사이트 보기"}
+      >
+        <svg 
+          className={`w-4 h-4 text-gray-600 transition-transform duration-300 ${
+            showInsights ? 'rotate-0' : 'rotate-180'
+          }`} 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+
       {/* 메인 콘텐츠 영역 */}
       <div className="flex-1 overflow-y-auto">
         {/* 헤더 배너 - 전체 폭 */}
@@ -77,32 +101,25 @@ export default function Home() {
         <div className="container mx-auto px-4 py-8 max-w-5xl">
 
           {/* 상단 메뉴바 */}
-          <div className="mb-6 flex items-center justify-end gap-2">
+          <div className="mb-6 flex items-center justify-end gap-1 border-b border-gray-200 pb-2">
             <button
               onClick={() => setShowModal('groups')}
-              className="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-all flex items-center gap-2 text-sm font-medium border border-gray-200 hover:border-gray-300 hover:shadow-sm"
+              className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
               그룹
             </button>
+            <span className="text-gray-300">|</span>
             <button
               onClick={() => setShowModal('query')}
-              className="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-all flex items-center gap-2 text-sm font-medium border border-gray-200 hover:border-gray-300 hover:shadow-sm"
+              className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
               물어보기
             </button>
+            <span className="text-gray-300">|</span>
             <button
               onClick={() => setShowModal('timeline')}
-              className="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-all flex items-center gap-2 text-sm font-medium border border-gray-200 hover:border-gray-300 hover:shadow-sm"
+              className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
               타임라인
             </button>
           </div>
@@ -131,31 +148,10 @@ export default function Home() {
 
       {/* 사이드 패널 (인사이트) - 토글 가능 */}
       <div 
-        className={`relative bg-white border-l border-gray-200 shadow-lg overflow-hidden transition-all duration-300 ease-in-out ${
+        className={`bg-white border-l border-gray-200 shadow-lg overflow-y-auto transition-all duration-300 ease-in-out ${
           showInsights ? 'w-96' : 'w-0'
         }`}
       >
-        {/* 토글 버튼 - 사이드 패널 왼쪽 */}
-        <button
-          onClick={() => setShowInsights(!showInsights)}
-          className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full bg-white border border-gray-200 hover:bg-gray-50 transition-all duration-200 shadow-lg ${
-            showInsights ? 'rounded-l-lg' : 'rounded-lg -translate-x-4'
-          }`}
-          style={{ padding: '12px 6px' }}
-          title={showInsights ? "인사이트 숨기기" : "인사이트 보기"}
-        >
-          <svg 
-            className={`w-4 h-4 text-gray-600 transition-transform duration-300 ${
-              showInsights ? 'rotate-0' : 'rotate-180'
-            }`} 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-        
         {showInsights && <InsightsPanel />}
       </div>
 
