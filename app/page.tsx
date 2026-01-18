@@ -76,6 +76,37 @@ export default function Home() {
 
         <div className="container mx-auto px-4 py-8 max-w-5xl">
 
+          {/* 상단 메뉴바 */}
+          <div className="mb-6 flex items-center justify-end gap-2">
+            <button
+              onClick={() => setShowModal('groups')}
+              className="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-all flex items-center gap-2 text-sm font-medium border border-gray-200 hover:border-gray-300 hover:shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              그룹
+            </button>
+            <button
+              onClick={() => setShowModal('query')}
+              className="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-all flex items-center gap-2 text-sm font-medium border border-gray-200 hover:border-gray-300 hover:shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              물어보기
+            </button>
+            <button
+              onClick={() => setShowModal('timeline')}
+              className="px-4 py-2 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition-all flex items-center gap-2 text-sm font-medium border border-gray-200 hover:border-gray-300 hover:shadow-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              타임라인
+            </button>
+          </div>
+
           {/* 기록하기 영역 */}
           <div className="mb-8">
             <MemoryInput onMemoryCreated={handleMemoryCreated} />
@@ -92,9 +123,6 @@ export default function Home() {
                 memories={memories} 
                 clusters={clusters} 
                 onMemoryDeleted={fetchMemories}
-                onOpenGroups={() => setShowModal('groups')}
-                onOpenQuery={() => setShowModal('query')}
-                onOpenTimeline={() => setShowModal('timeline')}
               />
             )}
           </div>

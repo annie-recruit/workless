@@ -9,12 +9,9 @@ interface MemoryViewProps {
   memories: Memory[];
   clusters: Map<string, Memory[]>;
   onMemoryDeleted?: () => void;
-  onOpenGroups?: () => void;
-  onOpenQuery?: () => void;
-  onOpenTimeline?: () => void;
 }
 
-export default function MemoryView({ memories, clusters, onMemoryDeleted, onOpenGroups, onOpenQuery, onOpenTimeline }: MemoryViewProps) {
+export default function MemoryView({ memories, clusters, onMemoryDeleted }: MemoryViewProps) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [draggedMemoryId, setDraggedMemoryId] = useState<string | null>(null);
@@ -164,73 +161,38 @@ export default function MemoryView({ memories, clusters, onMemoryDeleted, onOpen
   return (
     <div className="w-full mx-auto space-y-6">
       {/* 필터 & 액션 바 */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          {/* 그룹 필터 */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-gray-600">그룹:</span>
-            <button
-              onClick={() => setSelectedGroupId(null)}
-              className={`px-3 py-1 rounded-full text-sm transition-all ${
-                selectedGroupId === null
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              전체 ({memories.length})
-            </button>
-            {groups.map(group => (
-              <button
-                key={group.id}
-                onClick={() => setSelectedGroupId(group.id)}
-                onDragOver={(e) => handleDragOver(e, group.id)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, group.id)}
-                className={`px-3 py-1 rounded-full text-sm transition-all border ${
-                  selectedGroupId === group.id
-                    ? getGroupColor(group.color)
-                    : dropTargetGroupId === group.id
-                      ? 'bg-blue-100 border-blue-400 text-blue-700 ring-2 ring-blue-300'
-                      : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
-                }`}
-              >
-                {group.name} ({group.memoryIds.length})
-                {dropTargetGroupId === group.id && <span className="ml-1">📥</span>}
-              </button>
-            ))}
-          </div>
-
-          {/* 액션 버튼 */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onOpenGroups}
-              className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center gap-2 text-sm font-medium"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              그룹 관리
-            </button>
-            <button
-              onClick={onOpenQuery}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 text-sm font-medium"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              물어보기
-            </button>
-            <button
-              onClick={onOpenTimeline}
-              className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors flex items-center gap-2 text-sm font-medium"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              타임라인
-            </button>
-          </div>
-        </div>
+      {/* 필터 바 */}
+      <div className="mb-6 flex items-center gap-2 flex-wrap">
+        <span className="text-sm font-medium text-gray-500">필터:</span>
+        <button
+          onClick={() => setSelectedGroupId(null)}
+          className={`px-3 py-1.5 rounded-lg text-sm transition-all font-medium ${
+            selectedGroupId === null
+              ? 'bg-gray-900 text-white shadow-sm'
+              : 'bg-white text-gray-600 hover:bg-gray-50 hover:shadow-sm border border-gray-200'
+          }`}
+        >
+          전체 {memories.length}
+        </button>
+        {groups.map(group => (
+          <button
+            key={group.id}
+            onClick={() => setSelectedGroupId(group.id)}
+            onDragOver={(e) => handleDragOver(e, group.id)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, group.id)}
+            className={`px-3 py-1.5 rounded-lg text-sm transition-all font-medium ${
+              selectedGroupId === group.id
+                ? 'bg-gray-900 text-white shadow-sm'
+                : dropTargetGroupId === group.id
+                  ? 'bg-gray-200 border-2 border-gray-400 text-gray-900'
+                  : 'bg-white text-gray-600 hover:bg-gray-50 hover:shadow-sm border border-gray-200'
+            }`}
+          >
+            {group.name} {group.memoryIds.length}
+            {dropTargetGroupId === group.id && <span className="ml-1">📥</span>}
+          </button>
+        ))}
       </div>
 
       {/* 맥락별 묶음 보기 */}
