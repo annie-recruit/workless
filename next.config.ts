@@ -3,6 +3,8 @@ import withPWA from 'next-pwa';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // Turbopack 비활성화 (PWA 호환성)
+  turbopack: {},
 };
 
 export default withPWA({
