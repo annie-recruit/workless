@@ -26,7 +26,7 @@ export async function readTextFile(filepath: string): Promise<string> {
 }
 
 // PDF 파일 파싱
-// PDF 파싱 (OpenAI API로 직접 읽기)
+// PDF 파싱 (pdf-parse-fork 사용 - canvas 의존성 없음)
 export async function parsePDF(filepath: string): Promise<string> {
   try {
     console.log('📄 [PDF 1/3] parsePDF 함수 시작');
@@ -39,42 +39,30 @@ export async function parsePDF(filepath: string): Promise<string> {
     const dataBuffer = readFileSync(fullPath);
     console.log('📄 [PDF 2/3] 파일 읽기 완료. Buffer 크기:', dataBuffer.length, 'bytes');
     
-    // Base64로 인코딩
-    const base64Pdf = dataBuffer.toString('base64');
-    console.log('📄 [PDF 3/3] Base64 인코딩 완료, 길이:', base64Pdf.length);
+    console.log('📄 [PDF 3/3] PDF 텍스트 추출 시작...');
     
-    // OpenAI API로 PDF 분석
-    console.log('📄 [PDF 3/3] OpenAI API로 PDF 분석 시작...');
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o', // PDF는 gpt-4o 필요 (gpt-4o-mini는 PDF 미지원)
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: '이 PDF 문서의 주요 내용을 요약해줘. 핵심 주제, 중요 정보, 키워드를 포함해서 3-5문장으로 설명해줘.',
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:application/pdf;base64,${base64Pdf}`,
-              },
-            },
-          ],
-        },
-      ],
-      max_tokens: 500,
-    });
-
-    const summary = response.choices[0].message.content || 'PDF 분석 실패';
-    console.log('✅ [PDF 3/3] PDF 분석 완료:', summary.substring(0, 100) + '...');
+    // pdf-parse-fork 사용 (canvas 의존성 없음!)
+    const pdfParse = require('pdf-parse-fork');
     
-    return summary;
+    const data = await pdfParse(dataBuffer);
+    
+    let text = data?.text || '';
+    console.log('📄 [PDF 3/3] 텍스트 추출 완료, 길이:', text.length);
+    
+    // 너무 길면 앞부분만 (1000자)
+    if (text.length > 1000) {
+      text = text.substring(0, 1000) + '... (내용 계속)';
+    }
+    
+    if (text.trim()) {
+      console.log('✅ PDF 분석 완료. 미리보기:', text.substring(0, 50).replace(/\n/g, ' '));
+      return text;
+    } else {
+      console.log('⚠️ PDF에서 텍스트를 추출하지 못했습니다');
+      return '(PDF 텍스트 추출 실패)';
+    }
   } catch (error) {
-    console.error('❌ PDF 파싱 실패 상세 정보:');
-    console.error('  - 에러 타입:', error instanceof Error ? error.constructor.name : typeof error);
-    console.error('  - 에러 메시지:', error instanceof Error ? error.message : String(error));
+    console.error('❌ PDF 파싱 실패:', error instanceof Error ? error.message : String(error));
     return 'PDF 파일을 읽을 수 없습니다';
   }
 }
