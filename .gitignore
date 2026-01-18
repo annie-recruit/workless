@@ -1,0 +1,20 @@
+# PWA 관련 파일
+**/public/sw.js
+**/public/workbox-*.js
+**/public/worker-*.js
+**/public/sw.js.map
+**/public/workbox-*.js.map
+**/public/worker-*.js.map
+
+# 사용자 업로드 파일 (GitHub 용량 제한)
+public/uploads/**
+!public/uploads/.gitkeep
+
+# 일반
+.env.local
+.env
+node_modules/
+.next/
+*.db
+*.db-shm
+*.db-wal
