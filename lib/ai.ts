@@ -25,6 +25,46 @@ export async function readTextFile(filepath: string): Promise<string> {
   }
 }
 
+// Word 파일 읽기 (.docx)
+export async function parseWordFile(filepath: string): Promise<string> {
+  try {
+    console.log('📄 [Word 1/3] parseWordFile 함수 시작');
+    console.log('📄 [Word 1/3] filepath:', filepath);
+    
+    const fullPath = join(process.cwd(), 'public', filepath);
+    console.log('📄 [Word 2/3] fullPath:', fullPath);
+    
+    console.log('📄 [Word 2/3] 파일 읽기 시작...');
+    const buffer = readFileSync(fullPath);
+    console.log('📄 [Word 2/3] 파일 읽기 완료. Buffer 크기:', buffer.length, 'bytes');
+    
+    console.log('📄 [Word 3/3] Word 텍스트 추출 시작...');
+    
+    // mammoth로 텍스트 추출
+    const mammoth = require('mammoth');
+    const result = await mammoth.extractRawText({ buffer });
+    
+    let text = result?.value || '';
+    console.log('📄 [Word 3/3] 텍스트 추출 완료, 길이:', text.length);
+    
+    // 너무 길면 앞부분만 (1000자)
+    if (text.length > 1000) {
+      text = text.substring(0, 1000) + '... (내용 계속)';
+    }
+    
+    if (text.trim()) {
+      console.log('✅ Word 분석 완료. 미리보기:', text.substring(0, 50).replace(/\n/g, ' '));
+      return text;
+    } else {
+      console.log('⚠️ Word에서 텍스트를 추출하지 못했습니다');
+      return '(Word 텍스트 추출 실패)';
+    }
+  } catch (error) {
+    console.error('❌ Word 파싱 실패:', error instanceof Error ? error.message : String(error));
+    return 'Word 파일을 읽을 수 없습니다';
+  }
+}
+
 // PDF 파일 파싱
 // PDF 파싱 (pdf-parse-fork 사용 - canvas 의존성 없음)
 export async function parsePDF(filepath: string): Promise<string> {
@@ -182,6 +222,13 @@ export async function summarizeAttachments(attachments: Attachment[]): Promise<s
       const pdfText = await parsePDF(attachment.filepath);
       console.log(`✅ [파일 ${i + 1}] PDF 파싱 완료, 텍스트 길이: ${pdfText.length}`);
       descriptions.push(`[PDF 문서: ${attachment.filename}]\n내용: ${pdfText}`);
+      
+    } else if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || attachment.filename.endsWith('.docx')) {
+      // Word 파일 파싱
+      console.log(`📄 [파일 ${i + 1}] → Word(.docx)로 판단, 파싱 시작`);
+      const wordText = await parseWordFile(attachment.filepath);
+      console.log(`✅ [파일 ${i + 1}] Word 파싱 완료, 텍스트 길이: ${wordText.length}`);
+      descriptions.push(`[Word 문서: ${attachment.filename}]\n내용: ${wordText}`);
       
     } else if (mimetype === 'text/plain' || mimetype === 'text/markdown' || attachment.filename.endsWith('.txt') || attachment.filename.endsWith('.md')) {
       // 텍스트 파일 읽기
