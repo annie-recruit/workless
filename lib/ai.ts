@@ -26,47 +26,51 @@ export async function readTextFile(filepath: string): Promise<string> {
 }
 
 // PDF 파일 파싱
+// PDF 파싱 (OpenAI API로 직접 읽기)
 export async function parsePDF(filepath: string): Promise<string> {
   try {
-    console.log('🔍 [PDF 1/4] parsePDF 함수 시작');
-    console.log('🔍 [PDF 1/4] filepath:', filepath);
+    console.log('📄 [PDF 1/3] parsePDF 함수 시작');
+    console.log('📄 [PDF 1/3] filepath:', filepath);
     
     const fullPath = join(process.cwd(), 'public', filepath);
-    console.log('🔍 [PDF 2/4] fullPath:', fullPath);
+    console.log('📄 [PDF 2/3] fullPath:', fullPath);
     
-    console.log('🔍 [PDF 3/4] 파일 읽기 시작...');
+    console.log('📄 [PDF 2/3] 파일 읽기 시작...');
     const dataBuffer = readFileSync(fullPath);
-    console.log('🔍 [PDF 3/4] 파일 읽기 완료. Buffer 크기:', dataBuffer.length, 'bytes');
+    console.log('📄 [PDF 2/3] 파일 읽기 완료. Buffer 크기:', dataBuffer.length, 'bytes');
     
-    console.log('🔍 [PDF 4/4] PDF 파싱 시작...');
+    // Base64로 인코딩
+    const base64Pdf = dataBuffer.toString('base64');
+    console.log('📄 [PDF 3/3] Base64 인코딩 완료, 길이:', base64Pdf.length);
     
-    // pdf-parse를 동적으로 import (CommonJS 모듈이므로)
-    const pdfParse = require('pdf-parse');
+    // OpenAI API로 PDF 분석
+    console.log('📄 [PDF 3/3] OpenAI API로 PDF 분석 시작...');
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o', // PDF는 gpt-4o 필요 (gpt-4o-mini는 PDF 미지원)
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: '이 PDF 문서의 주요 내용을 요약해줘. 핵심 주제, 중요 정보, 키워드를 포함해서 3-5문장으로 설명해줘.',
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:application/pdf;base64,${base64Pdf}`,
+              },
+            },
+          ],
+        },
+      ],
+      max_tokens: 500,
+    });
+
+    const summary = response.choices[0].message.content || 'PDF 분석 실패';
+    console.log('✅ [PDF 3/3] PDF 분석 완료:', summary.substring(0, 100) + '...');
     
-    // pdf-parse는 함수로 직접 사용 (클래스 아님!)
-    // 사용법: pdfParse(dataBuffer, options)
-    const data = await pdfParse(dataBuffer);
-    
-    console.log('🔍 [PDF 4/4] PDF 파싱 완료!');
-    console.log('🔍 [PDF 4/4] data 키들:', Object.keys(data || {}));
-    console.log('🔍 [PDF 4/4] 추출된 텍스트 길이:', data?.text?.length || 0);
-    console.log('🔍 [PDF 4/4] 페이지 수:', data?.numpages || 0);
-    
-    let text = data?.text || '';
-    
-    // 너무 길면 앞부분만 (2000자)
-    if (text.length > 2000) {
-      text = text.substring(0, 2000) + '... (내용이 길어서 일부만 표시)';
-    }
-    
-    if (text.trim()) {
-      console.log('✅ PDF 파싱 최종 완료. 미리보기:', text.substring(0, 100).replace(/\n/g, ' '));
-      return text;
-    } else {
-      console.log('⚠️ PDF에서 텍스트를 추출하지 못했습니다');
-      return '(PDF에서 텍스트를 추출할 수 없습니다)';
-    }
-    
+    return summary;
   } catch (error) {
     console.error('❌ PDF 파싱 실패 상세 정보:');
     console.error('  - 에러 타입:', error instanceof Error ? error.constructor.name : typeof error);
