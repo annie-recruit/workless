@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { Memory, AIClassification, Attachment } from '@/types';
 import { readFileSync } from 'fs';
 import { join, extname } from 'path';
+import { parsePDFWithPDFJS } from './ai-pdf';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -92,39 +93,42 @@ export async function parsePDF(filepath: string): Promise<string> {
     const dataBuffer = readFileSync(fullPath);
     console.log('📄 [PDF 2/3] 파일 읽기 완료. Buffer 크기:', dataBuffer.length, 'bytes');
     
-    console.log('📄 [PDF 3/3] PDF 텍스트 추출 시작...');
+    console.log('📄 [PDF 3/3] PDF.js로 텍스트 추출 시작...');
     
-    // pdf-parse-fork 사용 (canvas 의존성 없음!)
-    const pdfParse = require('pdf-parse-fork');
-    
-    // 모든 페이지에서 텍스트 추출 시도
-    const data = await pdfParse(dataBuffer, {
-      // 페이지 제한 없음 (전체 추출)
-      max: 0,
-      // 더 많은 정보 추출
-      version: 'v2.0.550'
-    });
-    
-    let text = data?.text || '';
-    console.log('📄 [PDF 3/3] 텍스트 추출 완료, 길이:', text.length);
-    console.log('📄 [PDF 3/3] 총 페이지 수:', data?.numpages || 0);
-    
-    // 텍스트가 너무 적으면 경고
-    if (text.length < 200) {
-      console.warn('⚠️ PDF 텍스트 추출이 불완전할 수 있습니다. 이미지 기반 PDF이거나 복잡한 레이아웃일 가능성이 있습니다.');
-    }
-    
-    // 너무 길면 앞부분만 (1000자)
-    if (text.length > 1000) {
-      text = text.substring(0, 1000) + '... (내용 계속)';
-    }
-    
-    if (text.trim()) {
-      console.log('✅ PDF 분석 완료. 미리보기:', text.substring(0, 50).replace(/\n/g, ' '));
+    // 먼저 PDF.js로 시도 (더 강력함!)
+    try {
+      const text = await parsePDFWithPDFJS(filepath);
       return text;
-    } else {
-      console.log('⚠️ PDF에서 텍스트를 추출하지 못했습니다');
-      return '(PDF 텍스트 추출 실패)';
+    } catch (pdfJsError) {
+      console.warn('⚠️ PDF.js 실패, pdf-parse-fork로 재시도...', pdfJsError);
+      
+      // PDF.js 실패 시 백업으로 pdf-parse-fork 사용
+      const pdfParse = require('pdf-parse-fork');
+      
+      const data = await pdfParse(dataBuffer, {
+        max: 0,
+        version: 'v2.0.550'
+      });
+      
+      let text = data?.text || '';
+      console.log('📄 [PDF 3/3] 백업 파서 텍스트 추출 완료, 길이:', text.length);
+      console.log('📄 [PDF 3/3] 총 페이지 수:', data?.numpages || 0);
+      
+      if (text.length < 200) {
+        console.warn('⚠️ PDF 텍스트 추출이 불완전할 수 있습니다.');
+      }
+      
+      if (text.length > 1000) {
+        text = text.substring(0, 1000) + '... (내용 계속)';
+      }
+      
+      if (text.trim()) {
+        console.log('✅ PDF 분석 완료 (백업). 미리보기:', text.substring(0, 50).replace(/\n/g, ' '));
+        return text;
+      } else {
+        console.log('⚠️ PDF에서 텍스트를 추출하지 못했습니다');
+        return '(PDF 텍스트 추출 실패)';
+      }
     }
   } catch (error) {
     console.error('❌ PDF 파싱 실패:', error instanceof Error ? error.message : String(error));
