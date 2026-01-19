@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { memoryDb } from '@/lib/db';
+import { summarizeAttachments } from '@/lib/ai';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -21,47 +22,72 @@ export async function GET(
       );
     }
 
+    // 첨부파일이 있다면 내용 분석
+    let fullContext = memory.content;
+    if (memory.attachments && memory.attachments.length > 0) {
+      const fileContext = await summarizeAttachments(memory.attachments);
+      if (fileContext) {
+        fullContext += `\n\n[첨부된 파일 내용]\n${fileContext}`;
+      }
+    }
+
     // AI에게 제안 요청
     const prompt = `
-당신은 생산성 코치입니다. 사용자의 기록을 분석하고 실행 가능한 제안을 해주세요.
+당신은 개인 비서입니다. 사용자의 기록을 **정확히 이해하고** 맥락에 맞는 실행 가능한 제안을 해주세요.
 
+⚠️ 중요: 기록의 내용과 주제를 정확히 파악하고, **그 맥락에 맞는** 제안을 해야 합니다.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [기록 내용]
-"${memory.content}"
+"${fullContext}"
 
-주제: ${memory.topic || '없음'}
-성격: ${memory.nature || '없음'}
-클러스터: ${memory.clusterTag || '없음'}
+📌 분류 정보:
+- 주제: ${memory.topic || '미분류'}
+- 성격: ${memory.nature || '미분류'}
+- 그룹: ${memory.clusterTag || '없음'}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-다음 세 가지를 제안해주세요:
+위 기록의 **실제 내용과 맥락**을 바탕으로 다음을 제안해주세요:
 
 1. **다음 단계** (Next Steps):
-   - 이 기록을 바탕으로 다음에 해야 할 구체적인 행동 2-3개
-   - 실행 가능하고 구체적으로
+   - 이 기록에서 언급된 **구체적인 상황**을 고려한 행동 2-3개
+   - 일반적인 조언이 아닌, **이 기록에 맞는** 실행 가능한 단계
+   - 예: 기록이 "채용 과제"라면 → 과제 요구사항 분석, 기술 스택 학습 등
 
 2. **관련 자료** (Resources):
-   - 이 주제에 도움이 될 자료/도구/링크 2-3개
-   - 구체적인 이름과 간단한 설명
+   - 이 기록의 **주제와 직접 관련된** 자료/도구 2-3개
+   - 예: 기록이 "React 공부"라면 → React 공식 문서, 튜토리얼 등
+   - 예: 기록이 "디자인 작업"이라면 → Figma, 디자인 참고 사이트 등
 
 3. **실행 계획** (Action Plan):
-   - 단계별로 나눈 실행 계획 3-4단계
-   - 각 단계는 명확하고 측정 가능하게
+   - **이 기록의 목표를 달성하기 위한** 단계별 계획 3-4단계
+   - 각 단계는 이 기록의 맥락에 맞게 구체적으로
+   - 일반적인 "계획 세우기" 같은 단계는 피하고, 실제 행동 위주로
 
 JSON 형식:
 {
-  "nextSteps": ["단계1", "단계2", "단계3"],
+  "nextSteps": ["이 기록에 맞는 구체적 단계1", "단계2", "단계3"],
   "resources": [
-    {"name": "자료명", "description": "설명", "type": "도구|문서|링크|강의"}
+    {"name": "자료명", "description": "이 기록 주제와 관련된 설명", "type": "도구|문서|링크|강의"}
   ],
   "actionPlan": [
-    {"step": 1, "action": "행동", "timeframe": "예상 시간"}
+    {"step": 1, "action": "이 기록의 목표를 위한 구체적 행동", "timeframe": "예상 시간"}
   ]
 }
+
+⚠️ 다시 한번 강조: 기록의 **실제 내용**을 정확히 반영하고, 일반적인 생산성 팁이 아닌 **이 기록에 특화된** 제안을 해주세요.
 `;
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.8,
+      messages: [
+        {
+          role: 'system',
+          content: '당신은 사용자의 기록을 정확히 이해하고 맥락에 맞는 구체적인 제안을 하는 개인 비서입니다. 일반적인 조언보다는 기록의 실제 내용에 기반한 실행 가능한 제안에 집중하세요.'
+        },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
       response_format: { type: 'json_object' },
     });
 
