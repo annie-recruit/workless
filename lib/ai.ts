@@ -97,10 +97,22 @@ export async function parsePDF(filepath: string): Promise<string> {
     // pdf-parse-fork 사용 (canvas 의존성 없음!)
     const pdfParse = require('pdf-parse-fork');
     
-    const data = await pdfParse(dataBuffer);
+    // 모든 페이지에서 텍스트 추출 시도
+    const data = await pdfParse(dataBuffer, {
+      // 페이지 제한 없음 (전체 추출)
+      max: 0,
+      // 더 많은 정보 추출
+      version: 'v2.0.550'
+    });
     
     let text = data?.text || '';
     console.log('📄 [PDF 3/3] 텍스트 추출 완료, 길이:', text.length);
+    console.log('📄 [PDF 3/3] 총 페이지 수:', data?.numpages || 0);
+    
+    // 텍스트가 너무 적으면 경고
+    if (text.length < 200) {
+      console.warn('⚠️ PDF 텍스트 추출이 불완전할 수 있습니다. 이미지 기반 PDF이거나 복잡한 레이아웃일 가능성이 있습니다.');
+    }
     
     // 너무 길면 앞부분만 (1000자)
     if (text.length > 1000) {
