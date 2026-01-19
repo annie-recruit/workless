@@ -1,86 +1,109 @@
-// 새로운 PDF 파싱 함수 (PDF.js 사용)
-import { readFileSync } from 'fs';
+// Adobe PDF Services API 기반 PDF 파싱
+import { createReadStream } from 'fs';
 import { join } from 'path';
+import PDFServicesSdk from '@adobe/pdfservices-node-sdk';
 
 // 파일 실제 경로 구성 (Railway 볼륨 또는 로컬 public)
 function getActualFilePath(filepath: string): string {
-  // Railway 환경: /data/uploads/... → /app/data/uploads/...
   if (filepath.startsWith('/data/uploads/')) {
     const filename = filepath.replace('/data/uploads/', '');
     return join(process.env.RAILWAY_VOLUME_MOUNT_PATH || '/app/data', 'uploads', filename);
   }
-  
-  // 로컬 환경: /uploads/... → /app/public/uploads/...
   const relativePath = filepath.replace(/^\//, '');
   return join(process.cwd(), 'public', relativePath);
 }
 
-// PDF.js를 사용한 강력한 PDF 파싱
-export async function parsePDFWithPDFJS(filepath: string): Promise<string> {
+// Adobe PDF Extract API로 텍스트 추출
+export async function parsePDFWithAdobe(filepath: string): Promise<string> {
   try {
-    console.log('📄 [PDF.js 1/5] parsePDF 함수 시작');
-    console.log('📄 [PDF.js 1/5] filepath:', filepath);
-    
+    console.log('📄 [Adobe 1/4] PDF Extract 시작');
+    console.log('📄 [Adobe 1/4] filepath:', filepath);
+
     const fullPath = getActualFilePath(filepath);
-    console.log('📄 [PDF.js 2/5] fullPath:', fullPath);
-    
-    console.log('📄 [PDF.js 2/5] 파일 읽기 시작...');
-    const dataBuffer = readFileSync(fullPath);
-    console.log('📄 [PDF.js 2/5] 파일 읽기 완료. Buffer 크기:', dataBuffer.length, 'bytes');
-    
-    console.log('📄 [PDF.js 3/5] PDF.js 텍스트 추출 시작...');
-    
-    // PDF.js 사용 (Mozilla의 강력한 PDF 파서!)
-    const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
-    
-    // PDF 문서 로드
-    const loadingTask = pdfjsLib.getDocument({
-      data: new Uint8Array(dataBuffer),
-      useSystemFonts: true,
+    console.log('📄 [Adobe 2/4] fullPath:', fullPath);
+
+    if (!process.env.PDF_SERVICES_CLIENT_ID || !process.env.PDF_SERVICES_CLIENT_SECRET) {
+      throw new Error('Adobe PDF Services 환경 변수가 설정되지 않았습니다.');
+    }
+
+    const {
+      PDFServices,
+      MimeType,
+      ServicePrincipalCredentials,
+      ExtractPDFJob,
+      ExtractPDFResult,
+      ExtractPDFParams,
+      ExtractElementType,
+    } = PDFServicesSdk as any;
+
+    const credentials = new ServicePrincipalCredentials({
+      clientId: process.env.PDF_SERVICES_CLIENT_ID,
+      clientSecret: process.env.PDF_SERVICES_CLIENT_SECRET,
     });
-    
-    const pdf = await loadingTask.promise;
-    const numPages = pdf.numPages;
-    console.log('📄 [PDF.js 3/5] 총 페이지 수:', numPages);
-    
-    let fullText = '';
-    
-    // 모든 페이지에서 텍스트 추출
-    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const textContent = await page.getTextContent();
-      
-      // 텍스트 아이템들을 문자열로 결합
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-      
-      fullText += pageText + '\n\n';
-      
-      console.log(`📄 [PDF.js 4/5] 페이지 ${pageNum}/${numPages} 추출 완료, 텍스트 길이: ${pageText.length}`);
-    }
-    
-    console.log('📄 [PDF.js 5/5] 전체 텍스트 추출 완료, 총 길이:', fullText.length);
-    
-    // 텍스트가 너무 적으면 경고
-    if (fullText.length < 200) {
-      console.warn('⚠️ PDF 텍스트 추출이 불완전할 수 있습니다. 이미지 기반 PDF이거나 복잡한 레이아웃일 가능성이 있습니다.');
-    }
-    
-    // 너무 길면 앞부분 (3000자로 증가 - 더 많은 맥락!)
-    if (fullText.length > 3000) {
-      fullText = fullText.substring(0, 3000) + `\n\n... (내용이 길어서 일부만 표시. 총 ${fullText.length}자)`;
-    }
-    
-    if (fullText.trim()) {
-      console.log('✅ PDF.js 분석 완료. 미리보기:', fullText.substring(0, 100).replace(/\n/g, ' '));
-      return fullText;
+
+    const pdfServices = new PDFServices({ credentials });
+    const readStream = createReadStream(fullPath);
+
+    const inputAsset = await pdfServices.upload({
+      readStream,
+      mimeType: MimeType.PDF,
+    });
+
+    const params = new ExtractPDFParams({
+      elementsToExtract: [ExtractElementType.TEXT],
+    });
+
+    const job = new ExtractPDFJob({ inputAsset, params });
+    console.log('📄 [Adobe 3/4] Extract 실행 중...');
+    const pollingURL = await pdfServices.submit({ job });
+
+    const pdfServicesResponse = await pdfServices.getJobResult({
+      pollingURL,
+      resultType: ExtractPDFResult,
+    });
+
+    const result = pdfServicesResponse.result;
+
+    let structuredData: any = null;
+    if (result.contentJSON) {
+      structuredData = result.contentJSON;
     } else {
-      console.log('⚠️ PDF에서 텍스트를 추출하지 못했습니다');
+      const resultAsset = result.content || result.resource;
+      const streamAsset = await pdfServices.getContent({ asset: resultAsset });
+      const chunks: Buffer[] = [];
+      for await (const chunk of streamAsset.readStream) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+      const zipData = Buffer.concat(chunks);
+      const AdmZip = require('adm-zip');
+      const zip = new AdmZip(zipData);
+      const jsonEntry = zip.getEntry('structuredData.json');
+      if (!jsonEntry) {
+        throw new Error('structuredData.json을 찾을 수 없습니다.');
+      }
+      structuredData = JSON.parse(jsonEntry.getData().toString('utf-8'));
+    }
+
+    const elements = structuredData?.elements || [];
+    const text = elements
+      .filter((el: any) => el.Text)
+      .map((el: any) => el.Text)
+      .join('\n');
+
+    console.log('📄 [Adobe 4/4] 텍스트 추출 완료, 길이:', text.length);
+
+    if (!text.trim()) {
       return '(PDF 텍스트 추출 실패)';
     }
+
+    const maxLen = 5000;
+    if (text.length > maxLen) {
+      return text.substring(0, maxLen) + `\n\n... (내용이 길어서 일부만 표시. 총 ${text.length}자)`;
+    }
+
+    return text;
   } catch (error) {
-    console.error('❌ PDF.js 파싱 실패:', error);
+    console.error('❌ Adobe PDF Extract 실패:', error instanceof Error ? error.message : String(error));
     throw error;
   }
 }

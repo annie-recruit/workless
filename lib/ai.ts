@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import { Memory, AIClassification, Attachment } from '@/types';
 import { readFileSync } from 'fs';
 import { join, extname } from 'path';
-import { parsePDFWithPDFJS } from './ai-pdf';
+import { parsePDFWithAdobe } from './ai-pdf';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -93,14 +93,14 @@ export async function parsePDF(filepath: string): Promise<string> {
     const dataBuffer = readFileSync(fullPath);
     console.log('📄 [PDF 2/3] 파일 읽기 완료. Buffer 크기:', dataBuffer.length, 'bytes');
     
-    console.log('📄 [PDF 3/3] PDF.js로 텍스트 추출 시작...');
+    console.log('📄 [PDF 3/3] Adobe PDF Extract로 텍스트 추출 시작...');
     
-    // 먼저 PDF.js로 시도 (더 강력함!)
+    // 먼저 Adobe PDF Extract API로 시도
     try {
-      const text = await parsePDFWithPDFJS(filepath);
+      const text = await parsePDFWithAdobe(filepath);
       return text;
-    } catch (pdfJsError) {
-      console.warn('⚠️ PDF.js 실패, pdf-parse-fork로 재시도...', pdfJsError);
+    } catch (adobeError) {
+      console.warn('⚠️ Adobe PDF Extract 실패, pdf-parse-fork로 재시도...', adobeError);
       
       // PDF.js 실패 시 백업으로 pdf-parse-fork 사용
       const pdfParse = require('pdf-parse-fork');
