@@ -30,6 +30,7 @@ export async function GET(
         fullContext += `\n\n[첨부된 파일 내용]\n${fileContext}`;
       }
     }
+    const attachmentNames = memory.attachments?.map(att => att.filename).join(', ') || '없음';
 
     // AI에게 제안 요청
     const prompt = `
@@ -40,6 +41,9 @@ export async function GET(
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [기록 내용]
 "${fullContext}"
+
+📌 첨부 파일:
+- 파일명: ${attachmentNames}
 
 📌 분류 정보:
 - 주제: ${memory.topic || '미분류'}
@@ -58,6 +62,7 @@ export async function GET(
    - 이 기록의 **주제와 직접 관련된** 자료/도구 2-3개
    - 예: 기록이 "React 공부"라면 → React 공식 문서, 튜토리얼 등
    - 예: 기록이 "디자인 작업"이라면 → Figma, 디자인 참고 사이트 등
+   - 가능하면 **공식 URL**을 포함해 주세요 (없으면 비워도 됨)
 
 3. **실행 계획** (Action Plan):
    - **이 기록의 목표를 달성하기 위한** 단계별 계획 3-4단계
@@ -68,7 +73,7 @@ JSON 형식:
 {
   "nextSteps": ["이 기록에 맞는 구체적 단계1", "단계2", "단계3"],
   "resources": [
-    {"name": "자료명", "description": "이 기록 주제와 관련된 설명", "type": "도구|문서|링크|강의"}
+    {"name": "자료명", "description": "이 기록 주제와 관련된 설명", "type": "도구|문서|링크|강의", "url": "https://..."}
   ],
   "actionPlan": [
     {"step": 1, "action": "이 기록의 목표를 위한 구체적 행동", "timeframe": "예상 시간"}

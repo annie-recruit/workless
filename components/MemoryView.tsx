@@ -663,8 +663,19 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
               </div>
               <ul className="space-y-1 ml-3">
                 {suggestions.resources.map((resource: any, idx: number) => (
-                  <li key={idx} className="text-[10px] text-gray-700">
-                    <span className="font-medium text-green-700">{resource.name}</span>
+                  <li key={idx} className="text-[10px] text-gray-700 cursor-default">
+                    {resource.url ? (
+                      <a
+                        href={resource.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium text-green-700 hover:underline cursor-pointer"
+                      >
+                        {resource.name}
+                      </a>
+                    ) : (
+                      <span className="font-medium text-green-700">{resource.name}</span>
+                    )}
                     {resource.type && <span className="text-gray-500 ml-1">({resource.type})</span>}
                     {resource.description && <p className="text-gray-600 ml-2">{resource.description}</p>}
                   </li>
