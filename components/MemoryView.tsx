@@ -229,7 +229,7 @@ export default function MemoryView({ memories, clusters, onMemoryDeleted }: Memo
               }`}>
                 {group.name}
               </span>
-              <span className={`text-[10px] ${
+              <span className={`text-[11px] ${
                 selectedGroupId === group.id ? 'text-gray-300' : 'text-gray-400'
               }`}>
                 {group.memoryIds.length}개
@@ -572,7 +572,7 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
               ...
               <button
                 onClick={() => setIsExpanded(true)}
-                className="ml-1 text-blue-500 hover:text-blue-600 text-[10px] font-medium"
+                className="ml-1 text-blue-500 hover:text-blue-600 text-[11px] font-medium"
               >
                 더보기
               </button>
@@ -581,7 +581,7 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
           {isLong && isExpanded && (
             <button
               onClick={() => setIsExpanded(false)}
-              className="ml-1 text-gray-500 hover:text-gray-600 text-[10px] font-medium"
+              className="ml-1 text-gray-500 hover:text-gray-600 text-[11px] font-medium"
             >
               접기
             </button>
@@ -594,7 +594,7 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
         <button
           onClick={handleToggleSummary}
           disabled={isLoadingSummary}
-          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -605,7 +605,7 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
         <button
           onClick={handleToggleSuggestions}
           disabled={isLoadingSuggestions}
-          className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -622,8 +622,8 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
             <div className="flex-1">
-              <div className="text-[10px] font-semibold text-purple-700 mb-0.5">AI 요약</div>
-              <p className="text-[10px] text-gray-700 leading-relaxed">{summary}</p>
+              <div className="text-[11px] font-semibold text-purple-700 mb-0.5">AI 요약</div>
+              <p className="text-[11px] text-gray-700 leading-relaxed">{summary}</p>
             </div>
           </div>
         </div>
@@ -639,11 +639,11 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
                 <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
-                <h4 className="text-[10px] font-bold text-blue-700">다음 단계</h4>
+                <h4 className="text-[11px] font-bold text-blue-700">다음 단계</h4>
               </div>
               <ul className="space-y-1 ml-3">
                 {suggestions.nextSteps.map((step: string, idx: number) => (
-                  <li key={idx} className="text-[10px] text-gray-700 flex items-start gap-1">
+                  <li key={idx} className="text-[11px] text-gray-700 flex items-start gap-1">
                     <span className="text-blue-500 font-bold">•</span>
                     <span>{step}</span>
                   </li>
@@ -659,11 +659,11 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
                 <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
-                <h4 className="text-[10px] font-bold text-green-700">관련 자료</h4>
+                <h4 className="text-[11px] font-bold text-green-700">관련 자료</h4>
               </div>
               <ul className="space-y-1 ml-3">
                 {suggestions.resources.map((resource: any, idx: number) => (
-                  <li key={idx} className="text-[10px] text-gray-700 cursor-default">
+                  <li key={idx} className="text-[11px] text-gray-700 cursor-default">
                     {resource.url ? (
                       <a
                         href={resource.url}
@@ -692,7 +692,7 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
                   <svg className="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                   </svg>
-                  <h4 className="text-[10px] font-bold text-orange-700">실행 계획</h4>
+                  <h4 className="text-[11px] font-bold text-orange-700">실행 계획</h4>
                 </div>
                 <button
                   onClick={() => handleConvertToGoal(suggestions)}
@@ -703,7 +703,7 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
               </div>
               <ul className="space-y-1 ml-3">
                 {suggestions.actionPlan.map((plan: any, idx: number) => (
-                  <li key={idx} className="text-[10px] text-gray-700 flex items-start gap-1">
+                  <li key={idx} className="text-[11px] text-gray-700 flex items-start gap-1">
                     <span className="font-bold text-orange-600">{plan.step}.</span>
                     <div>
                       <span>{plan.action}</span>
@@ -762,23 +762,23 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
         </div>
       )}
       
-      <div className="flex items-center gap-2 text-[10px] text-gray-500 flex-wrap">
+      <div className="flex items-center gap-2 text-[11px] text-gray-500 flex-wrap">
         <span>{timeAgo}</span>
         
         {memory.topic && (
-          <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px]">
+          <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[11px]">
             {memory.topic}
           </span>
         )}
         
         {memory.nature && (
-          <span className="px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded text-[10px]">
+          <span className="px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded text-[11px]">
             {memory.nature}
           </span>
         )}
         
         {memory.repeatCount !== undefined && memory.repeatCount > 1 && (
-          <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded text-[10px]">
+          <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded text-[11px]">
             🔁 {memory.repeatCount}
           </span>
         )}
@@ -791,11 +791,11 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
           </svg>
           <div className="flex-1">
-            <div className="text-[10px] text-gray-500 mb-1 flex items-center justify-between">
+            <div className="text-[11px] text-gray-500 mb-1 flex items-center justify-between">
               <span>연결된 기록</span>
               <button
                 onClick={() => onOpenLinkManager?.(memory)}
-                className="text-[10px] text-blue-500 hover:text-blue-600"
+                className="text-[11px] text-blue-500 hover:text-blue-600"
               >
                 + 추가
               </button>

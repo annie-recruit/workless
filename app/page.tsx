@@ -57,7 +57,7 @@ export default function Home() {
       <button
         onClick={() => setShowInsights(!showInsights)}
         className={`fixed top-1/2 -translate-y-1/2 bg-white border border-gray-200 hover:bg-gray-50 transition-all duration-300 shadow-lg z-50 ${
-          showInsights ? 'right-[384px]' : 'right-0'
+          showInsights ? 'right-[360px]' : 'right-0'
         }`}
         style={{ 
           padding: '12px 6px',
@@ -150,7 +150,7 @@ export default function Home() {
       {/* 사이드 패널 (인사이트) - 토글 가능 */}
       <div 
         className={`bg-white border-l border-gray-200 shadow-lg overflow-y-auto transition-all duration-300 ease-in-out ${
-          showInsights ? 'w-96' : 'w-0'
+          showInsights ? 'w-[360px]' : 'w-0'
         }`}
       >
         {showInsights && <InsightsPanel />}
