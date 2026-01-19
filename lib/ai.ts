@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { Memory, AIClassification, Attachment } from '@/types';
 import { readFileSync } from 'fs';
-import { join } from 'path';
+import { join, extname } from 'path';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -134,7 +134,7 @@ export async function analyzeImageFromPath(filepath: string): Promise<string> {
     
     const imageBuffer = fs.readFileSync(fullPath);
     const base64Image = imageBuffer.toString('base64');
-    const ext = path.extname(filepath).toLowerCase();
+    const ext = extname(filepath).toLowerCase();
     
     // MIME 타입 결정
     let mimeType = 'image/jpeg';
