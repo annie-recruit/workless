@@ -1,7 +1,7 @@
 // Adobe PDF Services API 기반 PDF 파싱
 import { createReadStream } from 'fs';
 import { join } from 'path';
-import PDFServicesSdk from '@adobe/pdfservices-node-sdk';
+import * as PDFServicesSdk from '@adobe/pdfservices-node-sdk';
 
 // 파일 실제 경로 구성 (Railway 볼륨 또는 로컬 public)
 function getActualFilePath(filepath: string): string {
