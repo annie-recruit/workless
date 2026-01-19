@@ -7,11 +7,23 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// 파일 실제 경로 구성 (Railway 볼륨 또는 로컬 public)
+function getActualFilePath(filepath: string): string {
+  // Railway 환경: /data/uploads/... → /app/data/uploads/...
+  if (filepath.startsWith('/data/uploads/')) {
+    const filename = filepath.replace('/data/uploads/', '');
+    return join(process.env.RAILWAY_VOLUME_MOUNT_PATH || '/app/data', 'uploads', filename);
+  }
+  
+  // 로컬 환경: /uploads/... → /app/public/uploads/...
+  const relativePath = filepath.replace(/^\//, '');
+  return join(process.cwd(), 'public', relativePath);
+}
+
 // 텍스트 파일 읽기
 export async function readTextFile(filepath: string): Promise<string> {
   try {
-    const relativePath = filepath.replace(/^\//, '');
-    const fullPath = join(process.cwd(), 'public', relativePath);
+    const fullPath = getActualFilePath(filepath);
     const content = readFileSync(fullPath, 'utf-8');
     
     // 너무 길면 앞부분만 (2000자)
@@ -32,9 +44,7 @@ export async function parseWordFile(filepath: string): Promise<string> {
     console.log('📄 [Word 1/3] parseWordFile 함수 시작');
     console.log('📄 [Word 1/3] filepath:', filepath);
     
-    const relativePath = filepath.replace(/^\//, '');
-    const fullPath = join(process.cwd(), 'public', relativePath);
-    console.log('📄 [Word 2/3] relativePath:', relativePath);
+    const fullPath = getActualFilePath(filepath);
     console.log('📄 [Word 2/3] fullPath:', fullPath);
     
     console.log('📄 [Word 2/3] 파일 읽기 시작...');
@@ -75,10 +85,7 @@ export async function parsePDF(filepath: string): Promise<string> {
     console.log('📄 [PDF 1/3] parsePDF 함수 시작');
     console.log('📄 [PDF 1/3] filepath:', filepath);
     
-    // filepath가 /uploads/...로 시작하므로 앞의 / 제거
-    const relativePath = filepath.replace(/^\//, '');
-    const fullPath = join(process.cwd(), 'public', relativePath);
-    console.log('📄 [PDF 2/3] relativePath:', relativePath);
+    const fullPath = getActualFilePath(filepath);
     console.log('📄 [PDF 2/3] fullPath:', fullPath);
     
     console.log('📄 [PDF 2/3] 파일 읽기 시작...');
@@ -117,11 +124,8 @@ export async function parsePDF(filepath: string): Promise<string> {
 export async function analyzeImageFromPath(filepath: string): Promise<string> {
   try {
     const fs = require('fs');
-    const path = require('path');
     
-    // 파일 경로에서 실제 파일 읽기 (앞의 / 제거)
-    const relativePath = filepath.replace(/^\//, '');
-    const fullPath = path.join(process.cwd(), 'public', relativePath);
+    const fullPath = getActualFilePath(filepath);
     
     if (!fs.existsSync(fullPath)) {
       console.error('이미지 파일을 찾을 수 없습니다:', fullPath);

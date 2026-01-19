@@ -4,7 +4,10 @@ import path from 'path';
 import { nanoid } from 'nanoid';
 import { Attachment } from '@/types';
 
-const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads');
+// Railway 볼륨 사용 (재배포 시에도 파일 유지)
+const UPLOAD_DIR = process.env.RAILWAY_VOLUME_MOUNT_PATH 
+  ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'uploads')
+  : path.join(process.cwd(), 'public', 'uploads');
 
 // 업로드 디렉토리 확인 및 생성
 export async function ensureUploadDir() {
@@ -21,7 +24,12 @@ export async function saveFile(file: File): Promise<Attachment> {
   const ext = path.extname(file.name);
   const filename = `${nanoid()}${ext}`;
   const filepath = path.join(UPLOAD_DIR, filename);
-  const publicPath = `/uploads/${filename}`;
+  
+  // 파일 저장 경로 (DB에 저장할 경로)
+  // Railway 환경이면 볼륨 경로, 아니면 public 경로
+  const storedPath = process.env.RAILWAY_VOLUME_MOUNT_PATH 
+    ? `/data/uploads/${filename}`  // 볼륨 경로
+    : `/uploads/${filename}`;      // 로컬 public 경로
 
   // 파일 저장
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -30,7 +38,7 @@ export async function saveFile(file: File): Promise<Attachment> {
   return {
     id: nanoid(),
     filename: file.name,
-    filepath: publicPath,
+    filepath: storedPath,
     mimetype: file.type,
     size: file.size,
     createdAt: Date.now(),
