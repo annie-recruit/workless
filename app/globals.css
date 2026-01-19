@@ -45,3 +45,126 @@ button:active, a:active {
 * {
   -webkit-overflow-scrolling: touch;
 }
+
+/* 반짝 애니메이션 - 단순하게 */
+@keyframes sparkle-single {
+  0%, 100% {
+    opacity: 0.8;
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2) rotate(10deg);
+  }
+}
+
+/* 문서들이 폴더로 모이는 애니메이션 */
+@keyframes gather-1 {
+  0% {
+    opacity: 1;
+    transform: translate(-100px, -80px) scale(0.8) rotate(-15deg);
+  }
+  70% {
+    opacity: 0.8;
+    transform: translate(0, 0) scale(0.4) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.2);
+  }
+}
+
+@keyframes gather-2 {
+  0% {
+    opacity: 1;
+    transform: translate(100px, -60px) scale(0.8) rotate(15deg);
+  }
+  70% {
+    opacity: 0.8;
+    transform: translate(0, 0) scale(0.4) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.2);
+  }
+}
+
+@keyframes gather-3 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 100px) scale(0.8) rotate(0deg);
+  }
+  70% {
+    opacity: 0.8;
+    transform: translate(0, 0) scale(0.4) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.2);
+  }
+}
+
+/* 폴더 나타나기 */
+@keyframes folder-appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-sparkle-single {
+  animation: sparkle-single 1.5s ease-in-out infinite;
+}
+
+.animate-gather-1 {
+  animation: gather-1 1.5s ease-in-out forwards;
+  animation-delay: 0.3s;
+}
+
+.animate-gather-2 {
+  animation: gather-2 1.5s ease-in-out forwards;
+  animation-delay: 0.5s;
+}
+
+.animate-gather-3 {
+  animation: gather-3 1.5s ease-in-out forwards;
+  animation-delay: 0.7s;
+}
+
+.animate-folder-appear {
+  animation: folder-appear 2s ease-out forwards;
+  animation-delay: 1.2s;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 4s linear infinite;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+}
+

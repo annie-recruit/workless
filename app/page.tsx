@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import MemoryInput from '@/components/MemoryInput';
 import MemoryView from '@/components/MemoryView';
 import QueryPanel from '@/components/QueryPanel';
@@ -116,12 +117,12 @@ export default function Home() {
               물어보기
             </button>
             <span className="text-gray-300">|</span>
-            <button
-              onClick={() => setShowModal('timeline')}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
+            <Link
+              href="/timeline"
+              className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium inline-block"
             >
               타임라인
-            </button>
+            </Link>
           </div>
 
           {/* 기록하기 영역 */}
@@ -199,26 +200,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 타임라인 모달 */}
-      {showModal === 'timeline' && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-end p-4 border-b border-gray-200">
-              <button
-                onClick={() => setShowModal(null)}
-                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              <TimelineView memories={memories} />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 타임라인은 별도 페이지로 */}
     </main>
   );
 }

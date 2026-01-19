@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
 // PUT: 목표 업데이트
 export async function PUT(req: NextRequest) {
   try {
-    const updates = await req.json();
-    const { id } = updates;
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
 
     if (!id) {
       return NextResponse.json(
@@ -55,6 +55,7 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    const updates = await req.json();
     goalDb.update(id, updates);
     const updatedGoal = goalDb.getById(id);
     return NextResponse.json({ goal: updatedGoal });

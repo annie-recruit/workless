@@ -62,6 +62,20 @@ export async function POST(req: NextRequest) {
       attachments: attachments.length > 0 ? attachments : undefined,
     });
 
+    // 양방향 링크 생성 - 관련 기록들에도 새 기록 ID 추가
+    relatedIds.forEach(relatedId => {
+      const relatedMemory = memoryDb.getById(relatedId);
+      if (relatedMemory) {
+        const existingLinks = relatedMemory.relatedMemoryIds || [];
+        // 중복 방지
+        if (!existingLinks.includes(memory.id)) {
+          memoryDb.update(relatedId, {
+            relatedMemoryIds: [...existingLinks, memory.id]
+          });
+        }
+      }
+    });
+
     // 반복 감지 및 카운트 업데이트
     const repeatCount = detectRepetition(memory, existingMemories);
     if (repeatCount > 1) {
@@ -144,3 +158,38 @@ export async function DELETE(req: NextRequest) {
     );
   }
 }
+
+// PUT: 기억 수정
+export async function PUT(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    const { content } = await req.json();
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'ID가 필요합니다' },
+        { status: 400 }
+      );
+    }
+
+    if (!content) {
+      return NextResponse.json(
+        { error: '내용이 필요합니다' },
+        { status: 400 }
+      );
+    }
+
+    memoryDb.update(id, { content });
+    const updatedMemory = memoryDb.getById(id);
+
+    return NextResponse.json({ memory: updatedMemory });
+  } catch (error) {
+    console.error('Memory update error:', error);
+    return NextResponse.json(
+      { error: '기억 수정 실패' },
+      { status: 500 }
+    );
+  }
+}
+
