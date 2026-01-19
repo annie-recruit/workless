@@ -10,7 +10,8 @@ const openai = new OpenAI({
 // 텍스트 파일 읽기
 export async function readTextFile(filepath: string): Promise<string> {
   try {
-    const fullPath = join(process.cwd(), 'public', filepath);
+    const relativePath = filepath.replace(/^\//, '');
+    const fullPath = join(process.cwd(), 'public', relativePath);
     const content = readFileSync(fullPath, 'utf-8');
     
     // 너무 길면 앞부분만 (2000자)
@@ -31,7 +32,9 @@ export async function parseWordFile(filepath: string): Promise<string> {
     console.log('📄 [Word 1/3] parseWordFile 함수 시작');
     console.log('📄 [Word 1/3] filepath:', filepath);
     
-    const fullPath = join(process.cwd(), 'public', filepath);
+    const relativePath = filepath.replace(/^\//, '');
+    const fullPath = join(process.cwd(), 'public', relativePath);
+    console.log('📄 [Word 2/3] relativePath:', relativePath);
     console.log('📄 [Word 2/3] fullPath:', fullPath);
     
     console.log('📄 [Word 2/3] 파일 읽기 시작...');
@@ -72,7 +75,10 @@ export async function parsePDF(filepath: string): Promise<string> {
     console.log('📄 [PDF 1/3] parsePDF 함수 시작');
     console.log('📄 [PDF 1/3] filepath:', filepath);
     
-    const fullPath = join(process.cwd(), 'public', filepath);
+    // filepath가 /uploads/...로 시작하므로 앞의 / 제거
+    const relativePath = filepath.replace(/^\//, '');
+    const fullPath = join(process.cwd(), 'public', relativePath);
+    console.log('📄 [PDF 2/3] relativePath:', relativePath);
     console.log('📄 [PDF 2/3] fullPath:', fullPath);
     
     console.log('📄 [PDF 2/3] 파일 읽기 시작...');
@@ -113,8 +119,9 @@ export async function analyzeImageFromPath(filepath: string): Promise<string> {
     const fs = require('fs');
     const path = require('path');
     
-    // 파일 경로에서 실제 파일 읽기
-    const fullPath = path.join(process.cwd(), 'public', filepath);
+    // 파일 경로에서 실제 파일 읽기 (앞의 / 제거)
+    const relativePath = filepath.replace(/^\//, '');
+    const fullPath = path.join(process.cwd(), 'public', relativePath);
     
     if (!fs.existsSync(fullPath)) {
       console.error('이미지 파일을 찾을 수 없습니다:', fullPath);
