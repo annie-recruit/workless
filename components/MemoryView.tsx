@@ -8,11 +8,10 @@ import LinkManager from './LinkManager';
 
 interface MemoryViewProps {
   memories: Memory[];
-  clusters: Map<string, Memory[]>;
   onMemoryDeleted?: () => void;
 }
 
-export default function MemoryView({ memories, clusters, onMemoryDeleted }: MemoryViewProps) {
+export default function MemoryView({ memories, onMemoryDeleted }: MemoryViewProps) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [draggedMemoryId, setDraggedMemoryId] = useState<string | null>(null);
@@ -129,28 +128,9 @@ export default function MemoryView({ memories, clusters, onMemoryDeleted }: Memo
     filteredMemoryIds: filteredMemories.map(m => m.id)
   });
 
-  // 필터링된 메모리로 클러스터 재구성
-  const filteredClusters = new Map<string, Memory[]>();
-  filteredMemories.forEach(memory => {
-    const tag = memory.clusterTag || '미분류';
-    if (!filteredClusters.has(tag)) {
-      filteredClusters.set(tag, []);
-    }
-    filteredClusters.get(tag)!.push(memory);
-  });
+  // 클러스터 재구성 제거 - 시간순으로만 표시
+  // filteredClusters는 더 이상 사용하지 않음
 
-  const getGroupColor = (color?: string) => {
-    const colors: Record<string, string> = {
-      blue: 'bg-blue-100 text-blue-800 border-blue-300',
-      purple: 'bg-purple-100 text-purple-800 border-purple-300',
-      green: 'bg-green-100 text-green-800 border-green-300',
-      orange: 'bg-orange-100 text-orange-800 border-orange-300',
-      pink: 'bg-pink-100 text-pink-800 border-pink-300',
-      red: 'bg-red-100 text-red-800 border-red-300',
-      yellow: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-    };
-    return colors[color || 'blue'] || colors.blue;
-  };
 
   if (memories.length === 0) {
     return (
@@ -242,35 +222,26 @@ export default function MemoryView({ memories, clusters, onMemoryDeleted }: Memo
         })}
       </div>
 
-      {/* 맥락별 묶음 보기 - 그리드 레이아웃 */}
-      <div className="space-y-8">
-        {filteredClusters.size === 0 ? (
+      {/* 시간순 보기 - 그리드 레이아웃 */}
+      <div>
+        {filteredMemories.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
             해당 그룹에 기억이 없습니다
           </div>
         ) : (
-          Array.from(filteredClusters.entries()).map(([tag, clusterMemories]) => (
-            <div key={tag} className="space-y-3">
-              <h3 className="text-base font-bold text-gray-700 px-2">
-                {tag} <span className="text-xs font-normal text-gray-400">({clusterMemories.length})</span>
-              </h3>
-              
-              {/* 3열 그리드 */}
-              <div className="grid grid-cols-3 gap-3">
-                {clusterMemories.map((memory) => (
-                  <MemoryCard 
-                    key={memory.id} 
-                    memory={memory} 
-                    onDelete={onMemoryDeleted} 
-                    allMemories={memories}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                    onOpenLinkManager={setLinkManagerMemory}
-                  />
-                ))}
-              </div>
-            </div>
-          ))
+          <div className="grid grid-cols-3 gap-3">
+            {filteredMemories.map((memory) => (
+              <MemoryCard 
+                key={memory.id} 
+                memory={memory} 
+                onDelete={onMemoryDeleted} 
+                allMemories={memories}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onOpenLinkManager={setLinkManagerMemory}
+              />
+            ))}
+          </div>
         )}
       </div>
 

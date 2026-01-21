@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { memoryDb } from '@/lib/db';
-import { classifyMemory, findRelatedMemories, generateSuggestions, summarizeAttachments } from '@/lib/ai';
-import { detectRepetition, updateCluster } from '@/lib/clustering';
+import { findRelatedMemories, summarizeAttachments } from '@/lib/ai';
 import { saveFile } from '@/lib/fileUpload';
 
 // POST: 새 기억 생성
@@ -46,18 +45,13 @@ export async function POST(req: NextRequest) {
     // 기존 기억 조회
     const existingMemories = memoryDb.getAll();
 
-    // AI 분류 (파일 내용 포함)
-    const classification = await classifyMemory(content, existingMemories, fileContext);
-
-    // 관련 기억 찾기
+    // AI 분류 제거 - 자동 인덱싱 없음
+    // 관련 기억 찾기는 유지 (수동 묶기 기능을 위해)
     const relatedIds = await findRelatedMemories(content, existingMemories);
 
-    // 기억 생성
+    // 기억 생성 (분류 정보 없이)
     const memory = memoryDb.create(content, {
-      topic: classification.topic,
-      nature: classification.nature,
-      timeContext: classification.timeContext,
-      clusterTag: classification.suggestedCluster,
+      // topic, nature, timeContext, clusterTag 제거 - 자동 분류 안 함
       relatedMemoryIds: relatedIds,
       attachments: attachments.length > 0 ? attachments : undefined,
     });
@@ -76,24 +70,10 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // 반복 감지 및 카운트 업데이트
-    const repeatCount = detectRepetition(memory, existingMemories);
-    if (repeatCount > 1) {
-      memoryDb.update(memory.id, { repeatCount });
-    }
-
-    // 클러스터 업데이트
-    if (memory.clusterTag) {
-      const clusterMemories = memoryDb.getByCluster(memory.clusterTag);
-      updateCluster(memory.clusterTag, clusterMemories);
-    }
-
-    // 조건부 제안 생성 (반복 3회 이상)
-    let suggestions;
-    if (repeatCount >= 3 && memory.clusterTag) {
-      const clusterMemories = memoryDb.getByCluster(memory.clusterTag);
-      suggestions = await generateSuggestions(clusterMemories);
-    }
+    // 반복 감지 및 카운트 업데이트 제거 (자동 인덱싱 없음)
+    // 클러스터 업데이트 제거 (자동 인덱싱 없음)
+    // 조건부 제안 생성 제거 (자동 인덱싱 없음)
+    const suggestions = null;
 
     return NextResponse.json({
       memory,

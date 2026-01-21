@@ -7,12 +7,10 @@ import MemoryView from '@/components/MemoryView';
 import QueryPanel from '@/components/QueryPanel';
 import InsightsPanel from '@/components/InsightsPanel';
 import GroupManager from '@/components/GroupManager';
-import TimelineView from '@/components/TimelineView';
 import { Memory } from '@/types';
 
 export default function Home() {
   const [memories, setMemories] = useState<Memory[]>([]);
-  const [clusters, setClusters] = useState<Map<string, Memory[]>>(new Map());
   const [showModal, setShowModal] = useState<'groups' | 'query' | 'timeline' | null>(null);
   const [loading, setLoading] = useState(false);
   const [showInsights, setShowInsights] = useState(true); // 인사이트 패널 토글
@@ -23,18 +21,11 @@ export default function Home() {
       const res = await fetch('/api/memories');
       if (res.ok) {
         const data = await res.json();
-        setMemories(data.memories);
-
-        // 맥락별 묶음 생성
-        const clusterMap = new Map<string, Memory[]>();
-        data.memories.forEach((memory: Memory) => {
-          const tag = memory.clusterTag || '미분류';
-          if (!clusterMap.has(tag)) {
-            clusterMap.set(tag, []);
-          }
-          clusterMap.get(tag)!.push(memory);
-        });
-        setClusters(clusterMap);
+        // 시간순 정렬 (최신순)
+        const sortedMemories = data.memories.sort((a: Memory, b: Memory) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setMemories(sortedMemories);
       }
     } catch (error) {
       console.error('Failed to fetch memories:', error);
@@ -139,7 +130,6 @@ export default function Home() {
             ) : (
               <MemoryView 
                 memories={memories} 
-                clusters={clusters} 
                 onMemoryDeleted={fetchMemories}
               />
             )}
