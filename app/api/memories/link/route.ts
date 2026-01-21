@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { memoryDb } from '@/lib/db';
+import { memoryDb, memoryLinkDb } from '@/lib/db';
 
 // POST: 두 기록 간 링크 추가 (양방향)
 export async function POST(req: NextRequest) {
   try {
-    const { memoryId1, memoryId2 } = await req.json();
+    const { memoryId1, memoryId2, note } = await req.json();
 
     if (!memoryId1 || !memoryId2) {
       return NextResponse.json(
@@ -46,6 +46,13 @@ export async function POST(req: NextRequest) {
       memoryDb.update(memoryId2, {
         relatedMemoryIds: [...links2, memoryId1]
       });
+    }
+
+    // 링크 메모 저장 (쌍으로 1개)
+    if (typeof note === 'string') {
+      memoryLinkDb.upsert(memoryId1, memoryId2, note.trim());
+    } else {
+      memoryLinkDb.upsert(memoryId1, memoryId2);
     }
 
     return NextResponse.json({ 
@@ -98,6 +105,9 @@ export async function DELETE(req: NextRequest) {
     memoryDb.update(memoryId2, {
       relatedMemoryIds: links2.filter(id => id !== memoryId1)
     });
+
+    // 링크 메모 삭제
+    memoryLinkDb.delete(memoryId1, memoryId2);
 
     return NextResponse.json({ 
       message: '링크 삭제 완료',

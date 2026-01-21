@@ -11,6 +11,7 @@ export interface Attachment {
 // 기억 단위
 export interface Memory {
   id: string;
+  title?: string;           // 제목 (선택)
   content: string;          // 사용자 입력 원문
   createdAt: number;        // timestamp
   
@@ -83,4 +84,15 @@ export interface SummaryResponse {
   relatedMemories: Memory[];
   clusters: Cluster[];
   suggestions?: string[];   // 조건부 제안
+}
+
+// 페르소나
+export interface Persona {
+  id: string;
+  name: string;             // 페르소나 이름
+  icon: string;             // 이모티콘 (👨‍💼, 👨‍🍳 등)
+  description?: string;     // 페르소나 설명
+  context?: string;         // AI 컨텍스트 (이 페르소나의 관심사/역할)
+  createdAt: number;
+  updatedAt: number;
 }

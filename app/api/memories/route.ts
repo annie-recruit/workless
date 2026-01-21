@@ -2,13 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { memoryDb } from '@/lib/db';
 import { findRelatedMemories, summarizeAttachments } from '@/lib/ai';
 import { saveFile } from '@/lib/fileUpload';
+import { extractMentionIds, stripHtml } from '@/lib/text';
 
 // POST: 새 기억 생성
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
+    const title = (formData.get('title') as string) || undefined;
     const content = formData.get('content') as string;
     const files = formData.getAll('files') as File[];
+    const relatedMemoryIdsRaw = formData.get('relatedMemoryIds') as string | null;
 
     if (!content || typeof content !== 'string') {
       return NextResponse.json(
@@ -45,13 +48,27 @@ export async function POST(req: NextRequest) {
     // 기존 기억 조회
     const existingMemories = memoryDb.getAll();
 
-    // AI 분류 제거 - 자동 인덱싱 없음
-    // 관련 기억 찾기는 유지 (수동 묶기 기능을 위해)
-    const relatedIds = await findRelatedMemories(content, existingMemories);
+    // @멘션 기반 연결 + 기존 유사 기록 찾기
+    let relatedFromClient: string[] = [];
+    if (relatedMemoryIdsRaw) {
+      try {
+        relatedFromClient = JSON.parse(relatedMemoryIdsRaw) as string[];
+      } catch {
+        relatedFromClient = [];
+      }
+    }
+    const relatedFromContent = extractMentionIds(content);
+    const relatedFromAI = await findRelatedMemories(stripHtml(content), existingMemories);
+    const relatedIds = Array.from(new Set([
+      ...relatedFromClient,
+      ...relatedFromContent,
+      ...relatedFromAI,
+    ])).filter(Boolean);
 
     // 기억 생성 (분류 정보 없이)
     const memory = memoryDb.create(content, {
       // topic, nature, timeContext, clusterTag 제거 - 자동 분류 안 함
+      title: title,
       relatedMemoryIds: relatedIds,
       attachments: attachments.length > 0 ? attachments : undefined,
     });
@@ -144,7 +161,7 @@ export async function PUT(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
-    const { content } = await req.json();
+    const { title, content } = await req.json();
 
     if (!id) {
       return NextResponse.json(
@@ -160,8 +177,30 @@ export async function PUT(req: NextRequest) {
       );
     }
 
-    memoryDb.update(id, { content });
+    const existing = memoryDb.getById(id);
+    const existingRelated = existing?.relatedMemoryIds || [];
+    const mentionIds = extractMentionIds(content);
+    const nextRelated = Array.from(new Set([...existingRelated, ...mentionIds])).filter(Boolean);
+
+    const updates: any = { content, relatedMemoryIds: nextRelated };
+    if (title !== undefined) {
+      updates.title = title;
+    }
+
+    memoryDb.update(id, updates);
     const updatedMemory = memoryDb.getById(id);
+
+    // 새로 추가된 멘션은 양방향 링크 갱신
+    const newlyAdded = mentionIds.filter((mentionId) => !existingRelated.includes(mentionId));
+    newlyAdded.forEach(relatedId => {
+      const relatedMemory = memoryDb.getById(relatedId);
+      if (relatedMemory) {
+        const links = relatedMemory.relatedMemoryIds || [];
+        if (!links.includes(id)) {
+          memoryDb.update(relatedId, { relatedMemoryIds: [...links, id] });
+        }
+      }
+    });
 
     return NextResponse.json({ memory: updatedMemory });
   } catch (error) {

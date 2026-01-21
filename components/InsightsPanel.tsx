@@ -11,14 +11,21 @@ interface Insights {
   keywordCloud?: { keyword: string; count: number }[];
 }
 
-export default function InsightsPanel() {
+interface InsightsPanelProps {
+  personaId: string | null;
+}
+
+export default function InsightsPanel({ personaId }: InsightsPanelProps) {
   const [insights, setInsights] = useState<Insights | null>(null);
   const [loading, setLoading] = useState(false);
 
   const fetchInsights = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/insights');
+      const url = personaId 
+        ? `/api/insights?personaId=${personaId}` 
+        : '/api/insights';
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setInsights(data);
@@ -32,7 +39,7 @@ export default function InsightsPanel() {
 
   useEffect(() => {
     fetchInsights();
-  }, []);
+  }, [personaId]);
 
   if (loading) {
     return (

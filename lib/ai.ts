@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { Memory, AIClassification, Attachment } from '@/types';
 import { readFileSync } from 'fs';
 import { join, extname } from 'path';
+import { stripHtml } from './text';
 import { parsePDFWithAdobe } from './ai-pdf';
 
 const openai = new OpenAI({
@@ -279,20 +280,26 @@ export async function summarizeAttachments(attachments: Attachment[]): Promise<s
 export async function classifyMemory(
   content: string, 
   existingMemories: Memory[], 
-  fileContext?: string
+  fileContext?: string,
+  personaContext?: string
 ): Promise<AIClassification> {
   const fullContent = fileContext 
     ? `${content}\n\n[첨부된 파일 내용]\n${fileContext}`
     : content;
+  const normalizedContent = stripHtml(fullContent);
+
+  const personaPrefix = personaContext 
+    ? `너는 개인 비서야. 사용자는 "${personaContext}" 역할로 활동 중이야. 이 관점에서 사용자의 기록을 분석해줘.\n\n`
+    : '';
 
   const prompt = `
-너는 개인 비서야. 사용자가 입력한 생각이나 기록을 분석해서 자동으로 분류해줘.
+${personaPrefix}너는 개인 비서야. 사용자가 입력한 생각이나 기록을 분석해서 자동으로 분류해줘.
 
 [사용자 입력]
-"${fullContent}"
+"${normalizedContent}"
 
 [기존 기억들] (최근 10개)
-${existingMemories.slice(0, 10).map(m => `- ${m.content} (주제: ${m.topic}, 클러스터: ${m.clusterTag})`).join('\n')}
+${existingMemories.slice(0, 10).map(m => `- ${stripHtml(m.content)} (주제: ${m.topic}, 클러스터: ${m.clusterTag})`).join('\n')}
 
 다음 기준으로 분류해줘:
 
@@ -335,11 +342,12 @@ JSON 형식으로만 답해줘:
 export async function findRelatedMemories(content: string, memories: Memory[]): Promise<string[]> {
   if (memories.length === 0) return [];
 
+  const normalizedContent = stripHtml(content);
   const prompt = `
-사용자가 새로 입력한 내용: "${content}"
+사용자가 새로 입력한 내용: "${normalizedContent}"
 
 기존 기억들:
-${memories.map((m, i) => `${i}. ${m.content}`).join('\n')}
+${memories.map((m, i) => `${i}. ${stripHtml(m.content)}`).join('\n')}
 
 새 입력과 관련있는 기존 기억의 번호를 배열로 답해줘.
 관련이 없으면 빈 배열 [].
@@ -362,7 +370,7 @@ JSON 형식:
 }
 
 // 요약 생성 (개선된 버전)
-export async function generateSummary(query: string, memories: Memory[]): Promise<string> {
+export async function generateSummary(query: string, memories: Memory[], personaContext?: string): Promise<string> {
   // 시간순 정렬
   const sortedMemories = [...memories].sort((a, b) => a.createdAt - b.createdAt);
   
@@ -384,8 +392,12 @@ export async function generateSummary(query: string, memories: Memory[]): Promis
   // 클러스터 태그 분석
   const clusterTags = [...new Set(sortedMemories.map(m => m.clusterTag).filter(Boolean))];
 
+  const personaPrefix = personaContext 
+    ? `당신은 개인 비서입니다. 사용자는 "${personaContext}" 역할로 활동 중입니다. 이 관점에서 분석해주세요.\n\n`
+    : '';
+
   const prompt = `
-당신은 개인 비서입니다. 사용자가 자신의 기록에 대해 질문했습니다.
+${personaPrefix}당신은 개인 비서입니다. 사용자가 자신의 기록에 대해 질문했습니다.
 
 [사용자 질문]
 "${query}"
@@ -400,7 +412,8 @@ export async function generateSummary(query: string, memories: Memory[]): Promis
 ${sortedMemories.map((m, idx) => {
   const date = new Date(m.createdAt).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
   const tags = [m.nature, m.clusterTag].filter(Boolean).join(' • ');
-  return `${idx + 1}. [${date}] ${m.content.substring(0, 150)}${m.content.length > 150 ? '...' : ''}
+  const plain = stripHtml(m.content);
+  return `${idx + 1}. [${date}] ${plain.substring(0, 150)}${plain.length > 150 ? '...' : ''}
    ${tags ? `   태그: ${tags}` : ''}`;
 }).join('\n\n')}
 
@@ -426,7 +439,7 @@ ${sortedMemories.map((m, idx) => {
 }
 
 // 조건부 제안 생성
-export async function generateSuggestions(memories: Memory[]): Promise<string[] | undefined> {
+export async function generateSuggestions(memories: Memory[], personaContext?: string): Promise<string[] | undefined> {
   // 조건 체크: 동일 클러스터 3회 이상
   const clusterCounts = new Map<string, number>();
   memories.forEach(m => {
@@ -441,15 +454,19 @@ export async function generateSuggestions(memories: Memory[]): Promise<string[] 
 
   if (frequentClusters.length === 0) return undefined;
 
+  const personaPrefix = personaContext 
+    ? `사용자는 "${personaContext}" 역할로 활동 중이야. 이 전문가 관점에서 도움될 제안을 해줘.\n\n`
+    : '';
+
   const prompt = `
-사용자가 최근 이런 주제들을 반복해서 기록했어:
+${personaPrefix}사용자가 최근 이런 주제들을 반복해서 기록했어:
 ${frequentClusters.map(c => `- ${c}`).join('\n')}
 
 관련 기억들:
 ${memories
   .filter(m => frequentClusters.includes(m.clusterTag || ''))
   .slice(0, 10)
-  .map(m => `- ${m.content}`)
+  .map(m => `- ${stripHtml(m.content)}`)
   .join('\n')}
 
 이 사용자에게 도움이 될 만한 제안을 2-3개만 해줘.
@@ -473,7 +490,7 @@ JSON 형식:
 }
 
 // 인사이트 생성 (전체 기억 분석)
-export async function generateInsights(memories: Memory[]): Promise<{
+export async function generateInsights(memories: Memory[], personaContext?: string): Promise<{
   summary: string;
   topTopics: { topic: string; count: number }[];
   trends: string[];
@@ -527,8 +544,12 @@ export async function generateInsights(memories: Memory[]): Promise<{
   // 반복 기록 분석
   const repeatedMemories = memories.filter(m => m.repeatCount && m.repeatCount > 1);
   
+  const personaPrefix = personaContext 
+    ? `당신은 개인 비서입니다. 사용자는 "${personaContext}" 역할로 활동 중입니다. 이 전문 분야 관점에서 깊이 있는 인사이트를 제공해주세요.\n\n`
+    : '';
+
   const prompt = `
-당신은 개인 비서입니다. 사용자의 기록들을 깊이 있게 분석해서 의미 있는 인사이트를 제공해주세요.
+${personaPrefix}당신은 개인 비서입니다. 사용자의 기록들을 깊이 있게 분석해서 의미 있는 인사이트를 제공해주세요.
 
 [전체 통계]
 - 총 기억: ${memories.length}개
@@ -543,7 +564,8 @@ ${recentMemories.map((m, idx) => {
   const date = new Date(m.createdAt);
   const daysAgo = Math.floor((now - m.createdAt) / (24 * 60 * 60 * 1000));
   const timeLabel = daysAgo === 0 ? '오늘' : daysAgo === 1 ? '어제' : `${daysAgo}일 전`;
-  return `${idx + 1}. [${timeLabel}] [${m.nature}] ${m.content.substring(0, 120)}...
+  const plain = stripHtml(m.content);
+  return `${idx + 1}. [${timeLabel}] [${m.nature}] ${plain.substring(0, 120)}...
    키워드: ${m.clusterTag || '없음'}${m.repeatCount && m.repeatCount > 1 ? ` (${m.repeatCount}회 반복)` : ''}`;
 }).join('\n')}
 
@@ -589,7 +611,7 @@ JSON 형식:
 }
 
 // AI 그룹 제안 생성
-export async function suggestGroups(memories: Memory[]): Promise<{
+export async function suggestGroups(memories: Memory[], personaContext?: string): Promise<{
   groups: Array<{
     name: string;
     description: string;
@@ -601,11 +623,18 @@ export async function suggestGroups(memories: Memory[]): Promise<{
     return { groups: [] };
   }
 
+  const personaPrefix = personaContext 
+    ? `사용자는 "${personaContext}" 역할로 활동 중입니다. 이 관점에서 그룹을 제안해주세요.\n\n`
+    : '';
+
   const prompt = `
-사용자의 기억들을 분석해서 의미 있는 그룹으로 묶어주세요.
+${personaPrefix}사용자의 기억들을 분석해서 의미 있는 그룹으로 묶어주세요.
 
 [기억 목록]
-${memories.map((m, idx) => `[인덱스:${idx}] ${m.content.substring(0, 150)}... (주제: ${m.topic}, 성격: ${m.nature})`).join('\n')}
+${memories.map((m, idx) => {
+  const plain = stripHtml(m.content);
+  return `[인덱스:${idx}] ${plain.substring(0, 150)}... (주제: ${m.topic}, 성격: ${m.nature})`;
+}).join('\n')}
 
 다음 기준으로 그룹을 제안해주세요:
 1. **의미적 연관성**: 비슷한 주제나 맥락

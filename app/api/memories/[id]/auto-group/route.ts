@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { memoryDb, groupDb } from '@/lib/db';
 import OpenAI from 'openai';
 import { nanoid } from 'nanoid';
+import { stripHtml } from '@/lib/text';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -30,15 +31,16 @@ export async function POST(
 다음 기록과 관련있는 기록들을 찾아서 그룹으로 묶어주세요.
 
 [대상 기록]
-"${memory.content}"
+"${stripHtml(memory.content)}"
 주제: ${memory.topic || '없음'}
 성격: ${memory.nature || '없음'}
 클러스터: ${memory.clusterTag || '없음'}
 
 [전체 기록들]
-${allMemories.filter(m => m.id !== id).slice(0, 30).map((m, idx) => 
-  `${idx}. "${m.content.substring(0, 100)}..." (주제: ${m.topic}, 클러스터: ${m.clusterTag})`
-).join('\n')}
+${allMemories.filter(m => m.id !== id).slice(0, 30).map((m, idx) => {
+  const plain = stripHtml(m.content);
+  return `${idx}. "${plain.substring(0, 100)}..." (주제: ${m.topic}, 클러스터: ${m.clusterTag})`;
+}).join('\n')}
 
 다음을 분석해주세요:
 1. 대상 기록과 비슷한 주제/내용의 기록들의 번호 (최소 1개, 최대 5개)
@@ -84,7 +86,7 @@ JSON 형식:
       group,
       relatedMemories: relatedMemories.map((m: any) => ({
         id: m.id,
-        content: m.content.substring(0, 100),
+        content: stripHtml(m.content).substring(0, 100),
       })),
       reason: result.reason || '관련된 기록들을 찾았습니다',
     });

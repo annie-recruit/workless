@@ -23,6 +23,7 @@ console.log(`📊 Database path: ${dbPath}`);
 db.exec(`
   CREATE TABLE IF NOT EXISTS memories (
     id TEXT PRIMARY KEY,
+    title TEXT,
     content TEXT NOT NULL,
     createdAt INTEGER NOT NULL,
     topic TEXT,
@@ -69,11 +70,69 @@ db.exec(`
     completedAt INTEGER
   );
 
+  CREATE TABLE IF NOT EXISTS board_positions (
+    groupId TEXT NOT NULL,
+    memoryId TEXT NOT NULL,
+    x INTEGER NOT NULL,
+    y INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL,
+    PRIMARY KEY (groupId, memoryId)
+  );
+
+  CREATE TABLE IF NOT EXISTS board_settings (
+    groupId TEXT PRIMARY KEY,
+    cardSize TEXT,
+    cardColor TEXT,
+    updatedAt INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS board_card_colors (
+    groupId TEXT NOT NULL,
+    memoryId TEXT NOT NULL,
+    color TEXT NOT NULL,
+    updatedAt INTEGER NOT NULL,
+    PRIMARY KEY (groupId, memoryId)
+  );
+
+  CREATE TABLE IF NOT EXISTS memory_links (
+    memoryId1 TEXT NOT NULL,
+    memoryId2 TEXT NOT NULL,
+    note TEXT,
+    updatedAt INTEGER NOT NULL,
+    PRIMARY KEY (memoryId1, memoryId2)
+  );
+
+  CREATE TABLE IF NOT EXISTS personas (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    icon TEXT NOT NULL,
+    description TEXT,
+    context TEXT,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_memories_clusterTag ON memories(clusterTag);
   CREATE INDEX IF NOT EXISTS idx_memories_topic ON memories(topic);
   CREATE INDEX IF NOT EXISTS idx_groups_isAIGenerated ON groups(isAIGenerated);
   CREATE INDEX IF NOT EXISTS idx_goals_status ON goals(status);
+  CREATE INDEX IF NOT EXISTS idx_board_positions_groupId ON board_positions(groupId);
+  CREATE INDEX IF NOT EXISTS idx_board_card_colors_groupId ON board_card_colors(groupId);
+  CREATE INDEX IF NOT EXISTS idx_memory_links_memoryId1 ON memory_links(memoryId1);
+  CREATE INDEX IF NOT EXISTS idx_memory_links_memoryId2 ON memory_links(memoryId2);
 `);
+
+// 마이그레이션: memories 테이블에 title 컬럼 추가 (없으면)
+try {
+  const columns = db.prepare("PRAGMA table_info(memories)").all() as any[];
+  const hasTitle = columns.some((col: any) => col.name === 'title');
+  if (!hasTitle) {
+    console.log('📊 Adding title column to memories table...');
+    db.exec('ALTER TABLE memories ADD COLUMN title TEXT');
+  }
+} catch (error) {
+  console.error('Migration error:', error);
+}
 
 // Memory CRUD
 export const memoryDb = {
@@ -89,13 +148,14 @@ export const memoryDb = {
 
     const stmt = db.prepare(`
       INSERT INTO memories (
-        id, content, createdAt, topic, nature, timeContext,
+        id, title, content, createdAt, topic, nature, timeContext,
         relatedMemoryIds, clusterTag, repeatCount, lastMentionedAt, attachments
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
       memory.id,
+      memory.title || null,
       memory.content,
       memory.createdAt,
       memory.topic || null,
@@ -457,6 +517,174 @@ export const goalDb = {
       sourceMemoryIds: JSON.parse(row.sourceMemoryIds),
       milestones: row.milestones ? JSON.parse(row.milestones) : [],
     };
+  },
+};
+
+// Board Position CRUD
+export const boardPositionDb = {
+  getByGroup(groupId: string): { memoryId: string; x: number; y: number; updatedAt: number }[] {
+    const stmt = db.prepare('SELECT * FROM board_positions WHERE groupId = ?');
+    return stmt.all(groupId) as any[];
+  },
+
+  upsertMany(groupId: string, positions: { memoryId: string; x: number; y: number }[]): void {
+    const now = Date.now();
+    const stmt = db.prepare(`
+      INSERT INTO board_positions (groupId, memoryId, x, y, updatedAt)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(groupId, memoryId) DO UPDATE SET
+        x = excluded.x,
+        y = excluded.y,
+        updatedAt = excluded.updatedAt
+    `);
+    const transaction = db.transaction((rows: typeof positions) => {
+      rows.forEach(row => {
+        stmt.run(groupId, row.memoryId, Math.round(row.x), Math.round(row.y), now);
+      });
+    });
+    transaction(positions);
+  },
+};
+
+export const boardSettingsDb = {
+  getByGroup(groupId: string): { groupId: string; cardSize?: string; cardColor?: string; updatedAt: number } | null {
+    const stmt = db.prepare('SELECT * FROM board_settings WHERE groupId = ?');
+    return (stmt.get(groupId) as any) || null;
+  },
+
+  upsert(groupId: string, cardSize?: string, cardColor?: string): void {
+    const now = Date.now();
+    const stmt = db.prepare(`
+      INSERT INTO board_settings (groupId, cardSize, cardColor, updatedAt)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(groupId) DO UPDATE SET
+        cardSize = excluded.cardSize,
+        cardColor = excluded.cardColor,
+        updatedAt = excluded.updatedAt
+    `);
+    stmt.run(groupId, cardSize || null, cardColor || null, now);
+  },
+};
+
+export const boardCardColorDb = {
+  getByGroup(groupId: string): { memoryId: string; color: string; updatedAt: number }[] {
+    const stmt = db.prepare('SELECT * FROM board_card_colors WHERE groupId = ?');
+    return stmt.all(groupId) as any[];
+  },
+
+  upsertMany(groupId: string, colors: { memoryId: string; color: string }[]): void {
+    const now = Date.now();
+    const stmt = db.prepare(`
+      INSERT INTO board_card_colors (groupId, memoryId, color, updatedAt)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(groupId, memoryId) DO UPDATE SET
+        color = excluded.color,
+        updatedAt = excluded.updatedAt
+    `);
+    const transaction = db.transaction((rows: typeof colors) => {
+      rows.forEach(row => {
+        stmt.run(groupId, row.memoryId, row.color, now);
+      });
+    });
+    transaction(colors);
+  },
+};
+
+export const memoryLinkDb = {
+  upsert(memoryId1: string, memoryId2: string, note?: string): void {
+    const [a, b] = memoryId1 < memoryId2 ? [memoryId1, memoryId2] : [memoryId2, memoryId1];
+    const stmt = db.prepare(`
+      INSERT INTO memory_links (memoryId1, memoryId2, note, updatedAt)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(memoryId1, memoryId2) DO UPDATE SET
+        note = excluded.note,
+        updatedAt = excluded.updatedAt
+    `);
+    stmt.run(a, b, note || null, Date.now());
+  },
+
+  delete(memoryId1: string, memoryId2: string): void {
+    const [a, b] = memoryId1 < memoryId2 ? [memoryId1, memoryId2] : [memoryId2, memoryId1];
+    const stmt = db.prepare('DELETE FROM memory_links WHERE memoryId1 = ? AND memoryId2 = ?');
+    stmt.run(a, b);
+  },
+
+  getByMemoryIds(memoryIds: string[]): { memoryId1: string; memoryId2: string; note: string | null }[] {
+    if (memoryIds.length === 0) return [];
+    const placeholders = memoryIds.map(() => '?').join(', ');
+    const stmt = db.prepare(`
+      SELECT * FROM memory_links
+      WHERE memoryId1 IN (${placeholders}) OR memoryId2 IN (${placeholders})
+    `);
+    return stmt.all(...memoryIds, ...memoryIds) as any[];
+  },
+};
+
+// Persona CRUD
+export interface Persona {
+  id: string;
+  name: string;
+  icon: string;
+  description?: string;
+  context?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export const personaDb = {
+  create(name: string, icon: string, description?: string, context?: string): Persona {
+    const persona: Persona = {
+      id: nanoid(),
+      name,
+      icon,
+      description,
+      context,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    const stmt = db.prepare(`
+      INSERT INTO personas (id, name, icon, description, context, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(persona.id, persona.name, persona.icon, persona.description || null, persona.context || null, persona.createdAt, persona.updatedAt);
+    return persona;
+  },
+
+  getAll(): Persona[] {
+    const stmt = db.prepare('SELECT * FROM personas ORDER BY createdAt ASC');
+    return stmt.all() as Persona[];
+  },
+
+  getById(id: string): Persona | null {
+    const stmt = db.prepare('SELECT * FROM personas WHERE id = ?');
+    return stmt.get(id) as Persona | null;
+  },
+
+  update(id: string, updates: Partial<Persona>): void {
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (key !== 'id' && key !== 'createdAt') {
+        fields.push(`${key} = ?`);
+        values.push(value);
+      }
+    });
+
+    if (fields.length === 0) return;
+
+    fields.push('updatedAt = ?');
+    values.push(Date.now());
+    values.push(id);
+
+    const stmt = db.prepare(`UPDATE personas SET ${fields.join(', ')} WHERE id = ?`);
+    stmt.run(...values);
+  },
+
+  delete(id: string): void {
+    const stmt = db.prepare('DELETE FROM personas WHERE id = ?');
+    stmt.run(id);
   },
 };
 

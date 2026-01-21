@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { memoryDb, clusterDb } from '@/lib/db';
+import { memoryDb, clusterDb, personaDb } from '@/lib/db';
 import { generateSummary, generateSuggestions } from '@/lib/ai';
 import { searchMemories, organizeMemoriesByContext } from '@/lib/clustering';
 
 // POST: 요약 요청
 export async function POST(req: NextRequest) {
   try {
-    const { query } = await req.json();
+    const { query, personaId } = await req.json();
 
     if (!query || typeof query !== 'string') {
       return NextResponse.json(
@@ -15,14 +15,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 페르소나 컨텍스트 조회
+    let personaContext: string | undefined;
+    if (personaId) {
+      const persona = personaDb.getById(personaId);
+      if (persona && persona.context) {
+        personaContext = persona.context;
+      }
+    }
+
     // 전체 기억 조회
     const allMemories = memoryDb.getAll();
 
     // 관련 기억 검색
     const relatedMemories = searchMemories(query, allMemories);
 
-    // 요약 생성
-    const summary = await generateSummary(query, relatedMemories);
+    // 요약 생성 (페르소나 컨텍스트 포함)
+    const summary = await generateSummary(query, relatedMemories, personaContext);
 
     // 맥락별 묶음
     const contextMap = organizeMemoriesByContext(relatedMemories);
@@ -30,8 +39,8 @@ export async function POST(req: NextRequest) {
       Array.from(contextMap.keys()).includes(c.name)
     );
 
-    // 조건부 제안
-    const suggestions = await generateSuggestions(relatedMemories);
+    // 조건부 제안 (페르소나 컨텍스트 포함)
+    const suggestions = await generateSuggestions(relatedMemories, personaContext);
 
     return NextResponse.json({
       summary,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Memory, Group } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -11,16 +11,136 @@ interface MemoryViewProps {
   onMemoryDeleted?: () => void;
 }
 
+const stripHtmlClient = (html: string) => {
+  return html
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const sanitizeHtml = (html: string) => {
+  if (typeof window === 'undefined') return html;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const allowedTags = new Set([
+    'B', 'STRONG', 'I', 'EM', 'U', 'BR', 'P', 'DIV', 'SPAN', 'A', 'UL', 'OL', 'LI', 'FONT'
+  ]);
+  const allowedAttrs: Record<string, string[]> = {
+    A: ['href', 'data-memory-id', 'class', 'target', 'rel'],
+    SPAN: ['style', 'class', 'data-memory-id'],
+    DIV: ['style', 'class'],
+    P: ['style', 'class'],
+    FONT: ['face', 'size', 'color'],
+  };
+  const allowedStyles = new Set([
+    'font-family',
+    'font-size',
+    'font-weight',
+    'font-style',
+    'text-decoration',
+    'color',
+  ]);
+
+  doc.body.querySelectorAll('*').forEach((node) => {
+    const tagName = node.tagName.toUpperCase();
+    if (!allowedTags.has(tagName)) {
+      const text = doc.createTextNode(node.textContent || '');
+      node.replaceWith(text);
+      return;
+    }
+
+    const allowed = (allowedAttrs[tagName] || []).map(a => a.toLowerCase());
+    Array.from(node.attributes).forEach(attr => {
+      const name = attr.name.toLowerCase();
+      if (name.startsWith('on')) {
+        node.removeAttribute(attr.name);
+        return;
+      }
+      if (allowed.length > 0 && !allowed.includes(name)) {
+        if (!name.startsWith('data-')) {
+          node.removeAttribute(attr.name);
+        }
+      }
+      if (name === 'href' && attr.value.toLowerCase().startsWith('javascript:')) {
+        node.removeAttribute(attr.name);
+      }
+      if (name === 'style') {
+        const safeStyles = attr.value
+          .split(';')
+          .map(rule => rule.trim())
+          .filter(Boolean)
+          .map(rule => {
+            const [prop, value] = rule.split(':').map(v => v.trim());
+            if (!prop || !value) return null;
+            return allowedStyles.has(prop.toLowerCase()) ? `${prop}: ${value}` : null;
+          })
+          .filter(Boolean)
+          .join('; ');
+        if (safeStyles) {
+          node.setAttribute('style', safeStyles);
+        } else {
+          node.removeAttribute('style');
+        }
+      }
+    });
+  });
+
+  return doc.body.innerHTML;
+};
+
+const CARD_DIMENSIONS = {
+  s: { width: 260, height: 220, centerX: 130, centerY: 110 },
+  m: { width: 320, height: 240, centerX: 160, centerY: 120 },
+  l: { width: 360, height: 260, centerX: 180, centerY: 130 },
+} as const;
+
+const BOARD_PADDING = 220;
+
 export default function MemoryView({ memories, onMemoryDeleted }: MemoryViewProps) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [draggedMemoryId, setDraggedMemoryId] = useState<string | null>(null);
   const [dropTargetGroupId, setDropTargetGroupId] = useState<string | null>(null);
   const [linkManagerMemory, setLinkManagerMemory] = useState<Memory | null>(null);
+  const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [cardSize, setCardSize] = useState<'s' | 'm' | 'l'>('m');
+  const [cardColor, setCardColor] = useState<'amber' | 'blue' | 'green' | 'pink' | 'purple'>('amber');
+  const [cardColorMap, setCardColorMap] = useState<Record<string, 'amber' | 'blue' | 'green' | 'pink' | 'purple'>>({});
+  const [linkNotes, setLinkNotes] = useState<Record<string, string>>({});
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [boardSize, setBoardSize] = useState({ width: 1600, height: 1200 });
+  const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const settingsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const colorsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     fetchGroups();
   }, []);
+
+  useEffect(() => {
+    const storedSize = localStorage.getItem('workless.board.cardSize');
+    const storedColor = localStorage.getItem('workless.board.cardColor');
+    if (storedSize === 's' || storedSize === 'm' || storedSize === 'l') {
+      setCardSize(storedSize);
+    }
+    if (storedColor === 'amber' || storedColor === 'blue' || storedColor === 'green' || storedColor === 'pink' || storedColor === 'purple') {
+      setCardColor(storedColor);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('workless.board.cardSize', cardSize);
+  }, [cardSize]);
+
+  useEffect(() => {
+    localStorage.setItem('workless.board.cardColor', cardColor);
+  }, [cardColor]);
 
   const fetchGroups = async () => {
     try {
@@ -47,6 +167,27 @@ export default function MemoryView({ memories, onMemoryDeleted }: MemoryViewProp
   const handleDragOver = (e: React.DragEvent, groupId: string) => {
     e.preventDefault();
     setDropTargetGroupId(groupId);
+  };
+
+  const clampZoom = (value: number) => Math.min(Math.max(value, 0.5), 1.6);
+  const changeZoom = (delta: number) => {
+    setZoom(prev => clampZoom(prev + delta));
+  };
+  const resetZoom = () => setZoom(1);
+
+  const ensureBoardBounds = (x: number, y: number) => {
+    const { width: cardWidth, height: cardHeight } = CARD_DIMENSIONS[cardSize];
+    setBoardSize(prev => {
+      const requiredWidth = Math.max(prev.width, x + cardWidth + BOARD_PADDING / 2);
+      const requiredHeight = Math.max(prev.height, y + cardHeight + BOARD_PADDING / 2);
+      if (requiredWidth === prev.width && requiredHeight === prev.height) {
+        return prev;
+      }
+      return {
+        width: requiredWidth,
+        height: requiredHeight,
+      };
+    });
   };
 
   const handleDragLeave = () => {
@@ -106,27 +247,283 @@ export default function MemoryView({ memories, onMemoryDeleted }: MemoryViewProp
     }
   };
 
-  // 그룹별 필터링
-  const filteredMemories = selectedGroupId
-    ? memories.filter(m => {
-        const group = groups.find(g => g.id === selectedGroupId);
-        console.log('🔍 필터링 중:', {
-          selectedGroupId,
-          group: group?.name,
-          groupMemoryIds: group?.memoryIds,
-          currentMemoryId: m.id,
-          isIncluded: group?.memoryIds.includes(m.id)
-        });
-        return group?.memoryIds.includes(m.id);
-      })
-    : memories;
+  const storageKey = selectedGroupId || 'all';
+  const zoomStorageKey = `workless.board.zoom.${storageKey}`;
 
-  console.log('📊 필터링 결과:', {
-    selectedGroupId,
-    totalMemories: memories.length,
-    filteredMemories: filteredMemories.length,
-    filteredMemoryIds: filteredMemories.map(m => m.id)
-  });
+  useEffect(() => {
+    try {
+      const storedZoom = localStorage.getItem(zoomStorageKey);
+      setZoom(storedZoom ? Number(storedZoom) : 1);
+    } catch (error) {
+      console.error('Failed to load zoom level:', error);
+      setZoom(1);
+    }
+  }, [zoomStorageKey]);
+
+  useEffect(() => {
+    zoomRef.current = zoom;
+    try {
+      localStorage.setItem(zoomStorageKey, zoom.toString());
+    } catch (error) {
+      console.error('Failed to save zoom level:', error);
+    }
+  }, [zoom, zoomStorageKey]);
+
+  useEffect(() => {
+    const fetchBoardState = async () => {
+      try {
+        const [positionsRes, settingsRes, colorsRes] = await Promise.all([
+          fetch(`/api/board/positions?groupId=${storageKey}`),
+          fetch(`/api/board/settings?groupId=${storageKey}`),
+          fetch(`/api/board/colors?groupId=${storageKey}`),
+        ]);
+
+        if (positionsRes.ok) {
+          const data = await positionsRes.json();
+          const next: Record<string, { x: number; y: number }> = {};
+          (data.positions || []).forEach((row: any) => {
+            next[row.memoryId] = { x: row.x, y: row.y };
+          });
+          setPositions(next);
+        } else {
+          setPositions({});
+        }
+
+        if (settingsRes.ok) {
+          const data = await settingsRes.json();
+          const settings = data.settings;
+          if (settings?.cardSize === 's' || settings?.cardSize === 'm' || settings?.cardSize === 'l') {
+            setCardSize(settings.cardSize);
+          }
+          if (settings?.cardColor === 'amber' || settings?.cardColor === 'blue' || settings?.cardColor === 'green' || settings?.cardColor === 'pink' || settings?.cardColor === 'purple') {
+            setCardColor(settings.cardColor);
+          }
+        }
+
+        if (colorsRes.ok) {
+          const data = await colorsRes.json();
+          const next: Record<string, 'amber' | 'blue' | 'green' | 'pink' | 'purple'> = {};
+          (data.colors || []).forEach((row: any) => {
+            if (row.color) {
+              next[row.memoryId] = row.color;
+            }
+          });
+          setCardColorMap(next);
+        }
+      } catch (error) {
+        console.error('Failed to fetch board state:', error);
+        setPositions({});
+      }
+    };
+    fetchBoardState();
+  }, [storageKey]);
+
+  const getLinkKey = (id1: string, id2: string) => {
+    return id1 < id2 ? `${id1}:${id2}` : `${id2}:${id1}`;
+  };
+
+  // 그룹별 필터링
+  const filteredMemories = useMemo(() => {
+    if (!selectedGroupId) return memories;
+        const group = groups.find(g => g.id === selectedGroupId);
+    if (!group) return [];
+    return memories.filter(m => group.memoryIds.includes(m.id));
+  }, [memories, selectedGroupId, groups]);
+
+  useEffect(() => {
+    if (!boardRef.current || filteredMemories.length === 0) return;
+    setPositions(prev => {
+      const next = { ...prev };
+      const spacingX = 260;
+      const spacingY = 220;
+      filteredMemories.forEach((memory, idx) => {
+        if (!next[memory.id]) {
+          const col = idx % 3;
+          const row = Math.floor(idx / 3);
+          next[memory.id] = {
+            x: 24 + col * spacingX,
+            y: 24 + row * spacingY,
+          };
+        }
+      });
+      return next;
+    });
+  }, [filteredMemories]);
+
+  useEffect(() => {
+    const { width: cardWidth, height: cardHeight } = CARD_DIMENSIONS[cardSize];
+    let maxX = 0;
+    let maxY = 0;
+    Object.values(positions).forEach(pos => {
+      maxX = Math.max(maxX, pos.x + cardWidth);
+      maxY = Math.max(maxY, pos.y + cardHeight);
+    });
+    const width = Math.max(1400, maxX + BOARD_PADDING);
+    const height = Math.max(900, maxY + BOARD_PADDING);
+    setBoardSize({ width, height });
+  }, [positions, cardSize]);
+
+  useEffect(() => {
+    const fetchLinkNotes = async () => {
+      try {
+        const res = await fetch('/api/memories/links', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            memoryIds: filteredMemories.map(m => m.id),
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const next: Record<string, string> = {};
+          (data.links || []).forEach((link: any) => {
+            if (link.note) {
+              next[getLinkKey(link.memoryId1, link.memoryId2)] = link.note;
+            }
+          });
+          setLinkNotes(next);
+        }
+      } catch (error) {
+        console.error('Failed to fetch link notes:', error);
+      }
+    };
+    if (filteredMemories.length > 0) {
+      fetchLinkNotes();
+    } else {
+      setLinkNotes({});
+    }
+  }, [filteredMemories]);
+
+  useEffect(() => {
+    const handleMove = (event: PointerEvent) => {
+      if (!draggingId || !boardRef.current) return;
+      const rect = boardRef.current.getBoundingClientRect();
+      const scale = zoomRef.current;
+      const x = (event.clientX - rect.left) / scale - dragOffset.x;
+      const y = (event.clientY - rect.top) / scale - dragOffset.y;
+      setPositions(prev => ({
+        ...prev,
+        [draggingId]: {
+          x: Math.max(0, x),
+          y: Math.max(0, y),
+        },
+      }));
+      ensureBoardBounds(x, y);
+    };
+
+    const handleUp = () => {
+      setDraggingId(null);
+    };
+
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+    return () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    };
+  }, [draggingId, dragOffset]);
+
+  useEffect(() => {
+    if (!positions || Object.keys(positions).length === 0) return;
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(async () => {
+      const payload = filteredMemories
+        .map(memory => {
+          const pos = positions[memory.id];
+          return pos ? { memoryId: memory.id, x: pos.x, y: pos.y } : null;
+        })
+        .filter(Boolean);
+
+      try {
+        await fetch('/api/board/positions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            groupId: storageKey,
+            positions: payload,
+          }),
+        });
+      } catch (error) {
+        console.error('Failed to save board positions:', error);
+      }
+    }, 400);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [positions, filteredMemories, storageKey]);
+
+  useEffect(() => {
+    if (settingsTimeoutRef.current) {
+      clearTimeout(settingsTimeoutRef.current);
+    }
+    settingsTimeoutRef.current = setTimeout(async () => {
+      try {
+        await fetch('/api/board/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            groupId: storageKey,
+            cardSize,
+            cardColor,
+          }),
+        });
+      } catch (error) {
+        console.error('Failed to save board settings:', error);
+      }
+    }, 300);
+
+    return () => {
+      if (settingsTimeoutRef.current) {
+        clearTimeout(settingsTimeoutRef.current);
+      }
+    };
+  }, [cardSize, cardColor, storageKey]);
+
+  useEffect(() => {
+    if (colorsTimeoutRef.current) {
+      clearTimeout(colorsTimeoutRef.current);
+    }
+    colorsTimeoutRef.current = setTimeout(async () => {
+      const payload = Object.entries(cardColorMap).map(([memoryId, color]) => ({
+        memoryId,
+        color,
+      }));
+      try {
+        await fetch('/api/board/colors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            groupId: storageKey,
+            colors: payload,
+          }),
+        });
+      } catch (error) {
+        console.error('Failed to save board colors:', error);
+      }
+    }, 400);
+
+    return () => {
+      if (colorsTimeoutRef.current) {
+        clearTimeout(colorsTimeoutRef.current);
+      }
+    };
+  }, [cardColorMap, storageKey]);
+
+  const handlePointerDown = (memoryId: string, event: React.PointerEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
+    setDraggingId(memoryId);
+    setDragOffset({
+      x: (event.clientX - rect.left) / zoomRef.current,
+      y: (event.clientY - rect.top) / zoomRef.current,
+    });
+  };
 
   // 클러스터 재구성 제거 - 시간순으로만 표시
   // filteredClusters는 더 이상 사용하지 않음
@@ -140,10 +537,42 @@ export default function MemoryView({ memories, onMemoryDeleted }: MemoryViewProp
     );
   }
 
+  const cardSizeData = CARD_DIMENSIONS[cardSize];
+  const cardSizeClass = cardSize === 's' ? 'w-[260px]' : cardSize === 'l' ? 'w-[360px]' : 'w-[320px]';
+  const cardSizeCenter = { x: cardSizeData.centerX, y: cardSizeData.centerY };
+
+  const cardColorClass = cardColor === 'blue'
+    ? 'bg-blue-50 border-blue-200'
+    : cardColor === 'green'
+    ? 'bg-green-50 border-green-200'
+    : cardColor === 'pink'
+    ? 'bg-pink-50 border-pink-200'
+    : cardColor === 'purple'
+    ? 'bg-purple-50 border-purple-200'
+    : 'bg-amber-50 border-amber-200';
+
+  const connectionPairs = useMemo(() => {
+    const set = new Set<string>();
+    const pairs: Array<{ from: string; to: string }> = [];
+    const visibleIds = new Set(filteredMemories.map(m => m.id));
+    filteredMemories.forEach(memory => {
+      const related = memory.relatedMemoryIds || [];
+      related.forEach(relatedId => {
+        if (!visibleIds.has(relatedId)) return;
+        const key = [memory.id, relatedId].sort().join(':');
+        if (set.has(key)) return;
+        set.add(key);
+        pairs.push({ from: memory.id, to: relatedId });
+      });
+    });
+    return pairs;
+  }, [filteredMemories]);
+
   return (
     <div className="w-full mx-auto space-y-6">
       {/* 필터 바 - 폴더 스타일 */}
-      <div className="mb-6 flex items-center gap-3 flex-wrap">
+      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
         <span className="text-sm font-medium text-gray-500">필터:</span>
         
         {/* 전체 */}
@@ -220,27 +649,216 @@ export default function MemoryView({ memories, onMemoryDeleted }: MemoryViewProp
             </button>
           );
         })}
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">크기</span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCardSize('s')}
+                className={`px-2 py-1 text-xs rounded-lg ${cardSize === 's' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              >
+                작게
+              </button>
+              <button
+                onClick={() => setCardSize('m')}
+                className={`px-2 py-1 text-xs rounded-lg ${cardSize === 'm' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              >
+                보통
+              </button>
+              <button
+                onClick={() => setCardSize('l')}
+                className={`px-2 py-1 text-xs rounded-lg ${cardSize === 'l' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              >
+                크게
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500">색상</span>
+            <div className="flex items-center gap-1">
+              {([
+                { id: 'amber', class: 'bg-amber-200' },
+                { id: 'blue', class: 'bg-blue-200' },
+                { id: 'green', class: 'bg-green-200' },
+                { id: 'pink', class: 'bg-pink-200' },
+                { id: 'purple', class: 'bg-purple-200' },
+              ] as const).map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setCardColor(item.id)}
+                  className={`w-6 h-6 rounded-full border ${item.class} ${
+                    cardColor === item.id ? 'ring-2 ring-offset-1 ring-gray-900' : 'border-gray-200'
+                  }`}
+                  title={item.id}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* 시간순 보기 - 그리드 레이아웃 */}
+      {/* 화이트보드 뷰 */}
       <div>
         {filteredMemories.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
             해당 그룹에 기억이 없습니다
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-3">
-            {filteredMemories.map((memory) => (
-              <MemoryCard 
+          <div
+            ref={boardRef}
+            className="relative w-full bg-white border border-gray-200 rounded-2xl shadow-sm overflow-auto"
+          >
+            <div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-gray-700">화이트보드</span>
+                <span className="text-[11px] text-gray-400">
+                  {Math.round(boardSize.width)}×{Math.round(boardSize.height)}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => changeZoom(-0.1)}
+                  className="px-2 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                  disabled={zoom <= 0.5}
+                >
+                  -
+                </button>
+                <span className="text-xs font-semibold">{Math.round(zoom * 100)}%</span>
+                <button
+                  onClick={() => changeZoom(0.1)}
+                  className="px-2 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                  disabled={zoom >= 1.6}
+                >
+                  +
+                </button>
+                <button
+                  onClick={resetZoom}
+                  className="px-2 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50"
+                >
+                  초기화
+                </button>
+              </div>
+            </div>
+
+            <div
+              className="relative"
+              style={{ minWidth: boardSize.width, minHeight: boardSize.height }}
+            >
+              <div
+                className="relative"
+                style={{
+                  width: boardSize.width,
+                  height: boardSize.height,
+                  transform: `scale(${zoom})`,
+                  transformOrigin: 'top left',
+                }}
+              >
+                <svg
+                  className="absolute inset-0 pointer-events-none"
+                  width={boardSize.width}
+                  height={boardSize.height}
+                >
+                  <defs>
+                    <marker
+                      id="arrowhead"
+                      markerWidth="10"
+                      markerHeight="10"
+                      refX="8"
+                      refY="3"
+                      orient="auto"
+                      markerUnits="strokeWidth"
+                    >
+                      <path d="M0,0 L0,6 L9,3 z" fill="#CBD5F5" />
+                    </marker>
+                  </defs>
+                  {connectionPairs.map(pair => {
+                    const from = positions[pair.from];
+                    const to = positions[pair.to];
+                    if (!from || !to) return null;
+                    const fromX = from.x + CARD_DIMENSIONS[cardSize].centerX;
+                    const fromY = from.y + CARD_DIMENSIONS[cardSize].centerY;
+                    const toX = to.x + CARD_DIMENSIONS[cardSize].centerX;
+                    const toY = to.y + CARD_DIMENSIONS[cardSize].centerY;
+                    const midX = (fromX + toX) / 2;
+                    const midY = (fromY + toY) / 2;
+                    const dx = toX - fromX;
+                    const dy = toY - fromY;
+                    const len = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+                    const offset = 40;
+                    const cx = midX - (dy / len) * offset;
+                    const cy = midY + (dx / len) * offset;
+                    const note = linkNotes[getLinkKey(pair.from, pair.to)];
+                    return (
+                      <g key={`${pair.from}-${pair.to}`}>
+                        <path
+                          d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
+                          stroke="#CBD5F5"
+                          strokeWidth="2"
+                          fill="none"
+                          markerEnd="url(#arrowhead)"
+                        />
+                        {note && (
+                          <text
+                            x={cx}
+                            y={cy - 6}
+                            textAnchor="middle"
+                            fill="#64748B"
+                            fontSize="11"
+                            style={{ userSelect: 'none' }}
+                          >
+                            {note.length > 18 ? `${note.slice(0, 18)}...` : note}
+                          </text>
+                        )}
+                      </g>
+                    );
+                  })}
+                </svg>
+
+                {filteredMemories.map((memory) => {
+                  const position = positions[memory.id] || { x: 0, y: 0 };
+                  const memoryColor = cardColorMap[memory.id] || cardColor;
+                  const memoryColorClass = memoryColor === 'blue'
+                    ? 'bg-blue-50 border-blue-200'
+                    : memoryColor === 'green'
+                    ? 'bg-green-50 border-green-200'
+                    : memoryColor === 'pink'
+                    ? 'bg-pink-50 border-pink-200'
+                    : memoryColor === 'purple'
+                    ? 'bg-purple-50 border-purple-200'
+                    : 'bg-amber-50 border-amber-200';
+                  return (
+                    <div
                 key={memory.id} 
+                      onPointerDown={(event) => handlePointerDown(memory.id, event)}
+                      style={{
+                        transform: `translate(${position.x}px, ${position.y}px)`,
+                        willChange: draggingId === memory.id ? 'transform' : 'auto',
+                        opacity: draggingId === memory.id ? 0.8 : 1,
+                      }}
+                      className={`absolute ${cardSizeClass} select-none touch-none cursor-grab active:cursor-grabbing transition-opacity ${
+                        draggingId === memory.id ? 'z-20 cursor-grabbing shadow-2xl' : 'z-10'
+                      }`}
+                    >
+                      <MemoryCard
                 memory={memory} 
                 onDelete={onMemoryDeleted} 
                 allMemories={memories}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
                 onOpenLinkManager={setLinkManagerMemory}
-              />
-            ))}
+                        variant="board"
+                        colorClass={memoryColorClass}
+                        onCardColorChange={(color) => {
+                          setCardColorMap(prev => ({ ...prev, [memory.id]: color }));
+                        }}
+                        linkNotes={linkNotes}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -260,13 +878,28 @@ export default function MemoryView({ memories, onMemoryDeleted }: MemoryViewProp
   );
 }
 
-function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onOpenLinkManager }: { 
+function MemoryCard({ 
+  memory, 
+  onDelete, 
+  allMemories, 
+  onDragStart, 
+  onDragEnd, 
+  onOpenLinkManager,
+  variant = 'list',
+  colorClass,
+  onCardColorChange,
+  linkNotes,
+}: { 
   memory: Memory; 
   onDelete?: () => void; 
   allMemories: Memory[];
   onDragStart?: (memoryId: string) => void;
   onDragEnd?: () => void;
   onOpenLinkManager?: (memory: Memory) => void;
+  variant?: 'board' | 'list';
+  colorClass?: string;
+  onCardColorChange?: (color: 'amber' | 'blue' | 'green' | 'pink' | 'purple') => void;
+  linkNotes?: Record<string, string>;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -277,7 +910,10 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
   const [suggestions, setSuggestions] = useState<any>(null);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(memory.title || '');
   const [editContent, setEditContent] = useState(memory.content);
+  const editRef = useRef<HTMLDivElement>(null);
+  const prevIsEditingRef = useRef(false);
   const [isGrouping, setIsGrouping] = useState(false);
   const [groupResult, setGroupResult] = useState<any>(null);
   const [showGroupModal, setShowGroupModal] = useState(false);
@@ -287,6 +923,15 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
     addSuffix: true,
     locale: ko 
   });
+
+  // 편집 모드로 전환할 때 초기 내용 설정
+  useEffect(() => {
+    if (isEditing && !prevIsEditingRef.current && editRef.current) {
+      // 편집 모드로 전환하는 순간에만 초기 내용 설정
+      editRef.current.innerHTML = editContent;
+    }
+    prevIsEditingRef.current = isEditing;
+  }, [isEditing, editContent]);
 
   const handleToggleSummary = async () => {
     if (!showSummary && !summary) {
@@ -364,16 +1009,27 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
     if (isEditing) {
       // 저장
       try {
+        const updatedHtml = editRef.current?.innerHTML || editContent;
+        const titleToSave = editTitle.trim() || null;
+        
+        console.log('Saving memory:', {
+          id: memory.id,
+          title: titleToSave,
+          contentLength: updatedHtml.length,
+        });
+        
         const res = await fetch(`/api/memories?id=${memory.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: editContent }),
+          body: JSON.stringify({ title: titleToSave, content: updatedHtml }),
         });
         
         if (res.ok) {
           window.location.reload();
         } else {
-          alert('수정에 실패했습니다');
+          const errorData = await res.json();
+          console.error('Edit error response:', errorData);
+          alert(`수정에 실패했습니다: ${errorData.error || '알 수 없는 오류'}`);
         }
       } catch (error) {
         console.error('Edit error:', error);
@@ -381,8 +1037,17 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
       }
     } else {
       // 편집 모드로 전환
+      setEditTitle(memory.title || '');
+      setEditContent(memory.content);
       setIsEditing(true);
     }
+  };
+
+  const execEditCommand = (command: string, value?: string) => {
+    if (!editRef.current) return;
+    editRef.current.focus();
+    document.execCommand(command, false, value);
+    setEditContent(editRef.current.innerHTML);
   };
 
   const handleAutoGroup = async () => {
@@ -462,10 +1127,13 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
 
   // 텍스트가 200자 이상이면 접기 기능 활성화
   const MAX_LENGTH = 200;
-  const isLong = memory.content.length > MAX_LENGTH;
-  const displayContent = isExpanded || !isLong 
-    ? memory.content 
-    : memory.content.slice(0, MAX_LENGTH);
+  const plainContent = stripHtmlClient(memory.content);
+  const isLong = plainContent.length > MAX_LENGTH;
+  const safeHtml = sanitizeHtml(memory.content);
+
+  const cardClassName = variant === 'board'
+    ? `${colorClass || 'bg-amber-50 border-amber-200'} shadow-md hover:shadow-lg`
+    : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-md';
 
   return (
     <div 
@@ -473,7 +1141,7 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
       draggable={true}
       onDragStart={() => onDragStart?.(memory.id)}
       onDragEnd={() => onDragEnd?.()}
-      className="group relative p-3 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-all scroll-mt-4 cursor-move hover:shadow-md h-full flex flex-col"
+      className={`group relative p-3 border rounded-lg transition-all scroll-mt-4 cursor-move h-full flex flex-col ${cardClassName}`}
     >
       {/* 드래그 아이콘 */}
       <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-30 transition-opacity pointer-events-none">
@@ -528,18 +1196,77 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
 
       {/* 내용 (편집 모드) */}
       {isEditing ? (
-        <textarea
-          value={editContent}
-          onChange={(e) => setEditContent(e.target.value)}
-          className="w-full p-3 mb-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 whitespace-pre-wrap"
-          rows={5}
-          autoFocus
-        />
+        <div className="mb-2">
+          {/* 제목 편집 */}
+          <input
+            type="text"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            placeholder="제목 (선택)"
+            className="w-full px-3 py-2 mb-2 text-sm font-semibold border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <div className="flex items-center gap-1 px-2 py-1 border border-blue-200 rounded-t-lg bg-blue-50/60">
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => execEditCommand('bold')}
+              className="px-2 py-1 text-xs rounded hover:bg-white font-semibold"
+              title="굵게"
+            >
+              B
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => execEditCommand('italic')}
+              className="px-2 py-1 text-xs rounded hover:bg-white italic"
+              title="기울임"
+            >
+              I
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => execEditCommand('underline')}
+              className="px-2 py-1 text-xs rounded hover:bg-white underline"
+              title="밑줄"
+            >
+              U
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                const url = prompt('링크 URL을 입력해주세요');
+                if (url) execEditCommand('createLink', url);
+              }}
+              className="px-2 py-1 text-xs rounded hover:bg-white"
+              title="하이퍼링크"
+            >
+              🔗
+            </button>
+          </div>
+          <div
+            ref={editRef}
+            contentEditable
+            className="w-full p-3 border border-blue-300 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs whitespace-pre-wrap"
+            onInput={() => setEditContent(editRef.current?.innerHTML || '')}
+            suppressContentEditableWarning
+          />
+        </div>
       ) : (
         <div className="mb-2 pr-8">
-          <p className={`text-xs text-gray-800 leading-relaxed whitespace-pre-wrap ${!isExpanded && isLong ? 'line-clamp-3' : ''}`}>
-            {displayContent}
-          </p>
+          {/* 제목 */}
+          {memory.title && (
+            <h3 className="text-sm font-semibold text-gray-900 mb-1.5">
+              {memory.title}
+            </h3>
+          )}
+          {/* 내용 */}
+          <div
+            className={`text-xs text-gray-800 leading-relaxed whitespace-pre-wrap ${!isExpanded && isLong ? 'line-clamp-3' : ''}`}
+            dangerouslySetInnerHTML={{ __html: safeHtml }}
+          />
           {isLong && !isExpanded && (
             <button
               onClick={() => setIsExpanded(true)}
@@ -582,6 +1309,27 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
           </svg>
           {isLoadingSuggestions ? '생성중' : showSuggestions ? '제안 끄기' : '제안받기'}
         </button>
+        {variant === 'board' && (
+          <>
+            <span className="ml-auto" />
+            <div className="flex items-center gap-1">
+              {([
+                { id: 'amber', class: 'bg-amber-200' },
+                { id: 'blue', class: 'bg-blue-200' },
+                { id: 'green', class: 'bg-green-200' },
+                { id: 'pink', class: 'bg-pink-200' },
+                { id: 'purple', class: 'bg-purple-200' },
+              ] as const).map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onCardColorChange?.(item.id)}
+                  className={`w-4 h-4 rounded-full border ${item.class} border-white shadow`}
+                  title={`${item.id} 카드`}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {/* AI 요약 표시 */}
@@ -775,6 +1523,10 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
                 {memory.relatedMemoryIds.slice(0, 3).map(relatedId => {
                   const relatedMemory = allMemories.find(m => m.id === relatedId);
                   if (!relatedMemory) return null;
+                  const noteKey = relatedMemory.id < memory.id
+                    ? `${relatedMemory.id}:${memory.id}`
+                    : `${memory.id}:${relatedMemory.id}`;
+                  const note = linkNotes?.[noteKey];
                   
                   return (
                     <div key={relatedId} className="relative group">
@@ -788,10 +1540,15 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
                           }, 2000);
                         }}
                         className="text-xs px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors border border-blue-200 hover:border-blue-300 line-clamp-1 max-w-[200px] text-left"
-                        title={relatedMemory.content}
+                        title={relatedMemory.title || stripHtmlClient(relatedMemory.content)}
                       >
-                        {relatedMemory.content.substring(0, 30)}...
+                        {relatedMemory.title || stripHtmlClient(relatedMemory.content).substring(0, 30)}...
                       </button>
+                      {note && (
+                        <div className="mt-1 text-[10px] text-gray-500 line-clamp-1">
+                          메모: {note}
+                        </div>
+                      )}
                       {/* 링크 삭제 버튼 */}
                       <button
                         onClick={async () => {
@@ -887,7 +1644,7 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
                     {/* 현재 기록 */}
                     <li className="text-xs text-gray-700 flex items-start gap-2 p-2 bg-white/60 rounded">
                       <span className="text-blue-500 mt-0.5">📄</span>
-                      <span className="flex-1 line-clamp-2">{memory.content}</span>
+                      <span className="flex-1 line-clamp-2">{stripHtmlClient(memory.content)}</span>
                     </li>
                     {/* 관련 기록들 */}
                     {groupResult.relatedMemories?.map((m: any, idx: number) => {

@@ -3,14 +3,17 @@
 import { useState } from 'react';
 import { SummaryResponse, Memory } from '@/types';
 
+const stripHtmlClient = (html: string) => html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+
 // 관련 기억 카드 컴포넌트
 function RelatedMemoryItem({ memory }: { memory: Memory }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const MAX_LENGTH = 150;
-  const isLong = memory.content.length > MAX_LENGTH;
+  const plainContent = stripHtmlClient(memory.content);
+  const isLong = plainContent.length > MAX_LENGTH;
   const displayContent = isExpanded || !isLong 
-    ? memory.content 
-    : memory.content.slice(0, MAX_LENGTH);
+    ? plainContent 
+    : plainContent.slice(0, MAX_LENGTH);
 
   return (
     <div className="text-sm text-gray-600 pl-3 border-l-2 border-green-300 whitespace-pre-wrap">
@@ -38,7 +41,11 @@ function RelatedMemoryItem({ memory }: { memory: Memory }) {
   );
 }
 
-export default function QueryPanel() {
+interface QueryPanelProps {
+  personaId: string | null;
+}
+
+export default function QueryPanel({ personaId }: QueryPanelProps) {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SummaryResponse | null>(null);
@@ -54,7 +61,7 @@ export default function QueryPanel() {
       const res = await fetch('/api/summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, personaId }),
       });
 
       if (res.ok) {

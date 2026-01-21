@@ -10,6 +10,8 @@ interface TimelineViewProps {
   onMemoryClick?: (memory: Memory) => void;
 }
 
+const stripHtmlClient = (html: string) => html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+
 export default function TimelineView({ memories, onMemoryClick }: TimelineViewProps) {
   const [viewMode, setViewMode] = useState<'calendar' | 'timeline'>('timeline');
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -256,9 +258,9 @@ export default function TimelineView({ memories, onMemoryClick }: TimelineViewPr
                             key={memory.id}
                             onClick={() => onMemoryClick?.(memory)}
                             className={`text-xs p-1 rounded cursor-pointer hover:opacity-80 truncate ${getNatureColor(memory.nature)}`}
-                            title={memory.content}
+                            title={stripHtmlClient(memory.content)}
                           >
-                            {memory.content.substring(0, 15)}...
+                            {stripHtmlClient(memory.content).substring(0, 15)}...
                           </div>
                         ))}
                         {dayMemories.length > 3 && (

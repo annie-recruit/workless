@@ -7,6 +7,7 @@ import MemoryView from '@/components/MemoryView';
 import QueryPanel from '@/components/QueryPanel';
 import InsightsPanel from '@/components/InsightsPanel';
 import GroupManager from '@/components/GroupManager';
+import PersonaSelector from '@/components/PersonaSelector';
 import { Memory } from '@/types';
 
 export default function Home() {
@@ -14,6 +15,8 @@ export default function Home() {
   const [showModal, setShowModal] = useState<'groups' | 'query' | 'timeline' | null>(null);
   const [loading, setLoading] = useState(false);
   const [showInsights, setShowInsights] = useState(true); // 인사이트 패널 토글
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
+  const contentMaxWidth = showInsights ? 'calc(100vw - 420px)' : 'calc(100vw - 40px)';
 
   const fetchMemories = async () => {
     setLoading(true);
@@ -90,30 +93,44 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="container mx-auto px-4 py-8 max-w-5xl">
+        <div
+          className="mx-auto px-3 py-8 w-full"
+          style={{ maxWidth: contentMaxWidth }}
+        >
 
           {/* 상단 메뉴바 */}
-          <div className="mb-6 flex items-center justify-end gap-1 border-b border-gray-200 pb-2">
-            <button
-              onClick={() => setShowModal('groups')}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
-            >
-              그룹
-            </button>
-            <span className="text-gray-300">|</span>
-            <button
-              onClick={() => setShowModal('query')}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
-            >
-              물어보기
-            </button>
-            <span className="text-gray-300">|</span>
-            <Link
-              href="/timeline"
-              className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium inline-block"
-            >
-              타임라인
-            </Link>
+          <div className="mb-6 flex items-center justify-between border-b border-gray-200 pb-2">
+            {/* 왼쪽: 페르소나 선택기 */}
+            <div>
+              <PersonaSelector
+                selectedPersonaId={selectedPersonaId}
+                onPersonaChange={setSelectedPersonaId}
+              />
+            </div>
+
+            {/* 오른쪽: 메뉴 버튼들 */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setShowModal('groups')}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
+              >
+                그룹
+              </button>
+              <span className="text-gray-300">|</span>
+              <button
+                onClick={() => setShowModal('query')}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
+              >
+                물어보기
+              </button>
+              <span className="text-gray-300">|</span>
+              <Link
+                href="/timeline"
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium inline-block"
+              >
+                타임라인
+              </Link>
+            </div>
           </div>
 
           {/* 기록하기 영역 */}
@@ -143,7 +160,7 @@ export default function Home() {
           showInsights ? 'w-[360px]' : 'w-0'
         }`}
       >
-        {showInsights && <InsightsPanel />}
+        {showInsights && <InsightsPanel personaId={selectedPersonaId} />}
       </div>
 
       {/* 그룹 관리 모달 */}
@@ -162,7 +179,7 @@ export default function Home() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6">
-              <GroupManager onGroupsChanged={fetchMemories} />
+              <GroupManager onGroupsChanged={fetchMemories} personaId={selectedPersonaId} />
             </div>
           </div>
         </div>
@@ -184,7 +201,7 @@ export default function Home() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6">
-              <QueryPanel />
+              <QueryPanel personaId={selectedPersonaId} />
             </div>
           </div>
         </div>

@@ -11,9 +11,11 @@ interface LinkManagerProps {
 }
 
 export default function LinkManager({ currentMemory, allMemories, onClose, onLinked }: LinkManagerProps) {
+  const stripHtmlClient = (html: string) => html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMemoryId, setSelectedMemoryId] = useState<string | null>(null);
   const [isLinking, setIsLinking] = useState(false);
+  const [linkNote, setLinkNote] = useState('');
 
   // 현재 기록과 이미 링크된 기록들은 제외
   const linkedIds = currentMemory.relatedMemoryIds || [];
@@ -21,7 +23,7 @@ export default function LinkManager({ currentMemory, allMemories, onClose, onLin
     m.id !== currentMemory.id && 
     !linkedIds.includes(m.id) &&
     (searchQuery === '' || 
-     m.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+     stripHtmlClient(m.content).toLowerCase().includes(searchQuery.toLowerCase()) ||
      m.topic?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
@@ -39,6 +41,7 @@ export default function LinkManager({ currentMemory, allMemories, onClose, onLin
         body: JSON.stringify({
           memoryId1: currentMemory.id,
           memoryId2: selectedMemoryId,
+          note: linkNote,
         }),
       });
 
@@ -57,7 +60,7 @@ export default function LinkManager({ currentMemory, allMemories, onClose, onLin
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-md flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
         <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-blue-500 to-purple-600 rounded-t-xl">
           <h2 className="text-2xl font-bold text-white">기록 연결하기</h2>
@@ -72,21 +75,35 @@ export default function LinkManager({ currentMemory, allMemories, onClose, onLin
           {/* 현재 기록 표시 */}
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
             <div className="text-xs text-blue-600 font-medium mb-2">현재 기록</div>
-            <p className="text-gray-800 text-sm">{currentMemory.content.substring(0, 100)}...</p>
+            {currentMemory.title && (
+              <p className="text-gray-900 text-sm font-semibold mb-1">{currentMemory.title}</p>
+            )}
+            <p className="text-gray-800 text-sm">{stripHtmlClient(currentMemory.content).substring(0, 100)}...</p>
           </div>
 
-          {/* 검색 */}
-          <div className="relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="연결할 기록 검색..."
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <svg className="absolute right-3 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+          {/* 검색 + 연결 메모 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="연결할 기록 검색..."
+                className="w-full h-11 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <svg className="absolute right-3 top-3.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                value={linkNote}
+                onChange={(e) => setLinkNote(e.target.value)}
+                placeholder="연결 메모 (선의 의미)"
+                className="w-full h-11 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+            </div>
           </div>
         </div>
 
@@ -108,7 +125,10 @@ export default function LinkManager({ currentMemory, allMemories, onClose, onLin
                       : 'border-gray-200 hover:border-gray-300 bg-white'
                   }`}
                 >
-                  <p className="text-gray-800 text-sm mb-2">{memory.content.substring(0, 150)}...</p>
+                  {memory.title && (
+                    <p className="text-gray-900 text-sm font-semibold mb-1">{memory.title}</p>
+                  )}
+                  <p className="text-gray-800 text-sm mb-2">{stripHtmlClient(memory.content).substring(0, 150)}...</p>
                   <div className="flex items-center gap-2 text-xs">
                     <span className="text-gray-500">
                       {new Date(memory.createdAt).toLocaleDateString('ko-KR')}

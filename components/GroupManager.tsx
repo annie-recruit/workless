@@ -7,6 +7,7 @@ import { ko } from 'date-fns/locale';
 
 interface GroupManagerProps {
   onGroupsChanged?: () => void;
+  personaId: string | null;
 }
 
 const COLOR_OPTIONS = [
@@ -19,7 +20,7 @@ const COLOR_OPTIONS = [
   { value: 'yellow', label: '노랑', class: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
 ];
 
-export default function GroupManager({ onGroupsChanged }: GroupManagerProps) {
+export default function GroupManager({ onGroupsChanged, personaId }: GroupManagerProps) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -57,7 +58,10 @@ export default function GroupManager({ onGroupsChanged }: GroupManagerProps) {
   const fetchAISuggestions = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/groups/suggest');
+      const url = personaId 
+        ? `/api/groups/suggest?personaId=${personaId}` 
+        : '/api/groups/suggest';
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setAiSuggestions(data.groups || []);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { memoryDb, goalDb } from '@/lib/db';
+import { stripHtml } from '@/lib/text';
 
 export async function POST(
   req: NextRequest,
@@ -18,9 +19,10 @@ export async function POST(
     }
 
     // AI 제안으로부터 목표 생성
-    const title = memory.content.length > 50 
-      ? memory.content.substring(0, 50) + '...' 
-      : memory.content;
+    const plainContent = stripHtml(memory.content);
+    const title = plainContent.length > 50 
+      ? plainContent.substring(0, 50) + '...' 
+      : plainContent;
 
     // nextSteps를 설명으로
     const nextStepsText = suggestions.nextSteps 
