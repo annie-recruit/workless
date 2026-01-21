@@ -536,28 +536,27 @@ function MemoryCard({ memory, onDelete, allMemories, onDragStart, onDragEnd, onO
           autoFocus
         />
       ) : (
-        <p className="text-xs text-gray-800 leading-relaxed mb-2 whitespace-pre-wrap pr-8 line-clamp-3">
-          {displayContent}
+        <div className="mb-2 pr-8">
+          <p className={`text-xs text-gray-800 leading-relaxed whitespace-pre-wrap ${!isExpanded && isLong ? 'line-clamp-3' : ''}`}>
+            {displayContent}
+          </p>
           {isLong && !isExpanded && (
-            <>
-              ...
-              <button
-                onClick={() => setIsExpanded(true)}
-                className="ml-1 text-blue-500 hover:text-blue-600 text-[11px] font-medium"
-              >
-                더보기
-              </button>
-            </>
+            <button
+              onClick={() => setIsExpanded(true)}
+              className="mt-1 text-blue-500 hover:text-blue-600 text-[11px] font-medium"
+            >
+              더보기
+            </button>
           )}
           {isLong && isExpanded && (
             <button
               onClick={() => setIsExpanded(false)}
-              className="ml-1 text-gray-500 hover:text-gray-600 text-[11px] font-medium"
+              className="mt-1 text-gray-500 hover:text-gray-600 text-[11px] font-medium"
             >
               접기
             </button>
           )}
-        </p>
+        </div>
       )}
 
       {/* AI 버튼들 */}
