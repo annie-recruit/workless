@@ -91,11 +91,11 @@ export async function parsePowerPointFile(filepath: string): Promise<string> {
     }
     
     let text = allTexts.join('\n\n');
-    console.log('📊 [PPT 3/3] 텍스트 추출 완료, 길이:', text.length);
+    console.log('📊 [PPT 3/3] 텍스트 추출 완료, 길이:', text.length, '슬라이드 수:', slideEntries.length);
     
-    // 너무 길면 앞부분만 (2000자)
-    if (text.length > 2000) {
-      text = text.substring(0, 2000) + '... (내용 계속)';
+    // 너무 길면 앞부분만 (10000자로 증가 - 여러 슬라이드 처리 가능하도록)
+    if (text.length > 10000) {
+      text = text.substring(0, 10000) + `\n\n... (내용이 길어서 일부만 표시. 총 ${text.length}자, ${slideEntries.length}개 슬라이드)`;
     }
     
     if (text.trim()) {
