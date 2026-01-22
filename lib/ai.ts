@@ -80,10 +80,10 @@ export async function parsePowerPointFile(filepath: string): Promise<string> {
       
       // XML에서 <a:t> 태그 안의 텍스트 추출 (Office Open XML 형식)
       const textMatches = slideXml.match(/<a:t[^>]*>([^<]*)<\/a:t>/g) || [];
-      const slideTexts = textMatches.map(match => {
+      const slideTexts = textMatches.map((match: string) => {
         const textMatch = match.match(/<a:t[^>]*>([^<]*)<\/a:t>/);
         return textMatch ? textMatch[1] : '';
-      }).filter(text => text.trim().length > 0);
+      }).filter((text: string) => text.trim().length > 0);
       
       if (slideTexts.length > 0) {
         allTexts.push(`[슬라이드 ${i + 1}]\n${slideTexts.join('\n')}`);
