@@ -22,6 +22,7 @@ interface CalendarBlockProps {
   isClicked: boolean;
   onPointerDown: (e: React.PointerEvent) => void;
   onClick?: () => void;
+  zIndex?: number;
 }
 
 export default function CalendarBlock({
@@ -36,10 +37,12 @@ export default function CalendarBlock({
   onDelete,
   onMemoryClick,
   onDateClick,
+  onLinkMemory,
   isDragging,
   isClicked,
   onPointerDown,
   onClick,
+  zIndex = 10,
 }: CalendarBlockProps) {
   const [currentDate, setCurrentDate] = useState(config.selectedDate ? new Date(config.selectedDate) : new Date());
   const [isEditing, setIsEditing] = useState(false);
@@ -112,7 +115,7 @@ export default function CalendarBlock({
         transform: `translate3d(${x}px, ${y}px, 0)`,
         width: `${width}px`,
         height: `${height}px`,
-        zIndex: isDragging ? 30 : (isClicked ? 20 : 10),
+        zIndex: zIndex,
         opacity: isDragging ? 0.85 : 1,
         transition: 'none',
         willChange: isDragging ? 'transform' : 'auto',

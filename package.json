@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
     "@adobe/pdfservices-node-sdk": "^4.1.0",
@@ -27,9 +28,11 @@
     "puppeteer": "^24.35.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-pdf": "^10.3.0"
+    "react-pdf": "^10.3.0",
+    "web-vitals": "^4.2.4"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^14.2.18",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

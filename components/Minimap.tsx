@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useMemo, useCallback, useState, useRef } from 'react';
 import { Memory, CanvasBlock } from '@/types';
 
 interface MinimapProps {
@@ -22,32 +22,32 @@ const CARD_DIMENSIONS = {
   l: { width: 280, height: 200 },
 } as const;
 
-// 라운드 사각형 그리기 헬퍼 함수
-const drawRoundedRect = (
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number
-) => {
-  if (width <= 0 || height <= 0) return;
-  
-  // radius가 너무 크면 조정
-  const r = Math.min(radius, Math.min(width, height) / 2);
-  
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + width - r, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
-  ctx.lineTo(x + width, y + height - r);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
-  ctx.lineTo(x + r, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
+// 위젯 타입별 이모지 매핑
+const WIDGET_EMOJI_MAP: Record<string, string> = {
+  viewer: '📺',
+  calendar: '📅',
+  memory: '📝',
+  memo: '📝',
+  default: '📌',
 };
+
+// 이모지 크기 제한
+const MIN_EMOJI_SIZE = 10;
+const MAX_EMOJI_SIZE = 20;
+const EMOJI_SIZE_RATIO = 0.4; // 미니맵에서 위젯 크기 대비 이모지 크기 비율 (40%)
+
+interface SymbolItem {
+  id: string;
+  type: 'memory' | 'block';
+  emoji: string;
+  x: number;
+  y: number;
+  size: number;
+  originalX: number;
+  originalY: number;
+  originalWidth: number;
+  originalHeight: number;
+}
 
 export default function Minimap({
   boardSize,
@@ -61,261 +61,202 @@ export default function Minimap({
   cardColorMap,
   cardColor,
 }: MinimapProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
-  const rafIdRef = useRef<number | null>(null);
+  const dragStartRef = useState<{ x: number; y: number } | null>(null);
 
   const minimapWidth = 240;
   const minimapHeight = 160;
+  const headerHeight = 40; // 헤더 높이 (px-3 py-2)
+  const availableHeight = minimapHeight - headerHeight; // 헤더를 제외한 사용 가능한 높이
   const padding = 8;
 
-  // 스케일 계산
-  const scale = Math.min(
-    (minimapWidth - padding * 2) / boardSize.width,
-    (minimapHeight - padding * 2) / boardSize.height
-  );
+  // 캔버스 bounds 계산 (모든 아이템 포함)
+  const canvasBounds = useMemo(() => {
+    let minX = 0;
+    let minY = 0;
+    let maxX = boardSize.width;
+    let maxY = boardSize.height;
 
-  const drawMinimap = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    // 메모리 카드 bounds
+    memories.forEach(memory => {
+      const pos = positions[memory.id];
+      if (pos) {
+        const cardDims = CARD_DIMENSIONS[cardSize];
+        minX = Math.min(minX, pos.x);
+        minY = Math.min(minY, pos.y);
+        maxX = Math.max(maxX, pos.x + cardDims.width);
+        maxY = Math.max(maxY, pos.y + cardDims.height);
+      }
+    });
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    // 블록 bounds
+    blocks.forEach(block => {
+      const w = block.width || 350;
+      const h = block.height || 200;
+      minX = Math.min(minX, block.x);
+      minY = Math.min(minY, block.y);
+      maxX = Math.max(maxX, block.x + w);
+      maxY = Math.max(maxY, block.y + h);
+    });
 
-    // 캔버스 초기화
-    ctx.clearRect(0, 0, minimapWidth, minimapHeight);
+    // 최소 크기 보장
+    const width = Math.max(maxX - minX, boardSize.width);
+    const height = Math.max(maxY - minY, boardSize.height);
 
-    // 배경
-    ctx.fillStyle = '#f9fafb';
-    ctx.fillRect(0, 0, minimapWidth, minimapHeight);
+    return { minX, minY, width, height };
+  }, [boardSize, positions, blocks, memories, cardSize]);
 
-    // 보드 영역 그리기
-    const boardDisplayWidth = boardSize.width * scale;
-    const boardDisplayHeight = boardSize.height * scale;
-    const offsetX = (minimapWidth - boardDisplayWidth) / 2;
-    const offsetY = (minimapHeight - boardDisplayHeight) / 2;
+  // 스케일 계산 (헤더 높이를 제외한 영역 사용)
+  const scale = useMemo(() => {
+    if (canvasBounds.width <= 0 || canvasBounds.height <= 0) return 0;
+    return Math.min(
+      (minimapWidth - padding * 2) / canvasBounds.width,
+      (availableHeight - padding * 2) / canvasBounds.height
+    );
+  }, [canvasBounds, minimapWidth, availableHeight, padding]);
 
-    // 보드 배경 (라운드)
-    ctx.fillStyle = '#ffffff';
-    drawRoundedRect(ctx, offsetX, offsetY, boardDisplayWidth, boardDisplayHeight, 4);
-    ctx.fill();
-    ctx.strokeStyle = '#e5e7eb';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+  // 좌표 변환: 캔버스 좌표 → 미니맵 좌표
+  const transformToMinimap = useCallback((x: number, y: number) => {
+    const offsetX = (minimapWidth - canvasBounds.width * scale) / 2;
+    const offsetY = (availableHeight - canvasBounds.height * scale) / 2;
+    return {
+      x: offsetX + (x - canvasBounds.minX) * scale,
+      y: offsetY + (y - canvasBounds.minY) * scale,
+    };
+  }, [minimapWidth, availableHeight, canvasBounds, scale]);
 
-    // 클러스터링을 위한 그리드 설정
-    const gridCellSize = 12; // 미니맵 그리드 셀 크기
-    const gridMap = new Map<string, Array<{ x: number; y: number; w: number; h: number; color: string; strokeColor: string }>>();
+  // 심볼 아이템 생성
+  const symbolItems = useMemo(() => {
+    const items: SymbolItem[] = [];
 
-    // 메모리 카드를 그리드에 배치 (원본과 100% 동일한 스타일)
-    memories.forEach((memory) => {
+    // 메모리 카드 심볼
+    memories.forEach(memory => {
       const position = positions[memory.id];
       if (!position) return;
 
-      const memoryColor = cardColorMap[memory.id] || cardColor;
-      // 원본 Tailwind 색상 사용
-      // green-50: rgb(240, 253, 250), green-200: rgb(167, 243, 208)
-      // pink-50: rgb(253, 244, 255), pink-200: rgb(251, 207, 232)
-      // purple-50: rgb(250, 245, 255), purple-200: rgb(233, 213, 255)
-      const fillColor = memoryColor === 'green' 
-        ? 'rgb(240, 253, 250)' 
-        : memoryColor === 'pink' 
-        ? 'rgb(253, 244, 255)' 
-        : 'rgb(250, 245, 255)';
-      const strokeColor = memoryColor === 'green'
-        ? 'rgb(167, 243, 208)'
-        : memoryColor === 'pink'
-        ? 'rgb(251, 207, 232)'
-        : 'rgb(233, 213, 255)';
-
       const cardDims = CARD_DIMENSIONS[cardSize];
-      const x = offsetX + position.x * scale;
-      const y = offsetY + position.y * scale;
-      // 원본 크기 그대로 (비율 유지)
-      const w = Math.max(2, cardDims.width * scale);
-      const h = Math.max(2, cardDims.height * scale);
+      // 미니맵에서 위젯의 실제 크기 (스케일 적용)
+      const scaledWidth = cardDims.width * scale;
+      const scaledHeight = cardDims.height * scale;
+      // 이모지 크기는 위젯의 미니맵 크기에 비례 (더 작은 쪽 기준)
+      const widgetSize = Math.min(scaledWidth, scaledHeight);
+      const size = Math.max(
+        MIN_EMOJI_SIZE,
+        Math.min(MAX_EMOJI_SIZE, widgetSize * EMOJI_SIZE_RATIO)
+      );
 
-      // 미니맵 범위 내에만 처리
-      if (x + w > offsetX && x < offsetX + boardDisplayWidth && y + h > offsetY && y < offsetY + boardDisplayHeight) {
-        // 그리드 셀 좌표 계산
-        const gridX = Math.floor((x - offsetX) / gridCellSize);
-        const gridY = Math.floor((y - offsetY) / gridCellSize);
-        const gridKey = `${gridX},${gridY}`;
+      const { x, y } = transformToMinimap(position.x, position.y);
 
-        if (!gridMap.has(gridKey)) {
-          gridMap.set(gridKey, []);
-        }
-        gridMap.get(gridKey)!.push({ x, y, w, h, color: fillColor, strokeColor });
-      }
+      items.push({
+        id: `memory-${memory.id}`,
+        type: 'memory',
+        emoji: WIDGET_EMOJI_MAP.memory,
+        x: x + scaledWidth / 2 - size / 2, // 중앙 정렬
+        y: y + scaledHeight / 2 - size / 2,
+        size,
+        originalX: position.x,
+        originalY: position.y,
+        originalWidth: cardDims.width,
+        originalHeight: cardDims.height,
+      });
     });
 
-    // 그리드 기반 클러스터링 렌더링 (원본 스타일 그대로)
-    gridMap.forEach((items, gridKey) => {
-      if (items.length === 1) {
-        // 단일 아이템: 원본 스타일 그대로
-        const item = items[0];
-        // rounded-lg = 8px
-        const radius = Math.min(8, Math.min(item.w, item.h) / 2);
+    // 블록 심볼
+    blocks.forEach(block => {
+      if (block.type === 'minimap') return; // 미니맵 자체는 제외
 
-        // Shadow (shadow-md)
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-        ctx.shadowBlur = 4;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 2;
+      const width = block.width || 350;
+      const height = block.height || 200;
+      // 미니맵에서 위젯의 실제 크기 (스케일 적용)
+      const scaledWidth = width * scale;
+      const scaledHeight = height * scale;
+      // 이모지 크기는 위젯의 미니맵 크기에 비례 (더 작은 쪽 기준)
+      const widgetSize = Math.min(scaledWidth, scaledHeight);
+      const size = Math.max(
+        MIN_EMOJI_SIZE,
+        Math.min(MAX_EMOJI_SIZE, widgetSize * EMOJI_SIZE_RATIO)
+      );
 
-        // Fill (원본 배경색)
-        ctx.fillStyle = item.color;
-        drawRoundedRect(ctx, item.x, item.y, item.w, item.h, radius);
-        ctx.fill();
+      const { x, y } = transformToMinimap(block.x, block.y);
 
-        // Shadow reset
-        ctx.shadowBlur = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-
-        // Stroke (원본 border 색상, 1px)
-        ctx.strokeStyle = item.strokeColor;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      } else {
-        // 클러스터: 스택 표현 (2~3개 겹쳐서, 원본 스타일 유지)
-        const stackCount = Math.min(items.length, 3);
-        const stackOffset = 2.5; // 2-3px offset
-
-        items.slice(0, stackCount).forEach((item, idx) => {
-          const offsetX_stack = idx * stackOffset;
-          const offsetY_stack = idx * stackOffset;
-          // rounded-lg = 8px
-          const radius = Math.min(8, Math.min(item.w, item.h) / 2);
-
-          // Shadow (shadow-md)
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-          ctx.shadowBlur = 4;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 2;
-
-          // Fill
-          ctx.fillStyle = item.color;
-          drawRoundedRect(ctx, item.x + offsetX_stack, item.y + offsetY_stack, item.w, item.h, radius);
-          ctx.fill();
-
-          // Shadow reset
-          ctx.shadowBlur = 0;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 0;
-
-          // Stroke
-          ctx.strokeStyle = item.strokeColor;
-          ctx.lineWidth = 1;
-          ctx.stroke();
-        });
-      }
+      items.push({
+        id: `block-${block.id}`,
+        type: 'block',
+        emoji: WIDGET_EMOJI_MAP[block.type] || WIDGET_EMOJI_MAP.default,
+        x: x + scaledWidth / 2 - size / 2, // 중앙 정렬
+        y: y + scaledHeight / 2 - size / 2,
+        size,
+        originalX: block.x,
+        originalY: block.y,
+        originalWidth: width,
+        originalHeight: height,
+      });
     });
 
-    // 캘린더 블록 그리기 (원본 스타일 그대로)
-    blocks.filter(block => block.type === 'calendar').forEach((block) => {
-      const x = offsetX + block.x * scale;
-      const y = offsetY + block.y * scale;
-      const w = Math.max(3, (block.width || 350) * scale);
-      const h = Math.max(3, (block.height || 200) * scale);
+    return items;
+  }, [memories, positions, blocks, cardSize, scale, transformToMinimap]);
 
-      // 미니맵 범위 내에만 그리기
-      if (x + w > offsetX && x < offsetX + boardDisplayWidth && y + h > offsetY && y < offsetY + boardDisplayHeight) {
-        // rounded-lg = 8px
-        const radius = Math.min(8, Math.min(w, h) / 2);
+  // 뷰포트 영역 계산
+  const viewportRect = useMemo(() => {
+    if (viewportBounds.width <= 0 || viewportBounds.height <= 0) return null;
 
-        // Shadow (shadow-lg)
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
-        ctx.shadowBlur = 10;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 4;
+    const { x, y } = transformToMinimap(viewportBounds.left, viewportBounds.top);
+    const w = viewportBounds.width * scale;
+    const h = viewportBounds.height * scale;
 
-        // Fill (bg-white)
-        ctx.fillStyle = 'rgb(255, 255, 255)';
-        drawRoundedRect(ctx, x, y, w, h, radius);
-        ctx.fill();
+    return { x, y, width: w, height: h };
+  }, [viewportBounds, scale, transformToMinimap]);
 
-        // Shadow reset
-        ctx.shadowBlur = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
+  // 심볼 클릭 핸들러
+  const handleSymbolClick = useCallback((item: SymbolItem) => {
+    if (!boardContainerRef.current) return;
 
-        // Stroke (border-gray-200, 1px)
-        ctx.strokeStyle = 'rgb(229, 231, 235)'; // gray-200
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
+    // 원본 캔버스 위치로 이동
+    const targetX = item.originalX + item.originalWidth / 2;
+    const targetY = item.originalY + item.originalHeight / 2;
+
+    const targetScrollLeft = Math.max(0, Math.min(
+      targetX * zoom - boardContainerRef.current.clientWidth / 2,
+      boardSize.width * zoom - boardContainerRef.current.clientWidth
+    ));
+    const targetScrollTop = Math.max(0, Math.min(
+      targetY * zoom - boardContainerRef.current.clientHeight / 2,
+      boardSize.height * zoom - boardContainerRef.current.clientHeight
+    ));
+
+    boardContainerRef.current.scrollTo({
+      left: targetScrollLeft,
+      top: targetScrollTop,
+      behavior: 'smooth',
     });
+  }, [boardContainerRef, zoom, boardSize]);
 
-    // 뷰포트 영역 그리기 (유리창 느낌)
-    if (viewportBounds.width > 0 && viewportBounds.height > 0) {
-      const vx = offsetX + viewportBounds.left * scale;
-      const vy = offsetY + viewportBounds.top * scale;
-      const vw = Math.max(4, viewportBounds.width * scale);
-      const vh = Math.max(4, viewportBounds.height * scale);
+  // 배경 클릭 핸들러 (뷰포트 드래그)
+  const handleBackgroundPointerDown = useCallback((e: React.PointerEvent) => {
+    if (!viewportRect) return;
 
-      // 미니맵 범위 내로 clamp
-      const clampedVx = Math.max(offsetX, Math.min(vx, offsetX + boardDisplayWidth));
-      const clampedVy = Math.max(offsetY, Math.min(vy, offsetY + boardDisplayHeight));
-      const clampedVw = Math.min(vw, offsetX + boardDisplayWidth - clampedVx);
-      const clampedVh = Math.min(vh, offsetY + boardDisplayHeight - clampedVy);
-
-      if (clampedVw > 0 && clampedVh > 0) {
-        // radius 8-10
-        const radius = Math.min(10, Math.min(clampedVw, clampedVh) / 2);
-
-        // Fill (유리창 느낌)
-        ctx.fillStyle = 'rgba(99,102,241,0.06)';
-        drawRoundedRect(ctx, clampedVx, clampedVy, clampedVw, clampedVh, radius);
-        ctx.fill();
-
-        // Stroke (shadow 제거)
-        ctx.strokeStyle = 'rgba(99,102,241,0.35)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
-    }
-  }, [boardSize, positions, blocks, memories, viewportBounds, scale, cardSize, cardColorMap, cardColor]);
-
-  // 미니맵 그리기
-  useEffect(() => {
-    if (scale > 0 && boardSize.width > 0 && boardSize.height > 0) {
-      drawMinimap();
-    }
-  }, [drawMinimap, scale, boardSize]);
-
-  // 클릭/드래그 핸들러
-  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas || !boardContainerRef.current) return;
-
-    const rect = canvas.getBoundingClientRect();
+    const rect = e.currentTarget.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    const boardDisplayWidth = boardSize.width * scale;
-    const boardDisplayHeight = boardSize.height * scale;
-    const offsetX = (minimapWidth - boardDisplayWidth) / 2;
-    const offsetY = (minimapHeight - boardDisplayHeight) / 2;
-
     // 뷰포트 영역 내 클릭인지 확인
-    const vx = offsetX + viewportBounds.left * scale;
-    const vy = offsetY + viewportBounds.top * scale;
-    const vw = viewportBounds.width * scale;
-    const vh = viewportBounds.height * scale;
+    const isInViewport =
+      mouseX >= viewportRect.x &&
+      mouseX <= viewportRect.x + viewportRect.width &&
+      mouseY >= viewportRect.y &&
+      mouseY <= viewportRect.y + viewportRect.height;
 
-    const isInViewport = mouseX >= vx && mouseX <= vx + vw && mouseY >= vy && mouseY <= vy + vh;
-
-    if (isInViewport) {
-      // 뷰포트 드래그 시작
+    if (isInViewport && boardContainerRef.current) {
       setIsDragging(true);
       dragStartRef.current = { x: mouseX, y: mouseY };
-      canvas.setPointerCapture(e.pointerId);
+      e.currentTarget.setPointerCapture(e.pointerId);
     } else {
-      // 미니맵 클릭 → 해당 위치로 이동
-      const boardX = (mouseX - offsetX) / scale;
-      const boardY = (mouseY - offsetY) / scale;
+      // 배경 클릭 → 해당 위치로 이동
+      const offsetX = (minimapWidth - canvasBounds.width * scale) / 2;
+      const offsetY = (minimapHeight - canvasBounds.height * scale) / 2;
+      const boardX = (mouseX - offsetX) / scale + canvasBounds.minX;
+      const boardY = (mouseY - offsetY) / scale + canvasBounds.minY;
 
       if (boardContainerRef.current) {
         const targetScrollLeft = Math.max(0, Math.min(
@@ -334,27 +275,18 @@ export default function Minimap({
         });
       }
     }
-  }, [boardSize, scale, zoom, viewportBounds, boardContainerRef]);
+  }, [viewportRect, boardContainerRef, minimapWidth, minimapHeight, canvasBounds, scale, zoom, boardSize]);
 
-  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isDragging || !dragStartRef.current || !boardContainerRef.current) return;
+  const handleBackgroundPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging || !dragStartRef[0] || !boardContainerRef.current || !viewportRect) return;
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
+    const rect = e.currentTarget.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    const boardDisplayWidth = boardSize.width * scale;
-    const offsetX = (minimapWidth - boardDisplayWidth) / 2;
-    const offsetY = (minimapHeight - boardSize.height * scale) / 2;
+    const deltaX = (mouseX - dragStartRef[0].x) / scale;
+    const deltaY = (mouseY - dragStartRef[0].y) / scale;
 
-    // 마우스 이동량을 보드 좌표로 변환
-    const deltaX = (mouseX - dragStartRef.current.x) / scale;
-    const deltaY = (mouseY - dragStartRef.current.y) / scale;
-
-    // 현재 스크롤 위치에서 이동
     const currentScrollLeft = boardContainerRef.current.scrollLeft;
     const currentScrollTop = boardContainerRef.current.scrollTop;
 
@@ -367,31 +299,18 @@ export default function Minimap({
       boardSize.height * zoom - boardContainerRef.current.clientHeight
     ));
 
-    // RAF로 스크롤 업데이트
-    if (rafIdRef.current) {
-      cancelAnimationFrame(rafIdRef.current);
-    }
-
-    rafIdRef.current = requestAnimationFrame(() => {
-      if (boardContainerRef.current) {
-        boardContainerRef.current.scrollTo({
-          left: newScrollLeft,
-          top: newScrollTop,
-          behavior: 'auto',
-        });
-      }
+    boardContainerRef.current.scrollTo({
+      left: newScrollLeft,
+      top: newScrollTop,
+      behavior: 'auto',
     });
 
     dragStartRef.current = { x: mouseX, y: mouseY };
-  }, [isDragging, boardSize, scale, zoom, boardContainerRef]);
+  }, [isDragging, scale, zoom, boardSize, viewportRect, boardContainerRef]);
 
-  const handlePointerUp = useCallback(() => {
+  const handleBackgroundPointerUp = useCallback(() => {
     setIsDragging(false);
     dragStartRef.current = null;
-    if (rafIdRef.current) {
-      cancelAnimationFrame(rafIdRef.current);
-      rafIdRef.current = null;
-    }
   }, []);
 
   // 보드 크기가 없으면 렌더링하지 않음
@@ -400,18 +319,65 @@ export default function Minimap({
   }
 
   return (
-    <div className="relative w-full h-full">
-      <canvas
-        ref={canvasRef}
-        width={minimapWidth}
-        height={minimapHeight}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        className={isDragging ? 'cursor-grabbing' : 'cursor-pointer'}
-        style={{ display: 'block', width: '100%', height: '100%' }}
+    <div
+      className="relative w-full h-full bg-gray-50 rounded-lg overflow-hidden"
+      onPointerDown={handleBackgroundPointerDown}
+      onPointerMove={handleBackgroundPointerMove}
+      onPointerUp={handleBackgroundPointerUp}
+      onPointerCancel={handleBackgroundPointerUp}
+      style={{ cursor: isDragging ? 'grabbing' : 'pointer' }}
+    >
+      {/* 보드 영역 배경 */}
+      <div
+        className="absolute bg-white border border-gray-200 rounded"
+        style={{
+          left: `${(minimapWidth - canvasBounds.width * scale) / 2}px`,
+          top: `${(availableHeight - canvasBounds.height * scale) / 2}px`,
+          width: `${canvasBounds.width * scale}px`,
+          height: `${canvasBounds.height * scale}px`,
+        }}
       />
+
+      {/* 심볼 아이템들 */}
+      {symbolItems.map(item => (
+        <div
+          key={item.id}
+          className="absolute flex items-center justify-center transition-all duration-150 select-none"
+          style={{
+            left: `${item.x}px`,
+            top: `${item.y}px`,
+            width: `${item.size}px`,
+            height: `${item.size}px`,
+            fontSize: `${item.size}px`,
+            lineHeight: `${item.size}px`,
+            transform: hoveredItem === item.id ? 'scale(1.3)' : 'scale(1)',
+            zIndex: hoveredItem === item.id ? 10 : 1,
+            cursor: 'pointer',
+          }}
+          onMouseEnter={() => setHoveredItem(item.id)}
+          onMouseLeave={() => setHoveredItem(null)}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleSymbolClick(item);
+          }}
+          title={`${item.type === 'memory' ? 'Memory' : 'Block'}: ${item.id}`}
+        >
+          {item.emoji}
+        </div>
+      ))}
+
+      {/* 뷰포트 영역 */}
+      {viewportRect && (
+        <div
+          className="absolute border-2 border-indigo-400 bg-indigo-50/30 rounded pointer-events-none"
+          style={{
+            left: `${viewportRect.x}px`,
+            top: `${viewportRect.y}px`,
+            width: `${viewportRect.width}px`,
+            height: `${viewportRect.height}px`,
+          }}
+        />
+      )}
     </div>
   );
 }

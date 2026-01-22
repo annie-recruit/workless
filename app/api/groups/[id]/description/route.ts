@@ -185,20 +185,6 @@ JSON 형식:
         description: `그룹 설명 생성 중 오류가 발생했습니다: ${parseError?.message || '알 수 없는 오류'}`,
       });
     }
-
-    let result;
-    try {
-      result = JSON.parse(content);
-    } catch (parseError) {
-      console.error('JSON 파싱 실패:', content, parseError);
-      return NextResponse.json({
-        description: 'AI 응답을 처리하는 중 오류가 발생했습니다.',
-      });
-    }
-    
-    return NextResponse.json({
-      description: result.description || '이 그룹에 대한 설명을 생성할 수 없습니다.',
-    });
   } catch (error: any) {
     console.error('Failed to generate group description:', error);
     const errorMessage = error?.message || '알 수 없는 오류';

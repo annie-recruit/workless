@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import SessionProvider from "@/components/SessionProvider";
 import { ViewerProvider } from "@/components/ViewerContext";
+import WebVitals from "@/components/WebVitals";
 
 export const metadata: Metadata = {
   title: "Workless - 개인 비서",
@@ -54,6 +55,7 @@ export default function RootLayout({
         <link rel="stylesheet" as="style" crossOrigin="" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
       </head>
       <body className="font-pretendard">
+        <WebVitals />
         <SessionProvider>
           <ViewerProvider>{children}</ViewerProvider>
         </SessionProvider>

@@ -1,14 +1,23 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
 import { Memory, Group, CanvasBlock, CalendarBlockConfig, ViewerBlockConfig } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import LinkManager from './LinkManager';
-import CalendarBlock from './CalendarBlock';
-import Minimap from './Minimap';
 import dynamic from 'next/dynamic';
 import { useViewer } from './ViewerContext';
+
+// 큰 컴포넌트들을 동적 import로 로드 (초기 번들 크기 감소)
+const CalendarBlock = dynamic(() => import('./CalendarBlock'), {
+  ssr: false,
+  loading: () => null,
+});
+
+const Minimap = dynamic(() => import('./Minimap'), {
+  ssr: false,
+  loading: () => null,
+});
 
 // ViewerBlock을 dynamic import로 로드 (PDF.js가 서버 사이드에서 실행되지 않도록)
 const ViewerBlock = dynamic(() => import('./ViewerBlock'), {
@@ -128,6 +137,18 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [linkManagerMemory, setLinkManagerMemory] = useState<Memory | null>(null);
   // 로컬 메모리 상태 (연결 추가 시 즉시 반영)
   const [localMemories, setLocalMemories] = useState<Memory[]>(memories);
+  // 메모리 순서 관리 (클릭 시 최상단으로 이동)
+  const [memoryOrder, setMemoryOrder] = useState<string[]>(() => memories.map(m => m.id));
+  
+  // localMemories 변경 시 memoryOrder 동기화 (새 메모리 추가 시)
+  useEffect(() => {
+    const currentIds = new Set(memoryOrder);
+    const newMemories = localMemories.filter(m => !currentIds.has(m.id));
+    if (newMemories.length > 0) {
+      setMemoryOrder(prev => [...prev, ...newMemories.map(m => m.id)]);
+    }
+  }, [localMemories, memoryOrder]);
+  
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [previousPositions, setPreviousPositions] = useState<Record<string, { x: number; y: number }> | null>(null);
   const [positionsLoaded, setPositionsLoaded] = useState(false); // 위치 로드 완료 플래그
@@ -155,6 +176,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [groupStep, setGroupStep] = useState<'loading' | 'confirm' | 'animating'>('loading');
   const [clickedCardId, setClickedCardId] = useState<string | null>(null); // 클릭한 카드 ID
   const [clickedBlockId, setClickedBlockId] = useState<string | null>(null); // 클릭한 블록 ID
+  // 마지막으로 클릭한 항목 (계속 앞에 유지)
+  const [lastClickedItem, setLastClickedItem] = useState<{ type: 'memory' | 'block'; id: string } | null>(null);
   const [toast, setToast] = useState<{ type: 'loading' | 'confirm' | 'success' | 'delete-link' | 'delete-memory' | 'delete-location' | 'error' | null; data?: any }>({ type: null });
   // @ 태그 클릭 시 표시할 관련 기록 토스트 (여러 개 중첩 가능)
   const [mentionToasts, setMentionToasts] = useState<Array<{ id: string; memoryId: string; x: number; y: number; relatedIds: string[] }>>([]);
@@ -395,6 +418,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   // 통합 드래그 엔진: RAF 단일 루프
   const dragRafIdRef = useRef<number | null>(null);
   const lastPointerPosRef = useRef<{ x: number; y: number } | null>(null);
+  const positionsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const dragStartPositionsRef = useRef<Record<string, { x: number; y: number }>>({});
 
   useEffect(() => {
     fetchGroups();
@@ -846,13 +871,82 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     return id1 < id2 ? `${id1}:${id2}` : `${id2}:${id1}`;
   };
 
-  // 그룹별 필터링
+  // 그룹별 필터링 및 순서 적용
   const filteredMemories = useMemo(() => {
-    if (!selectedGroupId) return localMemories;
-        const group = groups.find(g => g.id === selectedGroupId);
-    if (!group) return [];
-    return localMemories.filter(m => group.memoryIds.includes(m.id));
-  }, [localMemories, selectedGroupId, groups]);
+    let memories = localMemories;
+    if (selectedGroupId) {
+      const group = groups.find(g => g.id === selectedGroupId);
+      if (!group) return [];
+      memories = localMemories.filter(m => group.memoryIds.includes(m.id));
+    }
+    
+    // 순서에 따라 정렬 (memoryOrder에 있는 것만, 나머지는 뒤에)
+    const orderedMemories: Memory[] = [];
+    const unorderedMemories: Memory[] = [];
+    const orderSet = new Set(memoryOrder);
+    
+    // 순서가 있는 메모리들
+    memoryOrder.forEach(id => {
+      const memory = memories.find(m => m.id === id);
+      if (memory) orderedMemories.push(memory);
+    });
+    
+    // 순서가 없는 메모리들 (새로 추가된 것 등)
+    memories.forEach(memory => {
+      if (!orderSet.has(memory.id)) {
+        unorderedMemories.push(memory);
+      }
+    });
+    
+    return [...orderedMemories, ...unorderedMemories];
+  }, [localMemories, selectedGroupId, groups, memoryOrder]);
+
+  // 뷰포트 기반 가상화: 보이는 카드만 렌더링
+  const visibleMemories = useMemo(() => {
+    if (filteredMemories.length === 0) return [];
+    
+    // 뷰포트 경계 계산 (여유 공간 추가)
+    const padding = 200; // 카드가 완전히 사라지기 전에 미리 렌더링
+    const viewLeft = viewportBounds.left - padding;
+    const viewTop = viewportBounds.top - padding;
+    const viewRight = viewportBounds.left + viewportBounds.width + padding;
+    const viewBottom = viewportBounds.top + viewportBounds.height + padding;
+    
+    const cardDims = CARD_DIMENSIONS[cardSize];
+    
+    return filteredMemories.filter(memory => {
+      const position = positions[memory.id] || { x: 0, y: 0 };
+      const cardLeft = position.x;
+      const cardRight = position.x + cardDims.width;
+      const cardTop = position.y;
+      const cardBottom = position.y + cardDims.height;
+      
+      // 뷰포트와 겹치는지 확인
+      return !(cardRight < viewLeft || cardLeft > viewRight || cardBottom < viewTop || cardTop > viewBottom);
+    });
+  }, [filteredMemories, positions, viewportBounds, cardSize]);
+
+  // 뷰포트 기반 가상화: 보이는 블록만 렌더링
+  const visibleBlocks = useMemo(() => {
+    if (blocks.length === 0) return [];
+    
+    // 뷰포트 경계 계산 (여유 공간 추가)
+    const padding = 200;
+    const viewLeft = viewportBounds.left - padding;
+    const viewTop = viewportBounds.top - padding;
+    const viewRight = viewportBounds.left + viewportBounds.width + padding;
+    const viewBottom = viewportBounds.top + viewportBounds.height + padding;
+    
+    return blocks.filter(block => {
+      const blockLeft = block.x;
+      const blockRight = block.x + (block.width || 400);
+      const blockTop = block.y;
+      const blockBottom = block.y + (block.height || 300);
+      
+      // 뷰포트와 겹치는지 확인
+      return !(blockRight < viewLeft || blockLeft > viewRight || blockBottom < viewTop || blockTop > viewBottom);
+    });
+  }, [blocks, viewportBounds]);
 
   // 그룹 선택 시 설명 가져오기
   useEffect(() => {
@@ -1005,6 +1099,15 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     }
   }, [filteredMemories]);
 
+  // positions와 dragStartPositions를 ref와 동기화 (무한 루프 방지)
+  useEffect(() => {
+    positionsRef.current = positions;
+  }, [positions]);
+
+  useEffect(() => {
+    dragStartPositionsRef.current = dragStartPositions;
+  }, [dragStartPositions]);
+
   // 통합 드래그 엔진: 단일 RAF 루프로 모든 드래그 처리
   useEffect(() => {
     if (!draggingEntity || !boardRef.current) {
@@ -1033,9 +1136,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         const boxBottom = Math.max(selectionBox.startY, endY);
         
         const selected: Set<string> = event.ctrlKey || event.metaKey ? new Set(selectedMemoryIds) : new Set();
+        const currentPositions = positionsRef.current;
         
-        filteredMemories.forEach(memory => {
-          const pos = positions[memory.id] || { x: 0, y: 0 };
+        // localMemories를 사용하여 모든 메모리 확인 (필터링된 것만이 아닌)
+        localMemories.forEach(memory => {
+          const pos = currentPositions[memory.id] || { x: 0, y: 0 };
           const cardDims = CARD_DIMENSIONS[cardSize];
           const cardLeft = pos.x;
           const cardRight = pos.x + cardDims.width;
@@ -1065,7 +1170,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       // RAF가 없으면 시작
       if (dragRafIdRef.current === null) {
         const updatePosition = () => {
-          if (!lastPointerPosRef.current || !boardRef.current) {
+          if (!lastPointerPosRef.current || !boardRef.current || !draggingEntity) {
             dragRafIdRef.current = null;
             return;
           }
@@ -1095,7 +1200,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
             // 메모리 카드 드래그: transform 기반
             if (selectedMemoryIds.has(draggingEntity.id) && selectedMemoryIds.size > 1) {
               // 다중 선택
-              const startPos = dragStartPositions[draggingEntity.id] || positions[draggingEntity.id] || { x: 0, y: 0 };
+              const currentPositions = positionsRef.current;
+              const currentDragStartPositions = dragStartPositionsRef.current;
+              const startPos = currentDragStartPositions[draggingEntity.id] || currentPositions[draggingEntity.id] || { x: 0, y: 0 };
               const deltaX = newX - startPos.x;
               const deltaY = newY - startPos.y;
               
@@ -1103,7 +1210,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 const next = { ...prev };
                 let hasChanges = false;
                 selectedMemoryIds.forEach(id => {
-                  const startPosForCard = dragStartPositions[id] || prev[id] || { x: 0, y: 0 };
+                  const startPosForCard = currentDragStartPositions[id] || prev[id] || { x: 0, y: 0 };
                   const finalX = Math.max(0, startPosForCard.x + deltaX);
                   const finalY = Math.max(0, startPosForCard.y + deltaY);
                   const currentPos = prev[id];
@@ -1145,6 +1252,15 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         dragRafIdRef.current = null;
       }
 
+      // Pointer capture 해제
+      if (event && event.target) {
+        try {
+          (event.target as HTMLElement).releasePointerCapture?.(event.pointerId);
+        } catch (e) {
+          // ignore
+        }
+      }
+
       if (!draggingEntity || !boardRef.current) {
         if (isSelecting) {
           setIsSelecting(false);
@@ -1174,7 +1290,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           finalX = block?.x ?? 0;
           finalY = block?.y ?? 0;
         } else {
-          const pos = positions[draggingEntity.id] || { x: 0, y: 0 };
+          const pos = positionsRef.current[draggingEntity.id] || { x: 0, y: 0 };
           finalX = pos.x;
           finalY = pos.y;
         }
@@ -1202,14 +1318,16 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       } else {
         // 메모리 카드
         if (selectedMemoryIds.has(draggingEntity.id) && selectedMemoryIds.size > 1) {
-          const startPos = dragStartPositions[draggingEntity.id] || positions[draggingEntity.id] || { x: 0, y: 0 };
+          const currentPositions = positionsRef.current;
+          const currentDragStartPositions = dragStartPositionsRef.current;
+          const startPos = currentDragStartPositions[draggingEntity.id] || currentPositions[draggingEntity.id] || { x: 0, y: 0 };
           const deltaX = finalX - startPos.x;
           const deltaY = finalY - startPos.y;
           
           setPositions(prev => {
             const next = { ...prev };
             selectedMemoryIds.forEach(id => {
-              const startPosForCard = dragStartPositions[id] || prev[id] || { x: 0, y: 0 };
+              const startPosForCard = currentDragStartPositions[id] || prev[id] || { x: 0, y: 0 };
               next[id] = {
                 x: Math.max(0, startPosForCard.x + deltaX),
                 y: Math.max(0, startPosForCard.y + deltaY),
@@ -1235,8 +1353,21 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       }
     };
 
+    const handlePointerCancel = (event?: PointerEvent) => {
+      // Pointer capture 해제
+      if (event && event.target) {
+        try {
+          (event.target as HTMLElement).releasePointerCapture?.(event.pointerId);
+        } catch (e) {
+          // ignore
+        }
+      }
+      handleUp(event);
+    };
+
     window.addEventListener('pointermove', handleMove, { passive: true });
     window.addEventListener('pointerup', handleUp, { passive: true });
+    window.addEventListener('pointercancel', handlePointerCancel, { passive: true });
     
     return () => {
       window.removeEventListener('pointermove', handleMove);
@@ -1246,7 +1377,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         dragRafIdRef.current = null;
       }
     };
-  }, [draggingEntity, dragOffset, selectedMemoryIds, positions, isSelecting, selectionBox, filteredMemories, cardSize, dragStartPositions, blocks]);
+  }, [draggingEntity, dragOffset, selectedMemoryIds, isSelecting, selectionBox, filteredMemories, cardSize, blocks]);
 
   useEffect(() => {
     if (!positions || Object.keys(positions).length === 0) return;
@@ -1424,16 +1555,59 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     }
   };
 
+  // Bring to front 공통 함수들
+  const bringToFrontMemory = useCallback((memoryId: string) => {
+    setClickedCardId(memoryId);
+    setClickedBlockId(null);
+    setLastClickedItem({ type: 'memory', id: memoryId });
+    setMemoryOrder(prev => {
+      const index = prev.indexOf(memoryId);
+      if (index === -1 || index === prev.length - 1) return prev;
+      const newOrder = [...prev];
+      newOrder.splice(index, 1);
+      newOrder.push(memoryId);
+      return newOrder;
+    });
+  }, []);
+
+  const bringToFrontBlock = useCallback((blockId: string) => {
+    setClickedBlockId(blockId);
+    setClickedCardId(null);
+    setLastClickedItem({ type: 'block', id: blockId });
+    setBlocks(prev => {
+      const index = prev.findIndex(b => b.id === blockId);
+      if (index === -1 || index === prev.length - 1) return prev;
+      const newBlocks = [...prev];
+      const [clickedBlock] = newBlocks.splice(index, 1);
+      newBlocks.push(clickedBlock);
+      return newBlocks;
+    });
+  }, []);
+
   const handlePointerDown = (memoryId: string, event: React.PointerEvent) => {
+    // 먼저 bring-to-front 처리 (조작 요소가 아닌 경우)
+    const target = event.target as HTMLElement;
+    const isInteractiveElement = target.closest('button') || 
+                                 target.closest('a') || 
+                                 target.closest('[contenteditable]') || 
+                                 target.closest('input') || 
+                                 target.closest('textarea') ||
+                                 target.closest('img');
+    
+    if (!isInteractiveElement) {
+      // 조작 요소가 아니면 무조건 bring-to-front
+      bringToFrontMemory(memoryId);
+      // Pointer capture 설정
+      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    }
     // 편집 모드에서는 드래그 비활성화
     const cardElement = (event.currentTarget as HTMLElement).querySelector(`[data-editing="true"]`);
     if (cardElement) {
       return;
     }
 
-    // 버튼, 링크, 편집 가능한 요소 클릭 시 드래그 비활성화
-    const target = event.target as HTMLElement;
-    if (target.closest('button') || target.closest('a') || target.closest('[contenteditable]') || target.closest('input') || target.closest('textarea')) {
+    // 조작 요소에서는 드래그만 비활성화 (bring-to-front는 이미 처리됨)
+    if (isInteractiveElement) {
       return;
     }
 
@@ -1465,14 +1639,15 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       if (!boardRect) return;
       
       // 선택된 모든 카드의 현재 위치를 드래그 시작 위치로 저장
+      const currentPositions = positionsRef.current;
       const startPositions: Record<string, { x: number; y: number }> = {};
       selectedMemoryIds.forEach(id => {
-        startPositions[id] = positions[id] || { x: 0, y: 0 };
+        startPositions[id] = currentPositions[id] || { x: 0, y: 0 };
       });
       setDragStartPositions(startPositions);
       
       // 드래그 오프셋 계산
-      const currentPos = positions[memoryId] || { x: 0, y: 0 };
+      const currentPos = currentPositions[memoryId] || { x: 0, y: 0 };
       const mouseX = (event.clientX - boardRect.left) / zoomRef.current;
       const mouseY = (event.clientY - boardRect.top) / zoomRef.current;
       
@@ -1498,11 +1673,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     if (!boardRect) return;
     
     // 드래그 시작 시점의 마우스 위치와 카드 위치를 저장
-    const currentPos = positions[memoryId] || { x: 0, y: 0 };
+    const currentPos = positionsRef.current[memoryId] || { x: 0, y: 0 };
     const startMouseX = (event.clientX - boardRect.left) / zoomRef.current;
     const startMouseY = (event.clientY - boardRect.top) / zoomRef.current;
     
-    // 통합 드래그 시스템 사용
+    // 통합 드래그 시스템 사용 (드래그 중에는 항상 최상단)
     setDraggingEntity({ type: 'memory', id: memoryId });
     setDragOffset({
       x: startMouseX - currentPos.x,
@@ -1941,8 +2116,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   </div>
                 )}
 
-                {/* 블록 렌더링 */}
-                {blocks.map(block => {
+                {/* 블록 렌더링 (가상화 적용) */}
+                {visibleBlocks.map((block, blockIndex) => {
                   if (block.type === 'calendar') {
                     const config = block.config as CalendarBlockConfig;
                     return (
@@ -1987,10 +2162,24 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         }}
                         isDragging={draggingBlockId === block.id}
                         isClicked={clickedBlockId === block.id}
+                        zIndex={draggingBlockId === block.id ? 10000 : (10 + blockIndex)}
                         onPointerDown={(e) => {
-                          // 버튼이나 링크 클릭이 아닐 때만 드래그 시작
                           const target = e.target as HTMLElement;
-                          if (target.closest('button') || target.closest('a') || target.closest('input')) {
+                          const isInteractiveElement = target.closest('button') || 
+                                                       target.closest('a') || 
+                                                       target.closest('input') ||
+                                                       target.closest('textarea') ||
+                                                       target.closest('canvas');
+                          
+                          // 조작 요소가 아니면 먼저 bring-to-front 처리
+                          if (!isInteractiveElement) {
+                            bringToFrontBlock(block.id);
+                            // Pointer capture 설정
+                            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                          }
+                          
+                          // 조작 요소에서는 드래그만 비활성화
+                          if (isInteractiveElement) {
                             return;
                           }
                           
@@ -2007,11 +2196,6 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                             y: (e.clientY - rect.top) / scale - block.y,
                           });
                         }}
-                        onClick={() => {
-                          setClickedBlockId(block.id);
-                          // 다른 카드 클릭 상태 해제
-                          setClickedCardId(null);
-                        }}
                       />
                     );
                   }
@@ -2025,7 +2209,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                           transform: `translate3d(${block.x}px, ${block.y}px, 0)`,
                           width: `${block.width || 240}px`,
                           height: `${block.height || 160}px`,
-                          zIndex: draggingBlockId === block.id ? 30 : (clickedBlockId === block.id ? 20 : 10),
+                          zIndex: draggingBlockId === block.id ? 10000 : (lastClickedItem?.type === 'block' && lastClickedItem.id === block.id ? 5000 : (clickedBlockId === block.id ? 100 + blockIndex : 10 + blockIndex)),
                           opacity: draggingBlockId === block.id ? 0.85 : 1,
                           transition: 'none',
                           willChange: draggingBlockId === block.id ? 'transform' : 'auto',
@@ -2034,7 +2218,18 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         }}
                         onPointerDown={(e) => {
                           const target = e.target as HTMLElement;
-                          if (target.closest('button') || target.closest('canvas')) {
+                          const isInteractiveElement = target.closest('button') || 
+                                                       target.closest('canvas');
+                          
+                          // 조작 요소가 아니면 먼저 bring-to-front 처리
+                          if (!isInteractiveElement) {
+                            bringToFrontBlock(block.id);
+                            // Pointer capture 설정
+                            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                          }
+                          
+                          // 조작 요소에서는 드래그만 비활성화
+                          if (isInteractiveElement) {
                             return;
                           }
                           
@@ -2049,14 +2244,6 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                             x: (e.clientX - rect.left) / scale - block.x,
                             y: (e.clientY - rect.top) / scale - block.y,
                           });
-                        }}
-                        onClick={(e) => {
-                          const target = e.target as HTMLElement;
-                          if (target.closest('button') || target.closest('canvas')) {
-                            return;
-                          }
-                          setClickedBlockId(block.id);
-                          setClickedCardId(null);
                         }}
                       >
                         {/* 헤더 */}
@@ -2078,18 +2265,20 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         </div>
                         {/* 미니맵 캔버스 */}
                         {boardSize.width > 0 && boardSize.height > 0 && (
-                          <Minimap
-                            boardSize={boardSize}
-                            positions={positions}
-                            blocks={blocks.filter(b => b.type !== 'minimap')}
-                            memories={filteredMemories}
-                            viewportBounds={viewportBounds}
-                            zoom={zoom}
-                            boardContainerRef={boardContainerRef}
-                            cardSize={cardSize}
-                            cardColorMap={cardColorMap}
-                            cardColor={cardColor}
-                          />
+                          <div className="h-[calc(100%-40px)] overflow-hidden">
+                            <Minimap
+                              boardSize={boardSize}
+                              positions={positions}
+                              blocks={blocks.filter(b => b.type !== 'minimap')}
+                              memories={filteredMemories}
+                              viewportBounds={viewportBounds}
+                              zoom={zoom}
+                              boardContainerRef={boardContainerRef}
+                              cardSize={cardSize}
+                              cardColorMap={cardColorMap}
+                              cardColor={cardColor}
+                            />
+                          </div>
                         )}
                       </div>
                     );
@@ -2109,6 +2298,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         onDelete={handleBlockDelete}
                         isDragging={draggingBlockId === block.id}
                         isClicked={clickedBlockId === block.id}
+                        zIndex={draggingBlockId === block.id ? 10000 : (10 + blockIndex)}
                         onPointerDown={(e) => {
                           // 버튼이나 링크 클릭이 아닐 때만 드래그 시작
                           const target = e.target as HTMLElement;
@@ -2131,6 +2321,15 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         onClick={() => {
                           setClickedBlockId(block.id);
                           setClickedCardId(null);
+                          // 클릭한 블록을 배열의 맨 뒤로 이동 (최상단 표시)
+                          setBlocks(prev => {
+                            const index = prev.findIndex(b => b.id === block.id);
+                            if (index === -1 || index === prev.length - 1) return prev;
+                            const newBlocks = [...prev];
+                            const [clickedBlock] = newBlocks.splice(index, 1);
+                            newBlocks.push(clickedBlock);
+                            return newBlocks;
+                          });
                         }}
                       />
                     );
@@ -2462,8 +2661,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   </>
                 )}
 
-                {/* 메모리 카드들 */}
-                {filteredMemories.map((memory) => {
+                {/* 메모리 카드들 (가상화 적용) */}
+                {visibleMemories.map((memory, memoryIndex) => {
                   const position = positions[memory.id] || { x: 0, y: 0 };
                   const memoryColor = cardColorMap[memory.id] || cardColor;
                   const memoryColorClass = memoryColor === 'green'
@@ -2478,15 +2677,6 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     <div
                 key={memory.id}
                       data-memory-card={memory.id}
-                      onClick={(event) => {
-                        // 버튼이나 링크 클릭이 아닐 때만 카드를 위로 올리기
-                        const target = event.target as HTMLElement;
-                        if (!target.closest('button') && !target.closest('a') && !target.closest('[contenteditable]')) {
-                          setClickedCardId(memory.id);
-                          // 다른 블록 클릭 상태 해제
-                          setClickedBlockId(null);
-                        }
-                      }}
                       onPointerDown={(event) => {
                         // 편집 모드 체크: MemoryCard 내부의 data-editing 속성 확인
                         const cardElement = (event.currentTarget as HTMLElement).querySelector(`[data-editing="true"]`);
@@ -2497,7 +2687,22 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         
                         // 버튼, 링크, 편집 가능한 요소 클릭 시 드래그 비활성화
                         const target = event.target as HTMLElement;
-                        if (target.closest('button') || target.closest('a') || target.closest('[contenteditable]') || target.closest('input') || target.closest('textarea') || target.closest('img')) {
+                        const isInteractiveElement = target.closest('button') || 
+                                                     target.closest('a') || 
+                                                     target.closest('[contenteditable]') || 
+                                                     target.closest('input') || 
+                                                     target.closest('textarea') || 
+                                                     target.closest('img');
+                        
+                        // 조작 요소가 아니면 먼저 bring-to-front 처리
+                        if (!isInteractiveElement) {
+                          bringToFrontMemory(memory.id);
+                          // Pointer capture 설정
+                          (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+                        }
+                        
+                        // 조작 요소에서는 드래그만 비활성화 (bring-to-front는 이미 처리됨)
+                        if (isInteractiveElement) {
                           return;
                         }
                         
@@ -2507,7 +2712,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
                         willChange: isDragging ? 'transform' : 'auto',
                         opacity: isDragging ? 0.85 : 1,
-                        zIndex: isDragging ? 30 : (clickedCardId === memory.id ? 20 : (isSelected ? 15 : 10)),
+                        zIndex: isDragging ? 10000 : (lastClickedItem?.type === 'memory' && lastClickedItem.id === memory.id ? 5000 : (clickedCardId === memory.id ? 100 + memoryIndex : (isSelected ? 50 + memoryIndex : 10 + memoryIndex))),
                         transition: 'none',
                         pointerEvents: isDragging ? 'none' : 'auto',
                         contain: 'layout style paint',
@@ -2875,7 +3080,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   );
 }
 
-function MemoryCard({ 
+const MemoryCard = memo(function MemoryCard({ 
   memory, 
   onDelete, 
   allMemories, 
@@ -3690,4 +3895,16 @@ function MemoryCard({
       </div>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  // 커스텀 비교 함수: memory와 주요 props만 비교
+  return (
+    prevProps.memory.id === nextProps.memory.id &&
+    prevProps.memory.content === nextProps.memory.content &&
+    prevProps.memory.title === nextProps.memory.title &&
+    prevProps.memory.relatedMemoryIds?.length === nextProps.memory.relatedMemoryIds?.length &&
+    prevProps.colorClass === nextProps.colorClass &&
+    prevProps.variant === nextProps.variant &&
+    prevProps.personaId === nextProps.personaId &&
+    JSON.stringify(prevProps.linkNotes) === JSON.stringify(nextProps.linkNotes)
+  );
+});

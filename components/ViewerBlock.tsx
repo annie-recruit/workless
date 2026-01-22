@@ -41,6 +41,7 @@ interface ViewerBlockProps {
   isClicked: boolean;
   onPointerDown: (e: React.PointerEvent) => void;
   onClick?: () => void;
+  zIndex?: number;
 }
 
 type ViewerState = 'empty' | 'loading' | 'loaded' | 'error';
@@ -58,6 +59,7 @@ export default function ViewerBlock({
   isClicked,
   onPointerDown,
   onClick,
+  zIndex = 10,
 }: ViewerBlockProps) {
   const { registerViewer, unregisterViewer, setActiveViewerId } = useViewer();
   const [currentSource, setCurrentSource] = useState<ViewerSource | null>(config.currentSource || null);
@@ -294,7 +296,7 @@ export default function ViewerBlock({
         transform: `translate3d(${x}px, ${y}px, 0)`,
         width: `${width}px`,
         height: `${height}px`,
-        zIndex: isDragging ? 30 : (isClicked ? 20 : 10),
+        zIndex: zIndex,
         opacity: isDragging ? 0.85 : 1,
         transition: 'none',
         willChange: isDragging ? 'transform' : 'auto',
