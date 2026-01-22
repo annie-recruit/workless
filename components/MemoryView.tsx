@@ -112,13 +112,76 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [positionsLoaded, setPositionsLoaded] = useState(false); // 위치 로드 완료 플래그
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [dragStartPositions, setDragStartPositions] = useState<Record<string, { x: number; y: number }>>({}); // 드래그 시작 시점의 위치
   const [selectedMemoryIds, setSelectedMemoryIds] = useState<Set<string>>(new Set()); // 다중 선택
+  const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null); // 드래그 선택 박스
+  const [isSelecting, setIsSelecting] = useState(false); // 선택 모드인지
   const [isAutoArranging, setIsAutoArranging] = useState(false);
   const [cardSize, setCardSize] = useState<'s' | 'm' | 'l'>('m');
   const [cardColor, setCardColor] = useState<'amber' | 'blue' | 'green' | 'pink' | 'purple'>('amber');
   const [cardColorMap, setCardColorMap] = useState<Record<string, 'amber' | 'blue' | 'green' | 'pink' | 'purple'>>({});
   const [linkNotes, setLinkNotes] = useState<Record<string, string>>({});
+  // AI 묶기 모달 상태 (MemoryView 레벨로 이동)
+  const [groupModalMemory, setGroupModalMemory] = useState<Memory | null>(null);
+  const [groupResult, setGroupResult] = useState<any>(null);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [groupStep, setGroupStep] = useState<'loading' | 'confirm' | 'animating'>('loading');
   const boardRef = useRef<HTMLDivElement>(null);
+  
+  // AI 묶기 API 호출
+  useEffect(() => {
+    if (!showGroupModal || !groupModalMemory || groupStep !== 'loading') return;
+    
+    const fetchGroup = async () => {
+      try {
+        const res = await fetch(`/api/memories/${groupModalMemory.id}/auto-group`, {
+          method: 'POST',
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          setGroupResult(data);
+          setGroupStep('confirm');
+        } else {
+          alert('자동 묶기 실패');
+          setShowGroupModal(false);
+          setGroupModalMemory(null);
+        }
+      } catch (error) {
+        console.error('Auto group error:', error);
+        alert('자동 묶기 중 오류 발생');
+        setShowGroupModal(false);
+        setGroupModalMemory(null);
+      }
+    };
+    
+    fetchGroup();
+  }, [showGroupModal, groupModalMemory, groupStep]);
+  
+  // AI 묶기 모달 핸들러
+  const handleCancelGroup = async () => {
+    // 생성된 그룹 삭제
+    if (groupResult?.group?.id) {
+      try {
+        await fetch(`/api/groups?id=${groupResult.group.id}`, {
+          method: 'DELETE',
+        });
+      } catch (error) {
+        console.error('Failed to delete group:', error);
+      }
+    }
+    setShowGroupModal(false);
+    setGroupModalMemory(null);
+    setGroupResult(null);
+  };
+  
+  const handleConfirmGroup = () => {
+    setGroupStep('animating');
+    // 애니메이션 후 새로고침
+    setTimeout(() => {
+      window.location.reload();
+    }, 2500);
+  };
   const [boardSize, setBoardSize] = useState({ width: 1600, height: 1200 });
   const [zoom, setZoom] = useState(1);
   const zoomRef = useRef(1);
@@ -416,6 +479,46 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
   useEffect(() => {
     const handleMove = (event: PointerEvent) => {
+      // 선택 모드일 때는 선택 박스 업데이트
+      if (isSelecting && selectionBox && boardRef.current) {
+        const rect = boardRef.current.getBoundingClientRect();
+        const scale = zoomRef.current;
+        const endX = (event.clientX - rect.left) / scale;
+        const endY = (event.clientY - rect.top) / scale;
+        
+        setSelectionBox(prev => prev ? { ...prev, endX, endY } : null);
+        
+        // 선택 박스 안의 카드들 찾기
+        const boxLeft = Math.min(selectionBox.startX, endX);
+        const boxRight = Math.max(selectionBox.startX, endX);
+        const boxTop = Math.min(selectionBox.startY, endY);
+        const boxBottom = Math.max(selectionBox.startY, endY);
+        
+        const selected: Set<string> = event.ctrlKey || event.metaKey ? new Set(selectedMemoryIds) : new Set();
+        
+        filteredMemories.forEach(memory => {
+          const pos = positions[memory.id] || { x: 0, y: 0 };
+          const cardDims = CARD_DIMENSIONS[cardSize];
+          const cardLeft = pos.x;
+          const cardRight = pos.x + cardDims.width;
+          const cardTop = pos.y;
+          const cardBottom = pos.y + cardDims.height;
+          
+          // 카드가 선택 박스와 겹치는지 확인
+          if (cardRight >= boxLeft && cardLeft <= boxRight && 
+              cardBottom >= boxTop && cardTop <= boxBottom) {
+            selected.add(memory.id);
+          } else if (!event.ctrlKey && !event.metaKey) {
+            // Ctrl/Cmd가 눌려있지 않으면 박스 밖 카드는 선택 해제
+            selected.delete(memory.id);
+          }
+        });
+        
+        setSelectedMemoryIds(selected);
+        return;
+      }
+      
+      // 선택 모드가 아닐 때는 카드 드래그 처리
       if (!draggingId || !boardRef.current) return;
       const rect = boardRef.current.getBoundingClientRect();
       const scale = zoomRef.current;
@@ -428,25 +531,21 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       
       // 다중 선택 모드이고 여러 카드가 선택되어 있으면
       if (selectedMemoryIds.has(draggingId) && selectedMemoryIds.size > 1) {
-        const basePosition = positions[draggingId] || { x: 0, y: 0 };
-        const deltaX = newBaseX - basePosition.x;
-        const deltaY = newBaseY - basePosition.y;
+        // 드래그 시작 시점의 위치를 기준으로 delta 계산
+        const startPos = dragStartPositions[draggingId] || positions[draggingId] || { x: 0, y: 0 };
+        const deltaX = newBaseX - startPos.x;
+        const deltaY = newBaseY - startPos.y;
         
-        // 선택된 모든 카드를 같은 거리만큼 이동
+        // 선택된 모든 카드를 정확히 같은 거리만큼 이동 (드래그 시작 위치 기준)
         setPositions(prev => {
           const next = { ...prev };
           selectedMemoryIds.forEach(id => {
-            const currentPos = prev[id] || { x: 0, y: 0 };
+            const startPosForCard = dragStartPositions[id] || prev[id] || { x: 0, y: 0 };
             next[id] = {
-              x: Math.max(0, currentPos.x + deltaX),
-              y: Math.max(0, currentPos.y + deltaY),
+              x: Math.max(0, startPosForCard.x + deltaX),
+              y: Math.max(0, startPosForCard.y + deltaY),
             };
           });
-          // 드래그 중인 카드도 업데이트
-          next[draggingId] = {
-            x: Math.max(0, newBaseX),
-            y: Math.max(0, newBaseY),
-          };
           return next;
         });
       } else {
@@ -465,6 +564,10 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
     const handleUp = () => {
       setDraggingId(null);
+      if (isSelecting) {
+        setIsSelecting(false);
+        setSelectionBox(null);
+      }
     };
 
     window.addEventListener('pointermove', handleMove);
@@ -473,7 +576,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       window.removeEventListener('pointermove', handleMove);
       window.removeEventListener('pointerup', handleUp);
     };
-  }, [draggingId, dragOffset, selectedMemoryIds, positions]);
+  }, [draggingId, dragOffset, selectedMemoryIds, positions, isSelecting, selectionBox, filteredMemories, cardSize, dragStartPositions]);
 
   useEffect(() => {
     if (!positions || Object.keys(positions).length === 0) return;
@@ -677,10 +780,18 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
     // 선택된 카드가 있고, 클릭한 카드가 선택된 카드 중 하나면 다중 드래그
     if (selectedMemoryIds.size > 0 && selectedMemoryIds.has(memoryId)) {
-      // 선택된 모든 카드를 드래그
+      // 선택된 모든 카드를 드래그 - 드래그 시작 시점의 위치 저장
       event.preventDefault();
       event.stopPropagation();
       const rect = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
+      
+      // 선택된 모든 카드의 현재 위치를 드래그 시작 위치로 저장
+      const startPositions: Record<string, { x: number; y: number }> = {};
+      selectedMemoryIds.forEach(id => {
+        startPositions[id] = positions[id] || { x: 0, y: 0 };
+      });
+      setDragStartPositions(startPositions);
+      
       setDraggingId(memoryId);
       setDragOffset({
         x: (event.clientX - rect.left) / zoomRef.current,
@@ -1027,19 +1138,50 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 }}
                 ref={boardRef}
                 onPointerDown={(e) => {
-                  // 보드 빈 공간 클릭 시 선택 해제
-                  if (e.target === boardRef.current || (e.target as HTMLElement).classList.contains('relative')) {
-                    if (selectedMemoryIds.size > 0) {
+                  // 카드나 다른 요소를 클릭한 경우 무시
+                  const target = e.target as HTMLElement;
+                  if (target.closest('[data-memory-card]')) {
+                    return;
+                  }
+                  
+                  // 보드 빈 공간에서 시작하는 드래그 선택
+                  if (target === e.currentTarget || target.classList.contains('relative') || target.tagName === 'svg' || target.tagName === 'g' || target === boardRef.current) {
+                    // Ctrl/Cmd 키가 눌려있지 않으면 기존 선택 해제
+                    if (!e.ctrlKey && !e.metaKey && selectedMemoryIds.size > 0) {
                       setSelectedMemoryIds(new Set());
                     }
+                    
+                    // 드래그 선택 시작
+                    const rect = boardRef.current!.getBoundingClientRect();
+                    const scale = zoomRef.current;
+                    const startX = (e.clientX - rect.left) / scale;
+                    const startY = (e.clientY - rect.top) / scale;
+                    
+                    setIsSelecting(true);
+                    setSelectionBox({ startX, startY, endX: startX, endY: startY });
+                    e.preventDefault();
+                    e.stopPropagation();
                   }
                 }}
               >
+                {/* 드래그 선택 박스 */}
+                {selectionBox && (
+                  <div
+                    className="absolute border-2 border-blue-500 bg-blue-200/20 pointer-events-none z-40"
+                    style={{
+                      left: `${Math.min(selectionBox.startX, selectionBox.endX)}px`,
+                      top: `${Math.min(selectionBox.startY, selectionBox.endY)}px`,
+                      width: `${Math.abs(selectionBox.endX - selectionBox.startX)}px`,
+                      height: `${Math.abs(selectionBox.endY - selectionBox.startY)}px`,
+                    }}
+                  />
+                )}
+
                 {/* 다중 선택 안내 */}
                 {selectedMemoryIds.size > 0 && (
                   <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 z-30">
                     <span className="text-sm font-medium">
-                      {selectedMemoryIds.size}개 카드 선택됨 (Ctrl/Cmd + 클릭으로 추가 선택)
+                      {selectedMemoryIds.size}개 카드 선택됨 (드래그 또는 Ctrl/Cmd + 클릭으로 선택)
                     </span>
                     <button
                       onClick={() => setSelectedMemoryIds(new Set())}
@@ -1149,11 +1291,24 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   </svg>
                 )}
 
+                {/* 드래그 선택 박스 */}
+                {selectionBox && (
+                  <div
+                    className="absolute border-2 border-blue-500 bg-blue-200/20 pointer-events-none z-40"
+                    style={{
+                      left: `${Math.min(selectionBox.startX, selectionBox.endX)}px`,
+                      top: `${Math.min(selectionBox.startY, selectionBox.endY)}px`,
+                      width: `${Math.abs(selectionBox.endX - selectionBox.startX)}px`,
+                      height: `${Math.abs(selectionBox.endY - selectionBox.startY)}px`,
+                    }}
+                  />
+                )}
+
                 {/* 다중 선택 안내 */}
                 {selectedMemoryIds.size > 0 && (
                   <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 z-30">
                     <span className="text-sm font-medium">
-                      {selectedMemoryIds.size}개 카드 선택됨 (Ctrl/Cmd + 클릭으로 추가 선택)
+                      {selectedMemoryIds.size}개 카드 선택됨 (드래그 또는 Ctrl/Cmd + 클릭으로 선택)
                     </span>
                     <button
                       onClick={() => setSelectedMemoryIds(new Set())}
@@ -1184,7 +1339,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   
                   return (
                     <div
-                key={memory.id} 
+                key={memory.id}
+                      data-memory-card={memory.id}
                       onPointerDown={(event) => {
                         // 편집 모드 체크: MemoryCard 내부의 data-editing 속성 확인
                         const cardElement = (event.currentTarget as HTMLElement).querySelector(`[data-editing="true"]`);
@@ -1199,10 +1355,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         willChange: isDragging ? 'transform' : 'auto',
                         opacity: isDragging ? 0.8 : 1,
                         zIndex: isDragging ? 20 : (isSelected ? 15 : 10),
+                        transition: isDragging ? 'none' : 'opacity 0.2s',
                       }}
-                      className={`absolute ${cardSizeClass} select-none touch-none cursor-grab active:cursor-grabbing transition-all ${
+                      className={`absolute ${cardSizeClass} select-none touch-none cursor-grab active:cursor-grabbing ${
                         isDragging ? 'cursor-grabbing shadow-2xl' : ''
-                      } ${isSelected ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
+                      } ${isSelected ? 'ring-2 ring-blue-300/50 ring-offset-1' : ''}`}
                     >
                       <MemoryCard
                         key={memory.id} 
@@ -1219,6 +1376,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         }}
                         linkNotes={linkNotes}
                         personaId={personaId}
+                        onOpenGroupModal={(memory) => {
+                          setGroupModalMemory(memory);
+                          setShowGroupModal(true);
+                          setGroupStep('loading');
+                        }}
                         onLinkDeleted={(updatedMemory1, updatedMemory2) => {
                           // 로컬 상태 즉시 업데이트 (페이지 리로드 없이)
                           setLocalMemories(prev => {
@@ -1280,6 +1442,127 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         />
         </div>
       )}
+
+      {/* AI 자동 묶기 모달 */}
+      {showGroupModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          {/* 블러 배경 */}
+          <div className="absolute inset-0 backdrop-blur-md bg-black/20" onClick={handleCancelGroup} />
+          
+          {/* 모달 내용 */}
+          <div className="relative z-10 bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            {groupStep === 'loading' && (
+              /* 1단계: 로딩 - ✨ 하나만 */
+              <div className="text-center">
+                <div className="relative w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+                  <div className="text-7xl animate-spin">✨</div>
+                </div>
+                <p className="text-lg font-semibold text-gray-800 mb-2">
+                  AI가 관련 기록을 찾고 있어요
+                </p>
+                <p className="text-sm text-gray-500 animate-pulse">
+                  잠시만 기다려주세요...
+                </p>
+              </div>
+            )}
+
+            {groupStep === 'confirm' && groupResult && (
+              /* 2단계: 확인 */
+              <div className="animate-fade-in">
+                {/* 폴더 아이콘 */}
+                <div className="w-20 h-20 mx-auto mb-4">
+                  <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+                    <path d="M3 6C3 4.89543 3.89543 4 5 4H9L11 6H19C20.1046 6 21 6.89543 21 8V18C21 19.1046 20.1046 20 19 20H5C3.89543 20 3 19.1046 3 18V6Z" 
+                          fill="url(#folder-gradient)" stroke="#3B82F6" strokeWidth="1.5"/>
+                    <defs>
+                      <linearGradient id="folder-gradient" x1="3" y1="4" x2="21" y2="20">
+                        <stop offset="0%" stopColor="#60A5FA"/>
+                        <stop offset="100%" stopColor="#3B82F6"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </div>
+                
+                <h3 className="text-xl font-bold text-gray-800 mb-2 text-center">
+                  이렇게 묶을까요?
+                </h3>
+                <p className="text-center text-sm text-gray-600 mb-4">
+                  📁 <span className="font-semibold">{groupResult.group.name}</span>
+                </p>
+                
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 mb-6 max-h-48 overflow-y-auto">
+                  <p className="text-xs font-semibold text-gray-700 mb-2">
+                    묶일 기록들 ({(groupResult.relatedMemories?.length || 0) + 1}개):
+                  </p>
+                  <ul className="space-y-2">
+                    {/* 현재 기록 */}
+                    <li className="text-xs text-gray-700 flex items-start gap-2 p-2 bg-white/60 rounded">
+                      <span className="text-blue-500 mt-0.5">📄</span>
+                      <span className="flex-1 line-clamp-2">{groupModalMemory ? stripHtmlClient(groupModalMemory.content) : ''}</span>
+                    </li>
+                    {/* 관련 기록들 */}
+                    {groupResult.relatedMemories?.map((m: any, idx: number) => {
+                      const relatedMemory = localMemories.find(mem => mem.id === m.id);
+                      return (
+                        <li key={idx} className="text-xs text-gray-700 flex items-start gap-2 p-2 bg-white/60 rounded">
+                          <span className="text-blue-500 mt-0.5">📄</span>
+                          <span className="flex-1 line-clamp-2">{relatedMemory ? stripHtmlClient(relatedMemory.content) : (m.content ? stripHtmlClient(m.content) : '')}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCancelGroup}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleConfirmGroup}
+                    className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    확인
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {groupStep === 'animating' && groupResult && (
+              /* 3단계: 애니메이션 */
+              <div className="text-center">
+                {/* 글들이 폴더로 모이는 애니메이션 */}
+                <div className="relative w-full h-48 mb-6">
+                  {/* 떠다니는 문서들 */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-4xl animate-bounce" style={{ animationDelay: '0s', animationDuration: '1s' }}>📄</div>
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-4xl animate-bounce" style={{ animationDelay: '0.2s', animationDuration: '1s' }}>📄</div>
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-4xl animate-bounce" style={{ animationDelay: '0.4s', animationDuration: '1s' }}>📄</div>
+                  </div>
+                  
+                  {/* 중앙 폴더 */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-6xl animate-pulse">📁</div>
+                  </div>
+                </div>
+                
+                <p className="text-lg font-semibold text-gray-800 mb-2 animate-pulse">
+                  그룹을 만들고 있어요
+                </p>
+                <p className="text-sm text-gray-500">
+                  {groupResult.group.name}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1297,6 +1580,7 @@ function MemoryCard({
   linkNotes,
   personaId,
   onLinkDeleted,
+  onOpenGroupModal,
 }: { 
   memory: Memory; 
   onDelete?: () => void; 
@@ -1310,6 +1594,7 @@ function MemoryCard({
   linkNotes?: Record<string, string>;
   personaId?: string | null;
   onLinkDeleted?: (updatedMemory1: Memory, updatedMemory2: Memory) => void;
+  onOpenGroupModal?: (memory: Memory) => void;
 }) {
   // 로컬 memory 상태 관리 (수정 후 즉시 반영)
   const [localMemory, setLocalMemory] = useState<Memory>(memory);
@@ -1338,11 +1623,6 @@ function MemoryCard({
   const [editContent, setEditContent] = useState(localMemory.content);
   const editRef = useRef<HTMLDivElement>(null);
   const prevIsEditingRef = useRef(false);
-  const [isGrouping, setIsGrouping] = useState(false);
-  const [groupResult, setGroupResult] = useState<any>(null);
-  const [showGroupModal, setShowGroupModal] = useState(false);
-  const [groupStep, setGroupStep] = useState<'loading' | 'confirm' | 'animating'>('loading');
-  
   const timeAgo = formatDistanceToNow(localMemory.createdAt, { 
     addSuffix: true,
     locale: ko 
@@ -1487,55 +1767,10 @@ function MemoryCard({
     setEditContent(editRef.current.innerHTML);
   };
 
-  const handleAutoGroup = async () => {
-    setGroupStep('loading');
-    setIsGrouping(true);
-    setShowGroupModal(true);
-    
-    try {
-      const res = await fetch(`/api/memories/${localMemory.id}/auto-group`, {
-        method: 'POST',
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        setGroupResult(data);
-        setIsGrouping(false);
-        setGroupStep('confirm'); // 확인 단계로
-      } else {
-        alert('자동 묶기 실패');
-        setShowGroupModal(false);
-        setIsGrouping(false);
-      }
-    } catch (error) {
-      console.error('Auto group error:', error);
-      alert('자동 묶기 중 오류 발생');
-      setShowGroupModal(false);
-      setIsGrouping(false);
+  const handleAutoGroup = () => {
+    if (onOpenGroupModal) {
+      onOpenGroupModal(localMemory);
     }
-  };
-
-  const handleConfirmGroup = () => {
-    setGroupStep('animating');
-    // 애니메이션 후 새로고침
-    setTimeout(() => {
-      window.location.reload();
-    }, 2500);
-  };
-
-  const handleCancelGroup = async () => {
-    // 생성된 그룹 삭제
-    if (groupResult?.group?.id) {
-      try {
-        await fetch(`/api/groups?id=${groupResult.group.id}`, {
-          method: 'DELETE',
-        });
-      } catch (error) {
-        console.error('Failed to delete group:', error);
-      }
-    }
-    setShowGroupModal(false);
-    setGroupResult(null);
   };
 
   const handleConvertToGoal = async (suggestions: any) => {
@@ -1610,8 +1845,7 @@ function MemoryCard({
         {/* AI 자동 묶기 버튼 */}
         <button
           onClick={handleAutoGroup}
-          disabled={isGrouping}
-          className="p-1.5 hover:bg-purple-50 rounded-lg disabled:opacity-50 transition-colors"
+          className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors"
           title="AI로 자동 묶기"
         >
           <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2057,127 +2291,6 @@ function MemoryCard({
           </div>
         </div>
       </div>
-
-      {/* AI 자동 묶기 모달 */}
-      {showGroupModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* 블러 배경 */}
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-md" />
-          
-          {/* 모달 내용 */}
-          <div className="relative z-10 bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
-            {groupStep === 'loading' && (
-              /* 1단계: 로딩 - ✨ 하나만 */
-              <div className="text-center">
-                <div className="relative w-24 h-24 mx-auto mb-6 flex items-center justify-center">
-                  <div className="text-7xl animate-sparkle-single">✨</div>
-                </div>
-                <p className="text-lg font-semibold text-gray-800 mb-2">
-                  AI가 관련 기록을 찾고 있어요
-                </p>
-                <p className="text-sm text-gray-500 animate-pulse">
-                  잠시만 기다려주세요...
-                </p>
-              </div>
-            )}
-
-            {groupStep === 'confirm' && groupResult && (
-              /* 2단계: 확인 */
-              <div className="animate-fade-in">
-                {/* 폴더 아이콘 */}
-                <div className="w-20 h-20 mx-auto mb-4">
-                  <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
-                    <path d="M3 6C3 4.89543 3.89543 4 5 4H9L11 6H19C20.1046 6 21 6.89543 21 8V18C21 19.1046 20.1046 20 19 20H5C3.89543 20 3 19.1046 3 18V6Z" 
-                          fill="url(#folder-gradient)" stroke="#3B82F6" strokeWidth="1.5"/>
-                    <defs>
-                      <linearGradient id="folder-gradient" x1="3" y1="4" x2="21" y2="20">
-                        <stop offset="0%" stopColor="#60A5FA"/>
-                        <stop offset="100%" stopColor="#3B82F6"/>
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                </div>
-                
-                <h3 className="text-xl font-bold text-gray-800 mb-2 text-center">
-                  이렇게 묶을까요?
-                </h3>
-                <p className="text-center text-sm text-gray-600 mb-4">
-                  📁 <span className="font-semibold">{groupResult.group.name}</span>
-                </p>
-                
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 mb-6 max-h-48 overflow-y-auto">
-                  <p className="text-xs font-semibold text-gray-700 mb-2">
-                    묶일 기록들 ({(groupResult.relatedMemories?.length || 0) + 1}개):
-                  </p>
-                  <ul className="space-y-2">
-                    {/* 현재 기록 */}
-                    <li className="text-xs text-gray-700 flex items-start gap-2 p-2 bg-white/60 rounded">
-                      <span className="text-blue-500 mt-0.5">📄</span>
-                      <span className="flex-1 line-clamp-2">{stripHtmlClient(localMemory.content)}</span>
-                    </li>
-                    {/* 관련 기록들 */}
-                    {groupResult.relatedMemories?.map((m: any, idx: number) => {
-                      const relatedMemory = allMemories.find(mem => mem.id === m.id);
-                      return (
-                        <li key={idx} className="text-xs text-gray-700 flex items-start gap-2 p-2 bg-white/60 rounded">
-                          <span className="text-blue-500 mt-0.5">📄</span>
-                          <span className="flex-1 line-clamp-2">{relatedMemory?.content || m.content}</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleCancelGroup}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    취소
-                  </button>
-                  <button
-                    onClick={handleConfirmGroup}
-                    className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                  >
-                    확인
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {groupStep === 'animating' && groupResult && (
-              /* 3단계: 애니메이션 */
-              <div className="text-center">
-                {/* 글들이 폴더로 모이는 애니메이션 */}
-                <div className="relative w-full h-48 mb-6">
-                  {/* 떠다니는 문서들 */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-4xl animate-gather-1">📄</div>
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-4xl animate-gather-2">📄</div>
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-4xl animate-gather-3">📄</div>
-                  </div>
-                  
-                  {/* 중앙 폴더 */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-6xl animate-folder-appear">📁</div>
-                  </div>
-                </div>
-                
-                <p className="text-lg font-semibold text-gray-800 mb-2 animate-pulse">
-                  그룹을 만들고 있어요
-                </p>
-                <p className="text-sm text-gray-500">
-                  {groupResult.group.name}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
