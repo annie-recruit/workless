@@ -720,6 +720,32 @@ export async function generateInsights(memories: Memory[], personaContext?: stri
   // 반복 기록 분석
   const repeatedMemories = memories.filter(m => m.repeatCount && m.repeatCount > 1);
   
+  // 첨부파일과 URL 요약 포함하여 기록 정보 준비
+  const memoryDetails = await Promise.all(recentMemories.map(async (m) => {
+    const date = new Date(m.createdAt);
+    const daysAgo = Math.floor((now - m.createdAt) / (24 * 60 * 60 * 1000));
+    const timeLabel = daysAgo === 0 ? '오늘' : daysAgo === 1 ? '어제' : `${daysAgo}일 전`;
+    const plain = stripHtml(m.content);
+    
+    let detail = `${timeLabel}] [${m.nature || '기록'}] ${plain.substring(0, 200)}`;
+    
+    // 첨부파일이 있으면 요약 포함
+    if (m.attachments && m.attachments.length > 0) {
+      const attachmentSummary = await summarizeAttachments(m.attachments, m.content);
+      if (attachmentSummary) {
+        detail += `\n   [첨부파일/링크 내용]: ${attachmentSummary.substring(0, 300)}`;
+      }
+    } else if (m.content) {
+      // 첨부파일이 없어도 URL이 있으면 요약
+      const urlSummary = await summarizeAttachments([], m.content);
+      if (urlSummary) {
+        detail += `\n   [링크 내용]: ${urlSummary.substring(0, 300)}`;
+      }
+    }
+    
+    return detail;
+  }));
+  
   const personaPrefix = personaContext 
     ? `🎯 페르소나: 사용자는 "${personaContext}" 역할로 활동 중입니다.\n\n당신은 이 전문 분야의 관점에서 사용자의 기록을 분석하는 전문가 비서입니다. 이 페르소나의 맥락, 목표, 관심사를 반영하여 깊이 있는 인사이트를 제공해주세요. 일반적인 분석이 아닌, 이 전문 분야에서 중요한 패턴과 인사이트를 찾아주세요.\n\n`
     : '';
@@ -735,15 +761,8 @@ ${personaPrefix}당신은 개인 비서입니다. 사용자의 기록들을 깊�
 - 가장 많은 주제: ${topTopics.map(t => `${t.topic}(${t.count}개)`).join(', ')}
 - 주요 키워드: ${keywordCloud.slice(0, 10).map(k => k.keyword).join(', ')}
 
-[최근 기록들] (시간순, 최신 40개)
-${recentMemories.map((m, idx) => {
-  const date = new Date(m.createdAt);
-  const daysAgo = Math.floor((now - m.createdAt) / (24 * 60 * 60 * 1000));
-  const timeLabel = daysAgo === 0 ? '오늘' : daysAgo === 1 ? '어제' : `${daysAgo}일 전`;
-  const plain = stripHtml(m.content);
-  return `${idx + 1}. [${timeLabel}] [${m.nature}] ${plain.substring(0, 120)}...
-   키워드: ${m.clusterTag || '없음'}${m.repeatCount && m.repeatCount > 1 ? ` (${m.repeatCount}회 반복)` : ''}`;
-}).join('\n')}
+[최근 기록들] (시간순, 최신 40개 - 첨부파일/링크 내용 포함)
+${memoryDetails.map((detail, idx) => `${idx + 1}. [${detail}`).join('\n\n')}
 
 다음을 심층 분석해주세요:
 
