@@ -43,8 +43,10 @@ export default function Home() {
     fetchMemories();
   }, []);
 
-  const handleMemoryCreated = () => {
-    fetchMemories();
+  const handleMemoryCreated = async () => {
+    // 메모리 생성 후 즉시 새로고침 (필요한 경우에만)
+    // 전체 메모리를 다시 가져오는 대신, 최신 메모리만 추가하는 방식으로 최적화 가능
+    await fetchMemories();
   };
 
   // 로그인하지 않은 경우 로그인 화면 표시

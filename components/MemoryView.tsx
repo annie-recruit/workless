@@ -940,9 +940,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     style={{ zIndex: 1 }}
                   >
                     <defs>
-                      {/* 각 색상별 화살표 마커 생성 */}
-                      {connectionPairsWithColor.map((pair, idx) => {
-                        const markerId = `arrowhead-${pair.color.replace('#', '')}`;
+                      {/* 각 색상별 화살표 마커 생성 (색상별로 하나만) */}
+                      {Array.from(new Set(connectionPairsWithColor.map(pair => pair.color))).map((color) => {
+                        const markerId = `arrowhead-${color.replace('#', '')}`;
                         return (
                           <marker
                             key={markerId}
@@ -954,7 +954,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                             orient="auto"
                             markerUnits="strokeWidth"
                           >
-                            <path d="M0,0 L0,6 L9,3 z" fill={pair.color} />
+                            <path d="M0,0 L0,6 L9,3 z" fill={color} />
                           </marker>
                         );
                       })}
@@ -1076,6 +1076,23 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         }}
                         linkNotes={linkNotes}
                         personaId={personaId}
+                        onLinkDeleted={(updatedMemory1, updatedMemory2) => {
+                          // 로컬 상태 즉시 업데이트 (페이지 리로드 없이)
+                          setLocalMemories(prev => {
+                            const updated = [...prev];
+                            const index1 = updated.findIndex(m => m.id === updatedMemory1.id);
+                            const index2 = updated.findIndex(m => m.id === updatedMemory2.id);
+                            
+                            if (index1 !== -1) {
+                              updated[index1] = updatedMemory1;
+                            }
+                            if (index2 !== -1) {
+                              updated[index2] = updatedMemory2;
+                            }
+                            
+                            return updated;
+                          });
+                        }}
                       />
                     </div>
                   );
@@ -1134,6 +1151,7 @@ function MemoryCard({
   onCardColorChange,
   linkNotes,
   personaId,
+  onLinkDeleted,
 }: { 
   memory: Memory; 
   onDelete?: () => void; 
@@ -1146,6 +1164,7 @@ function MemoryCard({
   onCardColorChange?: (color: 'amber' | 'blue' | 'green' | 'pink' | 'purple') => void;
   linkNotes?: Record<string, string>;
   personaId?: string | null;
+  onLinkDeleted?: (updatedMemory1: Memory, updatedMemory2: Memory) => void;
 }) {
   // 로컬 memory 상태 관리 (수정 후 즉시 반영)
   const [localMemory, setLocalMemory] = useState<Memory>(memory);
@@ -1849,7 +1868,15 @@ function MemoryCard({
                                 method: 'DELETE',
                               });
                               if (res.ok) {
-                                window.location.reload();
+                                const data = await res.json();
+                                // 로컬 상태 즉시 업데이트 (페이지 리로드 없이)
+                                if (data.memory1 && data.memory2) {
+                                  setLocalMemory(data.memory1);
+                                  // 상위 컴포넌트에 알림
+                                  if (onLinkDeleted) {
+                                    onLinkDeleted(data.memory1, data.memory2);
+                                  }
+                                }
                               } else {
                                 alert('링크 삭제 실패');
                               }
