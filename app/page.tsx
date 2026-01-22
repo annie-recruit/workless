@@ -10,6 +10,7 @@ import InsightsPanel from '@/components/InsightsPanel';
 import GroupManager from '@/components/GroupManager';
 import PersonaSelector from '@/components/PersonaSelector';
 import Tutorial, { TutorialStep } from '@/components/Tutorial';
+import GlobalSearch from '@/components/GlobalSearch';
 import { Memory } from '@/types';
 
 export default function Home() {
@@ -256,6 +257,23 @@ export default function Home() {
           {/* 기록하기 영역 */}
           <div className="mb-8">
             <MemoryInput onMemoryCreated={handleMemoryCreated} />
+            {/* 전역 검색 */}
+            <GlobalSearch 
+              memories={memories} 
+              onMemoryClick={(memory: Memory) => {
+                // 메모리 카드로 스크롤
+                const element = document.getElementById(`memory-${memory.id}`);
+                if (element) {
+                  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  // 하이라이트 효과
+                  element.style.transition = 'box-shadow 0.3s';
+                  element.style.boxShadow = '0 0 0 4px rgba(59, 130, 246, 0.3)';
+                  setTimeout(() => {
+                    element.style.boxShadow = '';
+                  }, 2000);
+                }
+              }}
+            />
           </div>
 
           {/* 보관함 영역 */}

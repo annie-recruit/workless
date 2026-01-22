@@ -112,6 +112,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [positionsLoaded, setPositionsLoaded] = useState(false); // 위치 로드 완료 플래그
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [selectedMemoryIds, setSelectedMemoryIds] = useState<Set<string>>(new Set()); // 다중 선택
   const [isAutoArranging, setIsAutoArranging] = useState(false);
   const [cardSize, setCardSize] = useState<'s' | 'm' | 'l'>('m');
   const [cardColor, setCardColor] = useState<'amber' | 'blue' | 'green' | 'pink' | 'purple'>('amber');
@@ -420,14 +421,46 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       const scale = zoomRef.current;
       const x = (event.clientX - rect.left) / scale - dragOffset.x;
       const y = (event.clientY - rect.top) / scale - dragOffset.y;
-      setPositions(prev => ({
-        ...prev,
-        [draggingId]: {
-          x: Math.max(0, x),
-          y: Math.max(0, y),
-        },
-      }));
-      ensureBoardBounds(x, y);
+      
+      // 기준 카드의 새 위치
+      const newBaseX = Math.max(0, x);
+      const newBaseY = Math.max(0, y);
+      
+      // 다중 선택 모드이고 여러 카드가 선택되어 있으면
+      if (selectedMemoryIds.has(draggingId) && selectedMemoryIds.size > 1) {
+        const basePosition = positions[draggingId] || { x: 0, y: 0 };
+        const deltaX = newBaseX - basePosition.x;
+        const deltaY = newBaseY - basePosition.y;
+        
+        // 선택된 모든 카드를 같은 거리만큼 이동
+        setPositions(prev => {
+          const next = { ...prev };
+          selectedMemoryIds.forEach(id => {
+            const currentPos = prev[id] || { x: 0, y: 0 };
+            next[id] = {
+              x: Math.max(0, currentPos.x + deltaX),
+              y: Math.max(0, currentPos.y + deltaY),
+            };
+          });
+          // 드래그 중인 카드도 업데이트
+          next[draggingId] = {
+            x: Math.max(0, newBaseX),
+            y: Math.max(0, newBaseY),
+          };
+          return next;
+        });
+      } else {
+        // 단일 카드 드래그
+        setPositions(prev => ({
+          ...prev,
+          [draggingId]: {
+            x: newBaseX,
+            y: newBaseY,
+          },
+        }));
+      }
+      
+      ensureBoardBounds(newBaseX, newBaseY);
     };
 
     const handleUp = () => {
@@ -440,7 +473,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       window.removeEventListener('pointermove', handleMove);
       window.removeEventListener('pointerup', handleUp);
     };
-  }, [draggingId, dragOffset]);
+  }, [draggingId, dragOffset, selectedMemoryIds, positions]);
 
   useEffect(() => {
     if (!positions || Object.keys(positions).length === 0) return;
@@ -618,6 +651,50 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   };
 
   const handlePointerDown = (memoryId: string, event: React.PointerEvent) => {
+    // 편집 모드에서는 드래그 비활성화
+    const cardElement = (event.currentTarget as HTMLElement).querySelector(`[data-editing="true"]`);
+    if (cardElement) {
+      return;
+    }
+
+    // Ctrl/Cmd 키로 다중 선택 모드
+    const isMultiSelect = event.ctrlKey || event.metaKey;
+    
+    if (isMultiSelect) {
+      // 다중 선택 토글
+      setSelectedMemoryIds(prev => {
+        const next = new Set(prev);
+        if (next.has(memoryId)) {
+          next.delete(memoryId);
+        } else {
+          next.add(memoryId);
+        }
+        return next;
+      });
+      // 다중 선택 모드에서는 드래그 시작하지 않음
+      return;
+    }
+
+    // 선택된 카드가 있고, 클릭한 카드가 선택된 카드 중 하나면 다중 드래그
+    if (selectedMemoryIds.size > 0 && selectedMemoryIds.has(memoryId)) {
+      // 선택된 모든 카드를 드래그
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
+      setDraggingId(memoryId);
+      setDragOffset({
+        x: (event.clientX - rect.left) / zoomRef.current,
+        y: (event.clientY - rect.top) / zoomRef.current,
+      });
+      return;
+    }
+
+    // 단일 카드 드래그
+    if (selectedMemoryIds.size > 0) {
+      // 다른 카드를 클릭하면 선택 해제
+      setSelectedMemoryIds(new Set());
+    }
+
     event.preventDefault();
     event.stopPropagation();
     const rect = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
@@ -948,7 +1025,33 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   transform: `scale(${zoom})`,
                   transformOrigin: 'top left',
                 }}
+                ref={boardRef}
+                onPointerDown={(e) => {
+                  // 보드 빈 공간 클릭 시 선택 해제
+                  if (e.target === boardRef.current || (e.target as HTMLElement).classList.contains('relative')) {
+                    if (selectedMemoryIds.size > 0) {
+                      setSelectedMemoryIds(new Set());
+                    }
+                  }
+                }}
               >
+                {/* 다중 선택 안내 */}
+                {selectedMemoryIds.size > 0 && (
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 z-30">
+                    <span className="text-sm font-medium">
+                      {selectedMemoryIds.size}개 카드 선택됨 (Ctrl/Cmd + 클릭으로 추가 선택)
+                    </span>
+                    <button
+                      onClick={() => setSelectedMemoryIds(new Set())}
+                      className="text-white hover:text-gray-200"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
                 {/* 연결선 SVG - 카드 뒤에 렌더링 */}
                 {connectionPairsWithColor.length > 0 && (
                   <svg
@@ -1046,6 +1149,23 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   </svg>
                 )}
 
+                {/* 다중 선택 안내 */}
+                {selectedMemoryIds.size > 0 && (
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 z-30">
+                    <span className="text-sm font-medium">
+                      {selectedMemoryIds.size}개 카드 선택됨 (Ctrl/Cmd + 클릭으로 추가 선택)
+                    </span>
+                    <button
+                      onClick={() => setSelectedMemoryIds(new Set())}
+                      className="text-white hover:text-gray-200"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
                 {/* 메모리 카드들 */}
                 {filteredMemories.map((memory) => {
                   const position = positions[memory.id] || { x: 0, y: 0 };
@@ -1059,6 +1179,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     : memoryColor === 'purple'
                     ? 'bg-purple-50 border-purple-200'
                     : 'bg-amber-50 border-amber-200';
+                  const isSelected = selectedMemoryIds.has(memory.id);
+                  const isDragging = draggingId === memory.id || (isSelected && draggingId && selectedMemoryIds.has(draggingId));
+                  
                   return (
                     <div
                 key={memory.id} 
@@ -1073,13 +1196,13 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       }}
                       style={{
                         transform: `translate(${position.x}px, ${position.y}px)`,
-                        willChange: draggingId === memory.id ? 'transform' : 'auto',
-                        opacity: draggingId === memory.id ? 0.8 : 1,
-                        zIndex: draggingId === memory.id ? 20 : 10,
+                        willChange: isDragging ? 'transform' : 'auto',
+                        opacity: isDragging ? 0.8 : 1,
+                        zIndex: isDragging ? 20 : (isSelected ? 15 : 10),
                       }}
-                      className={`absolute ${cardSizeClass} select-none touch-none cursor-grab active:cursor-grabbing transition-opacity ${
-                        draggingId === memory.id ? 'cursor-grabbing shadow-2xl' : ''
-                      }`}
+                      className={`absolute ${cardSizeClass} select-none touch-none cursor-grab active:cursor-grabbing transition-all ${
+                        isDragging ? 'cursor-grabbing shadow-2xl' : ''
+                      } ${isSelected ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
                     >
                       <MemoryCard
                         key={memory.id} 

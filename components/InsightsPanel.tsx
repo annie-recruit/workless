@@ -15,13 +15,14 @@ interface InsightsPanelProps {
   personaId: string | null;
 }
 
-export default function InsightsPanel({ personaId }: InsightsPanelProps) {
+export default function InsightsPanel({ personaId, onLoadingChange }: InsightsPanelProps) {
   const [insights, setInsights] = useState<Insights | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchInsights = async () => {
     setLoading(true);
+    if (onLoadingChange) onLoadingChange(true);
     setError(null);
     try {
       const url = personaId 
@@ -51,7 +52,7 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="h-full flex items-start justify-center pt-12">
         <div className="text-gray-400">분석 중...</div>
       </div>
     );
