@@ -93,13 +93,42 @@ git push origin main
 - Railway 대시보드의 **Variables** 탭에서 환경 변수 확인
 - 환경 변수 추가 후 서비스를 재시작하세요
 
-### Google OAuth 설정 방법
-1. [Google Cloud Console](https://console.cloud.google.com/) 접속
-2. 새 프로젝트 생성 또는 기존 프로젝트 선택
-3. **API 및 서비스** > **사용자 인증 정보** 이동
-4. **사용자 인증 정보 만들기** > **OAuth 클라이언트 ID** 선택
-5. 애플리케이션 유형: **웹 애플리케이션**
-6. 승인된 리디렉션 URI에 추가:
-   - `https://your-railway-domain.railway.app/api/auth/callback/google`
-   - (로컬 개발용) `http://localhost:3000/api/auth/callback/google`
-7. 생성된 클라이언트 ID와 시크릿을 Railway 환경 변수에 설정
+### Google OAuth 설정 방법 (중요!)
+
+**⚠️ `redirect_uri_mismatch` 오류 해결 방법:**
+
+1. **Railway 도메인 확인**
+   - Railway 대시보드에서 **Settings** > **Generate Domain** 클릭하여 도메인 생성
+   - 생성된 도메인을 복사 (예: `https://workless-production.up.railway.app`)
+
+2. **Google Cloud Console 설정**
+   - [Google Cloud Console](https://console.cloud.google.com/) 접속
+   - 새 프로젝트 생성 또는 기존 프로젝트 선택
+   - **API 및 서비스** > **사용자 인증 정보** 이동
+   - **사용자 인증 정보 만들기** > **OAuth 클라이언트 ID** 선택
+   - 애플리케이션 유형: **웹 애플리케이션**
+   - **승인된 리디렉션 URI**에 다음을 **정확히** 추가:
+     ```
+     https://your-railway-domain.railway.app/api/auth/callback/google
+     ```
+     ⚠️ **주의사항:**
+     - `https://`로 시작해야 함
+     - 마지막에 `/` 없이 정확히 입력
+     - Railway 도메인과 정확히 일치해야 함
+     - (로컬 개발용) `http://localhost:3000/api/auth/callback/google`도 추가
+   
+3. **OAuth 동의 화면 설정**
+   - **OAuth 동의 화면** 탭으로 이동
+   - 사용자 유형 선택 (외부 또는 내부)
+   - 앱 이름, 사용자 지원 이메일 등 필수 정보 입력
+   - 테스트 사용자 추가 (앱이 검증되지 않은 경우)
+
+4. **환경 변수 설정**
+   - 생성된 **클라이언트 ID**를 `GOOGLE_CLIENT_ID`에 설정
+   - 생성된 **클라이언트 시크릿**을 `GOOGLE_CLIENT_SECRET`에 설정
+   - Railway 도메인을 `NEXTAUTH_URL`에 설정 (예: `https://your-railway-domain.railway.app`)
+
+5. **리디렉션 URI 확인**
+   - Google Cloud Console에서 설정한 URI가 Railway 도메인과 정확히 일치하는지 확인
+   - URI는 대소문자를 구분하므로 정확히 입력해야 함
+   - 변경 후 몇 분 정도 기다려야 반영될 수 있음
