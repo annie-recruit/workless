@@ -44,11 +44,11 @@ export async function POST(req: NextRequest) {
     }
     console.log('📂 [API] 총 저장된 파일:', attachments.length);
 
-    // 파일 내용 분석 (이미지 Vision API 사용)
+    // 파일 내용 분석 및 URL 요약 (이미지 Vision API 사용)
     let fileContext = '';
-    if (attachments.length > 0) {
-      console.log(`\n🔍 [API] 파일 내용 분석 시작 (${attachments.length}개)`);
-      fileContext = await summarizeAttachments(attachments);
+    if (attachments.length > 0 || content) {
+      console.log(`\n🔍 [API] 파일 내용 분석 시작 (${attachments.length}개 파일, URL 포함)`);
+      fileContext = await summarizeAttachments(attachments, content);
       console.log(`🔍 [API] 파일 내용 분석 완료`);
       console.log(`📝 [API] 분석 결과 길이: ${fileContext.length} 문자`);
       console.log(`📝 [API] 분석 결과 미리보기:\n${fileContext.substring(0, 200)}...\n`);

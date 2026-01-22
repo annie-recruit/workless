@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import { Memory, AIClassification, Attachment } from '@/types';
 import { readFileSync } from 'fs';
 import { join, extname } from 'path';
-import { stripHtml } from './text';
+import { stripHtml, extractUrls } from './text';
 import { parsePDFWithAdobe } from './ai-pdf';
 
 const openai = new OpenAI({
@@ -291,9 +291,93 @@ export async function analyzeImage(imageUrl: string): Promise<string> {
   }
 }
 
+// 웹페이지 내용 가져오기 및 요약
+export async function fetchAndSummarizeUrl(url: string): Promise<string> {
+  try {
+    console.log('🌐 [URL 1/3] 웹페이지 가져오기 시작:', url);
+    
+    // 웹페이지 가져오기
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      },
+      // 타임아웃 설정 (10초)
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      console.warn('⚠️ 웹페이지 가져오기 실패:', response.status);
+      return `(웹페이지를 가져올 수 없습니다: ${response.status})`;
+    }
+
+    const html = await response.text();
+    console.log('🌐 [URL 2/3] 웹페이지 가져오기 완료, 크기:', html.length, 'bytes');
+
+    // HTML에서 텍스트 추출
+    const { stripHtml } = await import('./text');
+    let text = stripHtml(html);
+    
+    // 너무 길면 앞부분만 (5000자)
+    if (text.length > 5000) {
+      text = text.substring(0, 5000) + '... (내용이 길어서 일부만 표시)';
+    }
+
+    if (!text.trim()) {
+      console.warn('⚠️ 웹페이지에서 텍스트를 추출하지 못했습니다');
+      return '(웹페이지 텍스트 추출 실패)';
+    }
+
+    console.log('🌐 [URL 3/3] AI 요약 시작...');
+    
+    // AI로 요약
+    const summaryResponse = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: '너는 웹페이지 내용을 간결하게 요약하는 전문가야. 핵심 내용만 2-3문장으로 요약해줘.',
+        },
+        {
+          role: 'user',
+          content: `다음 웹페이지 내용을 요약해줘:\n\n${text}`,
+        },
+      ],
+      max_tokens: 300,
+      temperature: 0.3,
+    });
+
+    const summary = summaryResponse.choices[0]?.message?.content || '(요약 생성 실패)';
+    console.log('✅ URL 요약 완료');
+    
+    return summary;
+  } catch (error) {
+    console.error('❌ URL 요약 실패:', error instanceof Error ? error.message : String(error));
+    return '(웹페이지 요약 실패)';
+  }
+}
+
 // 첨부 파일 내용 요약
-export async function summarizeAttachments(attachments: Attachment[]): Promise<string> {
-  if (!attachments || attachments.length === 0) return '';
+export async function summarizeAttachments(attachments: Attachment[], content?: string): Promise<string> {
+  if (!attachments || attachments.length === 0) {
+    // 첨부파일이 없어도 내용에서 URL 추출
+    if (content) {
+      const urls = extractUrls(content);
+      if (urls.length > 0) {
+        console.log('🌐 [URL] 기록 내용에서 URL 발견:', urls.length, '개');
+        const urlDescriptions: string[] = [];
+        for (let i = 0; i < urls.length; i++) {
+          const url = urls[i];
+          console.log(`🌐 [URL ${i + 1}/${urls.length}] 요약 시작:`, url);
+          const summary = await fetchAndSummarizeUrl(url);
+          urlDescriptions.push(`[링크: ${url}]\n요약: ${summary}`);
+        }
+        if (urlDescriptions.length > 0) {
+          return urlDescriptions.join('\n\n');
+        }
+      }
+    }
+    return '';
+  }
 
   console.log('📦 [summarizeAttachments] 시작 - 파일 개수:', attachments.length);
   const descriptions: string[] = [];
@@ -347,6 +431,20 @@ export async function summarizeAttachments(attachments: Attachment[]): Promise<s
       // 기타 파일은 파일명과 타입만
       console.log(`📎 [파일 ${i + 1}] → 기타 파일 (분석 불가)`);
       descriptions.push(`[파일: ${attachment.filename}] (내용 분석 불가)`);
+    }
+  }
+
+  // 내용에서 URL 추출 및 요약
+  if (content) {
+    const urls = extractUrls(content);
+    if (urls.length > 0) {
+      console.log('🌐 [URL] 기록 내용에서 URL 발견:', urls.length, '개');
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+        console.log(`🌐 [URL ${i + 1}/${urls.length}] 요약 시작:`, url);
+        const summary = await fetchAndSummarizeUrl(url);
+        descriptions.push(`[링크: ${url}]\n요약: ${summary}`);
+      }
     }
   }
 
