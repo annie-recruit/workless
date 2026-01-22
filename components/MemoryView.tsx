@@ -334,11 +334,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
   // 그룹별 필터링
   const filteredMemories = useMemo(() => {
-    if (!selectedGroupId) return memories;
+    if (!selectedGroupId) return localMemories;
         const group = groups.find(g => g.id === selectedGroupId);
     if (!group) return [];
-    return memories.filter(m => group.memoryIds.includes(m.id));
-  }, [memories, selectedGroupId, groups]);
+    return localMemories.filter(m => group.memoryIds.includes(m.id));
+  }, [localMemories, selectedGroupId, groups]);
 
   useEffect(() => {
     if (!boardRef.current || filteredMemories.length === 0) return;
