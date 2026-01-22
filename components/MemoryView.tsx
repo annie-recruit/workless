@@ -527,7 +527,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       setPreviousPositions({ ...positions });
       
       // 연결 정보 준비
-      const connections = connectionPairs.map(pair => ({
+      const connections = connectionPairsWithColor.map(pair => ({
         from: pair.from,
         to: pair.to,
       }));
