@@ -268,7 +268,7 @@ export default function PdfViewer({
     <div className="w-full h-full flex flex-col items-center overflow-auto py-4">
       <Document
         file={pdfUrl}
-        onLoadSuccess={(data) => {
+        onLoadSuccess={(data: { numPages: number }) => {
           console.log('PDF Document loaded successfully:', data);
           setIsLoadingPdf(false);
           isLoadingPdfRef.current = false;
@@ -277,7 +277,7 @@ export default function PdfViewer({
           }
           onLoadSuccess(data);
         }}
-        onLoadError={(error) => {
+        onLoadError={(error: Error) => {
           console.error('PDF Document load error:', error);
           console.error('PDF URL:', pdfUrl);
           console.error('Original URL:', url);
@@ -335,7 +335,7 @@ export default function PdfViewer({
             renderTextLayer={false}
             renderAnnotationLayer={false}
             className="shadow-lg mb-4"
-            onLoadError={(error) => {
+            onLoadError={(error: Error) => {
               console.error(`PDF Page ${index + 1} load error:`, error);
               onLoadError(error);
             }}

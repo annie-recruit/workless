@@ -51,9 +51,13 @@ export default function CalendarBlock({
   // config.view가 변경되면 currentDate도 업데이트
   useEffect(() => {
     if (config.selectedDate) {
-      setCurrentDate(new Date(config.selectedDate));
+      const newDate = new Date(config.selectedDate);
+      // 값이 실제로 변경된 경우에만 업데이트
+      if (newDate.getTime() !== currentDate.getTime()) {
+        setCurrentDate(newDate);
+      }
     }
-  }, [config.selectedDate]);
+  }, [config.selectedDate, currentDate]);
 
   // 날짜별 메모리 그룹화
   const memoriesByDate = memories.reduce((acc, memory) => {

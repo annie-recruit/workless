@@ -170,7 +170,7 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
     // HTML 엔티티 디코딩
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = html;
-    let decoded = tempDiv.textContent || tempDiv.innerText || '';
+    const decoded = tempDiv.textContent || tempDiv.innerText || '';
     return decoded.replace(/<[^>]*>/g, '').trim();
   };
 

@@ -1,0 +1,66 @@
+name: Deploy Check
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 매일 오전 9시 (UTC)에 실행
+    - cron: '0 9 * * *'
+
+jobs:
+  check-deployment:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build check
+        run: npm run build
+        continue-on-error: true
+        id: build_check
+      
+      - name: Create issue on build failure
+        if: steps.build_check.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let buildOutput = '';
+            try {
+              buildOutput = fs.readFileSync('build-error.log', 'utf8');
+            } catch (e) {
+              buildOutput = 'Build failed but no error log found';
+            }
+            
+            const title = `🚨 Build Failure Detected - ${new Date().toISOString()}`;
+            const body = `## Build Error Detected
+            
+            **Time:** ${new Date().toISOString()}
+            **Branch:** ${{ github.ref }}
+            **Commit:** ${{ github.sha }}
+            
+            ### Error Details:
+            \`\`\`
+            ${buildOutput.substring(0, 5000)}
+            \`\`\`
+            
+            Please check and fix the build errors.
+            `;
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['bug', 'deployment']
+            });

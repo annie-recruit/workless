@@ -63,7 +63,7 @@ export default function Minimap({
 }: MinimapProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useState<{ x: number; y: number } | null>(null);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const minimapWidth = 240;
   const minimapHeight = 160;
@@ -278,14 +278,14 @@ export default function Minimap({
   }, [viewportRect, boardContainerRef, minimapWidth, minimapHeight, canvasBounds, scale, zoom, boardSize]);
 
   const handleBackgroundPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isDragging || !dragStartRef[0] || !boardContainerRef.current || !viewportRect) return;
+    if (!isDragging || !dragStartRef.current || !boardContainerRef.current || !viewportRect) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    const deltaX = (mouseX - dragStartRef[0].x) / scale;
-    const deltaY = (mouseY - dragStartRef[0].y) / scale;
+    const deltaX = (mouseX - dragStartRef.current.x) / scale;
+    const deltaY = (mouseY - dragStartRef.current.y) / scale;
 
     const currentScrollLeft = boardContainerRef.current.scrollLeft;
     const currentScrollTop = boardContainerRef.current.scrollTop;

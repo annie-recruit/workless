@@ -131,7 +131,7 @@ export default function ViewerBlock({
   const prevConfigRef = useRef<ViewerBlockConfig>(config);
   useEffect(() => {
     const newConfig: ViewerBlockConfig = {
-      currentSource,
+      currentSource: currentSource || undefined,
       history,
       historyIndex,
       pinned,
@@ -401,7 +401,7 @@ export default function ViewerBlock({
                   onLoad={handleImageLoad}
                   onError={handleImageError}
                   className="max-w-full max-h-full object-contain"
-                  style={{ imageRendering: 'high-quality' }}
+                  style={{ imageRendering: 'auto' as const }}
                 />
                 <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm">
                   <div className="text-center">
@@ -480,7 +480,7 @@ export default function ViewerBlock({
                 onLoad={handleImageLoad}
                 onError={handleImageError}
                 className="max-w-full max-h-full object-contain"
-                style={{ imageRendering: 'high-quality' }}
+                  style={{ imageRendering: 'auto' as const }}
               />
             )}
             {isPdf && (
