@@ -25,3 +25,7 @@ node_modules/
 *.db-shm
 *.db-wal
 .DS_Store
+
+# TypeScript 빌드 정보 (Railway 캐시 충돌 방지)
+tsconfig.tsbuildinfo
+*.tsbuildinfo
