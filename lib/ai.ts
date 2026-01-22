@@ -40,6 +40,77 @@ export async function readTextFile(filepath: string): Promise<string> {
   }
 }
 
+// PowerPoint 파일 읽기 (.pptx)
+export async function parsePowerPointFile(filepath: string): Promise<string> {
+  try {
+    console.log('📊 [PPT 1/3] parsePowerPointFile 함수 시작');
+    console.log('📊 [PPT 1/3] filepath:', filepath);
+    
+    const fullPath = getActualFilePath(filepath);
+    console.log('📊 [PPT 2/3] fullPath:', fullPath);
+    
+    console.log('📊 [PPT 2/3] 파일 읽기 시작...');
+    const buffer = readFileSync(fullPath);
+    console.log('📊 [PPT 2/3] 파일 읽기 완료. Buffer 크기:', buffer.length, 'bytes');
+    
+    console.log('📊 [PPT 3/3] PPTX 텍스트 추출 시작...');
+    
+    // adm-zip으로 PPTX 파일 압축 해제
+    const AdmZip = require('adm-zip');
+    const zip = new AdmZip(buffer);
+    
+    // 슬라이드 파일 찾기 (ppt/slides/slide*.xml)
+    const slideEntries = zip.getEntries().filter(entry => 
+      entry.entryName.startsWith('ppt/slides/slide') && entry.entryName.endsWith('.xml')
+    );
+    
+    console.log(`📊 [PPT 3/3] 슬라이드 개수: ${slideEntries.length}`);
+    
+    if (slideEntries.length === 0) {
+      console.log('⚠️ PPTX에서 슬라이드를 찾을 수 없습니다');
+      return '(PPT 텍스트 추출 실패: 슬라이드 없음)';
+    }
+    
+    const allTexts: string[] = [];
+    
+    // 각 슬라이드에서 텍스트 추출
+    for (let i = 0; i < slideEntries.length; i++) {
+      const entry = slideEntries[i];
+      const slideXml = entry.getData().toString('utf-8');
+      
+      // XML에서 <a:t> 태그 안의 텍스트 추출 (Office Open XML 형식)
+      const textMatches = slideXml.match(/<a:t[^>]*>([^<]*)<\/a:t>/g) || [];
+      const slideTexts = textMatches.map(match => {
+        const textMatch = match.match(/<a:t[^>]*>([^<]*)<\/a:t>/);
+        return textMatch ? textMatch[1] : '';
+      }).filter(text => text.trim().length > 0);
+      
+      if (slideTexts.length > 0) {
+        allTexts.push(`[슬라이드 ${i + 1}]\n${slideTexts.join('\n')}`);
+      }
+    }
+    
+    let text = allTexts.join('\n\n');
+    console.log('📊 [PPT 3/3] 텍스트 추출 완료, 길이:', text.length);
+    
+    // 너무 길면 앞부분만 (2000자)
+    if (text.length > 2000) {
+      text = text.substring(0, 2000) + '... (내용 계속)';
+    }
+    
+    if (text.trim()) {
+      console.log('✅ PPT 분석 완료. 미리보기:', text.substring(0, 50).replace(/\n/g, ' '));
+      return text;
+    } else {
+      console.log('⚠️ PPT에서 텍스트를 추출하지 못했습니다');
+      return '(PPT 텍스트 추출 실패)';
+    }
+  } catch (error) {
+    console.error('❌ PPT 파싱 실패:', error instanceof Error ? error.message : String(error));
+    return 'PowerPoint 파일을 읽을 수 없습니다';
+  }
+}
+
 // Word 파일 읽기 (.docx)
 export async function parseWordFile(filepath: string): Promise<string> {
   try {
@@ -257,6 +328,13 @@ export async function summarizeAttachments(attachments: Attachment[]): Promise<s
       const wordText = await parseWordFile(attachment.filepath);
       console.log(`✅ [파일 ${i + 1}] Word 파싱 완료, 텍스트 길이: ${wordText.length}`);
       descriptions.push(`[Word 문서: ${attachment.filename}]\n내용: ${wordText}`);
+      
+    } else if (mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' || attachment.filename.endsWith('.pptx')) {
+      // PowerPoint 파일 파싱
+      console.log(`📊 [파일 ${i + 1}] → PowerPoint(.pptx)로 판단, 파싱 시작`);
+      const pptText = await parsePowerPointFile(attachment.filepath);
+      console.log(`✅ [파일 ${i + 1}] PPT 파싱 완료, 텍스트 길이: ${pptText.length}`);
+      descriptions.push(`[PowerPoint 문서: ${attachment.filename}]\n내용: ${pptText}`);
       
     } else if (mimetype === 'text/plain' || mimetype === 'text/markdown' || attachment.filename.endsWith('.txt') || attachment.filename.endsWith('.md')) {
       // 텍스트 파일 읽기
