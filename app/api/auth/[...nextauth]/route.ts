@@ -6,6 +6,14 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   console.warn('⚠️ Google OAuth 환경 변수가 설정되지 않았습니다. GOOGLE_CLIENT_ID와 GOOGLE_CLIENT_SECRET을 설정해주세요.');
 }
 
+// 디버깅: NEXTAUTH_URL 확인
+if (process.env.NEXTAUTH_URL) {
+  console.log('📌 NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
+  console.log('📌 예상 리디렉션 URI:', `${process.env.NEXTAUTH_URL}/api/auth/callback/google`);
+} else {
+  console.warn('⚠️ NEXTAUTH_URL이 설정되지 않았습니다. 리디렉션 URI 오류가 발생할 수 있습니다.');
+}
+
 const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({

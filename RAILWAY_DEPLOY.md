@@ -177,7 +177,47 @@ git push origin main
    - 생성된 **클라이언트 시크릿**을 `GOOGLE_CLIENT_SECRET`에 설정
    - Railway 도메인을 `NEXTAUTH_URL`에 설정 (예: `https://your-railway-domain.railway.app`)
 
-5. **리디렉션 URI 확인**
-   - Google Cloud Console에서 설정한 URI가 Railway 도메인과 정확히 일치하는지 확인
-   - URI는 대소문자를 구분하므로 정확히 입력해야 함
-   - 변경 후 몇 분 정도 기다려야 반영될 수 있음
+5. **리디렉션 URI 확인 및 디버깅**
+   
+   **중요: 리디렉션 URI 형식**
+   - NextAuth는 다음 형식의 URI를 사용합니다:
+     ```
+     {NEXTAUTH_URL}/api/auth/callback/google
+     ```
+   - 예시: `https://workless-production.up.railway.app/api/auth/callback/google`
+   
+   **확인 사항:**
+   1. Railway 대시보드에서 실제 도메인 확인
+      - **Settings** > **Networking** 또는 **Settings** > **Generate Domain**
+      - 전체 도메인을 복사 (예: `https://workless-production.up.railway.app`)
+   
+   2. Google Cloud Console에 설정한 URI 확인
+      - **API 및 서비스** > **사용자 인증 정보** > 웹 애플리케이션 클라이언트 클릭
+      - **승인된 리디렉션 URI** 섹션 확인
+      - 다음 형식이 정확히 포함되어 있는지 확인:
+        ```
+        https://your-railway-domain.railway.app/api/auth/callback/google
+        ```
+      - ⚠️ **주의사항:**
+        - `https://`로 시작해야 함
+        - 마지막에 `/` 없음
+        - `/api/auth/callback/google` 경로가 정확히 일치해야 함
+        - 도메인 이름이 Railway 도메인과 정확히 일치해야 함
+   
+   3. Railway 환경 변수 확인
+      - `NEXTAUTH_URL`: Railway 도메인과 정확히 일치해야 함
+        - 예: `https://workless-production.up.railway.app`
+        - `http://`가 아닌 `https://` 사용
+        - 마지막에 `/` 없음
+      - `GOOGLE_CLIENT_ID`: 웹 애플리케이션 클라이언트 ID
+      - `GOOGLE_CLIENT_SECRET`: 웹 애플리케이션 클라이언트 시크릿
+   
+   4. 변경사항 반영
+      - Google Cloud Console에서 변경 후 **5-10분** 대기
+      - Railway 환경 변수 변경 후 서비스 재시작
+      - 브라우저 캐시 및 쿠키 삭제 후 다시 시도
+   
+   **디버깅 팁:**
+   - Google OAuth 오류 페이지에서 실제 요청된 URI 확인 가능
+   - Railway 로그에서 `NEXTAUTH_URL` 값 확인
+   - Google Cloud Console의 "승인된 리디렉션 URI" 목록과 비교
