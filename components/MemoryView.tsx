@@ -679,7 +679,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         // to 그룹에 from 추가
         connectionGroups[toGroup].add(pair.from);
         nodeToGroup.set(pair.from, toGroup);
-      } else if (fromGroup !== toGroup) {
+      } else if (fromGroup !== undefined && toGroup !== undefined && fromGroup !== toGroup) {
         // 두 그룹 병합
         const merged = new Set([...connectionGroups[fromGroup], ...connectionGroups[toGroup]]);
         connectionGroups[fromGroup] = merged;
