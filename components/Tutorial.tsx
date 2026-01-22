@@ -36,59 +36,80 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
       step.action();
     }
 
-    // Find target element
-    if (step.targetSelector) {
-      const element = document.querySelector(step.targetSelector) as HTMLElement;
-      if (element) {
-        setTargetElement(element);
-        
-        // Calculate tooltip position
-        const rect = element.getBoundingClientRect();
-        const scrollY = window.scrollY;
-        const scrollX = window.scrollX;
-        
-        let top = 0;
-        let left = 0;
-        
-        switch (step.position) {
-          case 'top':
-            top = rect.top + scrollY - 10;
-            left = rect.left + scrollX + rect.width / 2;
-            break;
-          case 'bottom':
-            top = rect.bottom + scrollY + 10;
-            left = rect.left + scrollX + rect.width / 2;
-            break;
-          case 'left':
-            top = rect.top + scrollY + rect.height / 2;
-            left = rect.left + scrollX - 10;
-            break;
-          case 'right':
-            top = rect.top + scrollY + rect.height / 2;
-            left = rect.right + scrollX + 10;
-            break;
-          case 'center':
-          default:
-            top = rect.top + scrollY + rect.height / 2;
-            left = rect.left + scrollX + rect.width / 2;
-            break;
+    // Find target element with retry logic
+    const findAndPositionElement = () => {
+      if (step.targetSelector) {
+        const element = document.querySelector(step.targetSelector) as HTMLElement;
+        if (element) {
+          setTargetElement(element);
+          
+          // Calculate tooltip position
+          const rect = element.getBoundingClientRect();
+          const scrollY = window.scrollY;
+          const scrollX = window.scrollX;
+          
+          let top = 0;
+          let left = 0;
+          
+          switch (step.position) {
+            case 'top':
+              top = rect.top + scrollY - 10;
+              left = rect.left + scrollX + rect.width / 2;
+              break;
+            case 'bottom':
+              top = rect.bottom + scrollY + 10;
+              left = rect.left + scrollX + rect.width / 2;
+              break;
+            case 'left':
+              top = rect.top + scrollY + rect.height / 2;
+              left = rect.left + scrollX - 10;
+              break;
+            case 'right':
+              top = rect.top + scrollY + rect.height / 2;
+              left = rect.right + scrollX + 10;
+              break;
+            case 'center':
+            default:
+              top = rect.top + scrollY + rect.height / 2;
+              left = rect.left + scrollX + rect.width / 2;
+              break;
+          }
+          
+          setTooltipPosition({ top, left });
+          
+          // Scroll element into view
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          // Element not found, retry after a short delay
+          console.log('튜토리얼 타겟 요소를 찾지 못함:', step.targetSelector);
+          setTargetElement(null);
+          // 재시도 (최대 3번)
+          const retryCount = (window as any).__tutorialRetryCount || 0;
+          if (retryCount < 3) {
+            (window as any).__tutorialRetryCount = retryCount + 1;
+            setTimeout(findAndPositionElement, 500);
+          } else {
+            (window as any).__tutorialRetryCount = 0;
+            // 타겟이 없어도 중앙에 표시
+            setTooltipPosition({
+              top: window.innerHeight / 2 + window.scrollY,
+              left: window.innerWidth / 2 + window.scrollX,
+            });
+          }
         }
-        
-        setTooltipPosition({ top, left });
-        
-        // Scroll element into view
-        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else {
         setTargetElement(null);
+        // Center position for steps without target
+        setTooltipPosition({
+          top: window.innerHeight / 2 + window.scrollY,
+          left: window.innerWidth / 2 + window.scrollX,
+        });
       }
-    } else {
-      setTargetElement(null);
-      // Center position for steps without target
-      setTooltipPosition({
-        top: window.innerHeight / 2 + window.scrollY,
-        left: window.innerWidth / 2 + window.scrollX,
-      });
-    }
+    };
+
+    // Reset retry count on step change
+    (window as any).__tutorialRetryCount = 0;
+    findAndPositionElement();
   }, [currentStep, steps, onComplete]);
 
   const handleNext = () => {
