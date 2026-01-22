@@ -180,9 +180,7 @@ export default function Home() {
 
             {/* 오른쪽: 사용자 정보 */}
             <div className="flex items-center gap-1">
-              {status === 'loading' ? (
-                <span className="px-4 py-2 text-gray-400 text-sm">로딩 중...</span>
-              ) : session ? (
+              {session ? (
                 <div className="flex items-center gap-2">
                   {session.user?.image && (
                     <img
