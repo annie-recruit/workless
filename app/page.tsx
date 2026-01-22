@@ -367,13 +367,6 @@ export default function Home() {
               targetSelector: 'button[data-tutorial-link-button="true"]',
               position: 'bottom',
             },
-            {
-              id: 'ai-features',
-              title: 'AI 기능',
-              description: 'AI가 기억을 요약하고, 제안을 해주며, 인사이트를 제공합니다. 각 카드에서 "요약하기" 또는 "제안받기" 버튼을 눌러보세요.',
-              targetSelector: '[data-tutorial-target="ai-features"]',
-              position: 'bottom',
-            },
           ]}
           onComplete={() => {
             setShowTutorial(false);
