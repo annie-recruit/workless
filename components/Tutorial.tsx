@@ -239,7 +239,11 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
             : 'translate(-50%, -50%)',
         }}
       >
-        <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm pointer-events-auto border-2 border-blue-500" style={{ maxHeight: 'calc(100vh - 40px)', overflowY: 'auto' }}>
+        <div 
+          className="bg-white rounded-xl shadow-2xl p-6 max-w-sm pointer-events-auto border-2 border-blue-500" 
+          style={{ maxHeight: 'calc(100vh - 40px)', overflowY: 'auto' }}
+          onClick={(e) => e.stopPropagation()}
+        >
           {/* Header */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
