@@ -22,9 +22,21 @@
 ### 2. 환경 변수 설정
 Railway 대시보드에서 **Variables** 탭으로 이동:
 
-| Name | Value |
-|------|-------|
-| `OPENAI_API_KEY` | (여기에 OpenAI API 키 입력) |
+| Name | Value | 필수 여부 |
+|------|-------|----------|
+| `NEXTAUTH_SECRET` | 랜덤 문자열 (예: `openssl rand -base64 32`로 생성) | ✅ 필수 |
+| `GOOGLE_CLIENT_ID` | Google OAuth 클라이언트 ID | ✅ 필수 |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth 클라이언트 시크릿 | ✅ 필수 |
+| `OPENAI_API_KEY` | OpenAI API 키 | ✅ 필수 |
+| `PDF_SERVICES_CLIENT_ID` | Adobe PDF Services 클라이언트 ID (선택) | ⚪ 선택 |
+| `PDF_SERVICES_CLIENT_SECRET` | Adobe PDF Services 클라이언트 시크릿 (선택) | ⚪ 선택 |
+
+**NEXTAUTH_SECRET 생성 방법:**
+터미널에서 다음 명령어 실행:
+```bash
+openssl rand -base64 32
+```
+생성된 문자열을 `NEXTAUTH_SECRET` 값으로 사용하세요.
 
 ### 3. 볼륨 설정 (데이터베이스 영구 저장)
 1. **Settings** 탭으로 이동
@@ -74,3 +86,19 @@ git push origin main
 ### 데이터베이스 오류 시
 - 볼륨이 제대로 마운트되었는지 확인
 - `/app/data` 경로 확인
+
+### 서버 에러 (NO_SECRET) 시
+- `NEXTAUTH_SECRET` 환경 변수가 설정되었는지 확인
+- Railway 대시보드의 **Variables** 탭에서 환경 변수 확인
+- 환경 변수 추가 후 서비스를 재시작하세요
+
+### Google OAuth 설정 방법
+1. [Google Cloud Console](https://console.cloud.google.com/) 접속
+2. 새 프로젝트 생성 또는 기존 프로젝트 선택
+3. **API 및 서비스** > **사용자 인증 정보** 이동
+4. **사용자 인증 정보 만들기** > **OAuth 클라이언트 ID** 선택
+5. 애플리케이션 유형: **웹 애플리케이션**
+6. 승인된 리디렉션 URI에 추가:
+   - `https://your-railway-domain.railway.app/api/auth/callback/google`
+   - (로컬 개발용) `http://localhost:3000/api/auth/callback/google`
+7. 생성된 클라이언트 ID와 시크릿을 Railway 환경 변수에 설정
