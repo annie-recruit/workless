@@ -1063,9 +1063,10 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       }`}
                     >
                       <MemoryCard
+                        key={memory.id} 
                         memory={memory} 
                         onDelete={onMemoryDeleted} 
-                        allMemories={memories}
+                        allMemories={localMemories}
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
                         onOpenLinkManager={setLinkManagerMemory}
@@ -1171,8 +1172,14 @@ function MemoryCard({
   
   // memory prop이 변경되면 로컬 상태도 업데이트
   useEffect(() => {
-    setLocalMemory(memory);
-  }, [memory.id]); // memory.id가 변경될 때만 업데이트 (같은 메모리면 업데이트 안 함)
+    // relatedMemoryIds가 변경되었는지 확인
+    const currentIds = (localMemory.relatedMemoryIds || []).sort().join(',');
+    const newIds = (memory.relatedMemoryIds || []).sort().join(',');
+    
+    if (memory.id !== localMemory.id || currentIds !== newIds) {
+      setLocalMemory(memory);
+    }
+  }, [memory, localMemory.id, localMemory.relatedMemoryIds]);
   
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
