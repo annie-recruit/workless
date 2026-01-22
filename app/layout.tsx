@@ -18,6 +18,27 @@ export const metadata: Metadata = {
     maximumScale: 1,
     userScalable: false,
   },
+  openGraph: {
+    title: "Workless - 개인 비서",
+    description: "알아서 정리해주는 개인 비서",
+    type: "website",
+    url: process.env.NEXTAUTH_URL || "https://workless.app",
+    siteName: "Workless",
+    images: [
+      {
+        url: "/opengraph-image", // Next.js가 자동으로 생성하는 Open Graph 이미지
+        width: 1200,
+        height: 630,
+        alt: "Workless - 알아서 정리해주는 개인 비서",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Workless - 개인 비서",
+    description: "알아서 정리해주는 개인 비서",
+    images: ["/opengraph-image"],
+  },
 };
 
 export default function RootLayout({
