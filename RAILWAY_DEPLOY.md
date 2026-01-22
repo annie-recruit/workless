@@ -107,14 +107,22 @@ git push origin main
    - **API 및 서비스** > **사용자 인증 정보** 이동
    
    **기존 OAuth 클라이언트 ID가 있는 경우:**
-   - 목록에서 기존 OAuth 클라이언트 ID를 **클릭**하여 수정
-   - **승인된 리디렉션 URI** 섹션에서 **URI 추가** 클릭
-   - 다음 URI를 **정확히** 입력:
-     ```
-     https://your-railway-domain.railway.app/api/auth/callback/google
-     ```
-   - 기존에 `http://localhost:3000/api/auth/callback/google`이 없다면 함께 추가
-   - **저장** 클릭
+   1. **사용자 인증 정보** 페이지에서 OAuth 2.0 클라이언트 ID 목록 확인
+   2. 목록에서 기존 클라이언트 ID의 **이름**을 클릭 (예: "웹 클라이언트 1")
+   3. 클릭하면 **OAuth 클라이언트 편집** 화면이 열림
+   4. 화면 아래쪽에 **승인된 리디렉션 URI** 섹션이 있음
+   5. **+ URI 추가** 버튼을 클릭하거나, 빈 입력 필드에 직접 입력
+   6. 다음 URI를 **정확히** 입력:
+      ```
+      https://your-railway-domain.railway.app/api/auth/callback/google
+      ```
+   7. 기존에 `http://localhost:3000/api/auth/callback/google`이 없다면 함께 추가
+   8. 화면 맨 아래 **저장** 버튼 클릭
+   
+   **참고:** 
+   - "승인된 리디렉션 URI" 섹션이 보이지 않으면 화면을 아래로 스크롤
+   - "승인된 JavaScript 원본" 섹션과는 다른 섹션입니다
+   - URI는 한 줄에 하나씩 입력
    
    **OAuth 클라이언트 ID가 없는 경우에만:**
    - **사용자 인증 정보 만들기** > **OAuth 클라이언트 ID** 선택
