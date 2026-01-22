@@ -60,7 +60,7 @@ export async function parsePowerPointFile(filepath: string): Promise<string> {
     const zip = new AdmZip(buffer);
     
     // 슬라이드 파일 찾기 (ppt/slides/slide*.xml)
-    const slideEntries = zip.getEntries().filter(entry => 
+    const slideEntries = zip.getEntries().filter((entry: any) => 
       entry.entryName.startsWith('ppt/slides/slide') && entry.entryName.endsWith('.xml')
     );
     
