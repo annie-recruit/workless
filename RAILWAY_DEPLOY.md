@@ -25,6 +25,7 @@ Railway 대시보드에서 **Variables** 탭으로 이동:
 | Name | Value | 필수 여부 |
 |------|-------|----------|
 | `NEXTAUTH_SECRET` | 랜덤 문자열 (예: `openssl rand -base64 32`로 생성) | ✅ 필수 |
+| `NEXTAUTH_URL` | 배포된 앱 URL (예: `https://your-app.railway.app`) | ✅ 필수 |
 | `GOOGLE_CLIENT_ID` | Google OAuth 클라이언트 ID | ✅ 필수 |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth 클라이언트 시크릿 | ✅ 필수 |
 | `OPENAI_API_KEY` | OpenAI API 키 | ✅ 필수 |

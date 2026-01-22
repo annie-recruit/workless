@@ -30,7 +30,10 @@ const authOptions: NextAuthOptions = {
     async jwt({ token, user, account }) {
       // 초기 로그인 시 사용자 정보를 토큰에 저장
       if (user) {
-        token.id = user.id;
+        // NextAuth는 sub를 사용자 식별자로 사용하므로 명시적으로 설정
+        const userId = account?.providerAccountId || user.id || user.email || '';
+        token.sub = userId;
+        token.id = userId;
         token.email = user.email;
         token.name = user.name;
         token.picture = user.image;
@@ -59,6 +62,25 @@ const authOptions: NextAuthOptions = {
     signIn: '/auth/signin',
   },
   secret: process.env.NEXTAUTH_SECRET,
+  // 세션 쿠키 설정
+  session: {
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30일
+  },
+  // 쿠키 설정 (프로덕션 환경에서 보안 강화)
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production' 
+        ? '__Secure-next-auth.session-token' 
+        : 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+  },
 };
 
 const handler = NextAuth(authOptions);
