@@ -45,6 +45,7 @@ export interface Cluster {
 // 사용자 정의 그룹
 export interface Group {
   id: string;
+  userId: string;           // 사용자 ID
   name: string;             // 사용자가 지정한 그룹 이름
   color?: string;           // 그룹 색상 (옵션)
   memoryIds: string[];
@@ -56,6 +57,7 @@ export interface Group {
 // 목표
 export interface Goal {
   id: string;
+  userId: string;           // 사용자 ID
   title: string;            // 목표 제목
   description?: string;     // 목표 설명
   category: 'idea' | 'request' | 'habit';  // 아이디어/요청/습관
