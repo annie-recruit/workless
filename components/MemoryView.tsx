@@ -859,7 +859,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       </div>
 
       {/* 화이트보드 뷰 */}
-      <div>
+      <div data-tutorial-target="board-view">
         {filteredMemories.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
             해당 그룹에 기억이 없습니다
@@ -1631,7 +1631,7 @@ function MemoryCard({
         {variant === 'board' && (
           <>
             <span className="ml-auto" />
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1" data-tutorial-target="ai-features">
               {([
                 { id: 'amber', class: 'bg-amber-200' },
                 { id: 'blue', class: 'bg-blue-200' },

@@ -238,7 +238,7 @@ export default function Home() {
           </div>
 
           {/* 기록하기 영역 */}
-          <div className="mb-8">
+          <div className="mb-8" data-tutorial-target="memory-input">
             <MemoryInput onMemoryCreated={handleMemoryCreated} />
           </div>
 
