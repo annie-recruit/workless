@@ -80,6 +80,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
         title={selectedPersona ? `${selectedPersona.name}` : '페르소나 선택'}
+        data-tutorial-target="persona-selector"
       >
         <span className="text-2xl">{selectedPersona?.icon || '👤'}</span>
         <span className="text-sm font-medium text-gray-700">

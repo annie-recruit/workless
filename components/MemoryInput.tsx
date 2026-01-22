@@ -440,8 +440,8 @@ ${summary}`;
     : [];
 
   return (
-    <div className="w-full max-w-3xl mx-auto" data-tutorial-target="memory-input">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="w-full max-w-3xl mx-auto">
+      <form onSubmit={handleSubmit} className="space-y-4" data-tutorial-target="memory-input">
         {/* 제목 입력 */}
         <input
           type="text"

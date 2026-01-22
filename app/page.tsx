@@ -336,14 +336,14 @@ export default function Home() {
               id: 'memory-input',
               title: '기억 기록하기',
               description: '여기서 일상의 기억, 아이디어, 할 일 등을 기록하세요. 제목과 내용을 입력하고 파일도 첨부할 수 있습니다.',
-              targetSelector: '[data-tutorial-target="memory-input"]',
+              targetSelector: 'form[data-tutorial-target="memory-input"]',
               position: 'bottom',
             },
             {
               id: 'persona-selector',
               title: '페르소나 선택',
               description: '페르소나를 선택하면 AI가 그 스타일로 응답합니다. 예를 들어 "친구" 페르소나는 친근하게, "선생님" 페르소나는 전문적으로 답변합니다.',
-              targetSelector: '[data-tutorial-target="persona-selector"]',
+              targetSelector: 'button[data-tutorial-target="persona-selector"]',
               position: 'bottom',
             },
             {
@@ -363,16 +363,16 @@ export default function Home() {
             {
               id: 'link-memories',
               title: '기억 연결하기',
-              description: '기억들을 연결해서 관계를 만들 수 있습니다. 각 카드에서 연결 버튼을 눌러 관련된 기억들을 묶어보세요.',
-              targetSelector: '[data-tutorial-target="link-memories"]',
-              position: 'center',
+              description: '기억들을 연결해서 관계를 만들 수 있습니다. 각 카드에서 연결 버튼(📎 아이콘)을 눌러 관련된 기억들을 묶어보세요.',
+              targetSelector: 'button[data-tutorial-link-button="true"]',
+              position: 'bottom',
             },
             {
               id: 'ai-features',
               title: 'AI 기능',
-              description: 'AI가 기억을 요약하고, 제안을 해주며, 인사이트를 제공합니다. 각 카드에서 "요약" 또는 "제안받기" 버튼을 눌러보세요.',
+              description: 'AI가 기억을 요약하고, 제안을 해주며, 인사이트를 제공합니다. 각 카드에서 "요약하기" 또는 "제안받기" 버튼을 눌러보세요.',
               targetSelector: '[data-tutorial-target="ai-features"]',
-              position: 'center',
+              position: 'bottom',
             },
           ]}
           onComplete={() => {

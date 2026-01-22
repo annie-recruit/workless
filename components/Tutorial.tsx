@@ -132,6 +132,7 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
           } else {
             (window as any).__tutorialRetryCount = 0;
             // 타겟이 없어도 중앙에 표시
+            setTargetElement(null);
             setTooltipPosition({
               top: window.innerHeight / 2 + window.scrollY,
               left: window.innerWidth / 2 + window.scrollX,
@@ -145,6 +146,80 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
           top: window.innerHeight / 2 + window.scrollY,
           left: window.innerWidth / 2 + window.scrollX,
         });
+      }
+      
+      // 타겟 요소를 찾은 후 약간의 지연을 두고 위치 재계산 (렌더링 완료 대기)
+      if (element) {
+        setTimeout(() => {
+          const updatedElement = document.querySelector(step.targetSelector!) as HTMLElement;
+          if (updatedElement) {
+            const rect = updatedElement.getBoundingClientRect();
+            const scrollY = window.scrollY;
+            const scrollX = window.scrollX;
+            
+            // 위치 재계산
+            const tooltipWidth = 384;
+            const tooltipHeight = 280;
+            const spacing = 20;
+            const padding = 20;
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            
+            let top = 0;
+            let left = 0;
+            
+            switch (step.position) {
+              case 'top':
+                top = rect.top + scrollY - spacing;
+                left = rect.left + scrollX + rect.width / 2;
+                if (top - scrollY < tooltipHeight + padding) {
+                  top = rect.bottom + scrollY + spacing;
+                }
+                break;
+              case 'bottom':
+                top = rect.bottom + scrollY + spacing;
+                left = rect.left + scrollX + rect.width / 2;
+                if (top - scrollY + tooltipHeight > viewportHeight - padding) {
+                  top = rect.top + scrollY - spacing - tooltipHeight;
+                }
+                break;
+              case 'left':
+                top = rect.top + scrollY + rect.height / 2;
+                left = rect.left + scrollX - spacing;
+                if (left - scrollX < tooltipWidth + padding) {
+                  left = rect.right + scrollX + spacing;
+                }
+                break;
+              case 'right':
+                top = rect.top + scrollY + rect.height / 2;
+                left = rect.right + scrollX + spacing;
+                if (left - scrollX + tooltipWidth > viewportWidth - padding) {
+                  left = rect.left + scrollX - spacing - tooltipWidth;
+                }
+                break;
+              case 'center':
+              default:
+                top = rect.top + scrollY + rect.height / 2;
+                left = rect.left + scrollX + rect.width / 2;
+                break;
+            }
+            
+            // 화면 경계 체크
+            if (left - scrollX < tooltipWidth / 2 + padding) {
+              left = scrollX + tooltipWidth / 2 + padding;
+            } else if (left - scrollX > viewportWidth - tooltipWidth / 2 - padding) {
+              left = scrollX + viewportWidth - tooltipWidth / 2 - padding;
+            }
+            
+            if (top - scrollY < tooltipHeight / 2 + padding) {
+              top = scrollY + tooltipHeight / 2 + padding;
+            } else if (top - scrollY > viewportHeight - tooltipHeight / 2 - padding) {
+              top = scrollY + viewportHeight - tooltipHeight / 2 - padding;
+            }
+            
+            setTooltipPosition({ top, left });
+          }
+        }, 100);
       }
     };
 
