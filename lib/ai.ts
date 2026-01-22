@@ -289,7 +289,7 @@ export async function classifyMemory(
   const normalizedContent = stripHtml(fullContent);
 
   const personaPrefix = personaContext 
-    ? `너는 개인 비서야. 사용자는 "${personaContext}" 역할로 활동 중이야. 이 관점에서 사용자의 기록을 분석해줘.\n\n`
+    ? `🎯 페르소나: 사용자는 "${personaContext}" 역할로 활동 중입니다.\n\n이 전문 분야의 관점에서 사용자의 기록을 분석해주세요. 이 페르소나의 맥락과 관심사를 반영하여 분류해주세요.\n\n`
     : '';
 
   const prompt = `
@@ -393,7 +393,7 @@ export async function generateSummary(query: string, memories: Memory[], persona
   const clusterTags = [...new Set(sortedMemories.map(m => m.clusterTag).filter(Boolean))];
 
   const personaPrefix = personaContext 
-    ? `당신은 개인 비서입니다. 사용자는 "${personaContext}" 역할로 활동 중입니다. 이 관점에서 분석해주세요.\n\n`
+    ? `🎯 페르소나: 사용자는 "${personaContext}" 역할로 활동 중입니다.\n\n당신은 이 전문 분야의 관점에서 사용자의 기록을 분석하는 전문가 비서입니다. 이 페르소나의 맥락, 목표, 관심사를 반영하여 분석해주세요.\n\n`
     : '';
 
   const prompt = `
@@ -455,7 +455,7 @@ export async function generateSuggestions(memories: Memory[], personaContext?: s
   if (frequentClusters.length === 0) return undefined;
 
   const personaPrefix = personaContext 
-    ? `사용자는 "${personaContext}" 역할로 활동 중이야. 이 전문가 관점에서 도움될 제안을 해줘.\n\n`
+    ? `🎯 페르소나: 사용자는 "${personaContext}" 역할로 활동 중입니다.\n\n이 전문가 관점에서 도움될 제안을 해주세요. 일반적인 조언이 아닌, 이 전문 분야에서 실제로 유용한 구체적인 제안을 해주세요.\n\n`
     : '';
 
   const prompt = `
@@ -545,9 +545,9 @@ export async function generateInsights(memories: Memory[], personaContext?: stri
   const repeatedMemories = memories.filter(m => m.repeatCount && m.repeatCount > 1);
   
   const personaPrefix = personaContext 
-    ? `당신은 개인 비서입니다. 사용자는 "${personaContext}" 역할로 활동 중입니다. 이 전문 분야 관점에서 깊이 있는 인사이트를 제공해주세요.\n\n`
+    ? `🎯 페르소나: 사용자는 "${personaContext}" 역할로 활동 중입니다.\n\n당신은 이 전문 분야의 관점에서 사용자의 기록을 분석하는 전문가 비서입니다. 이 페르소나의 맥락, 목표, 관심사를 반영하여 깊이 있는 인사이트를 제공해주세요. 일반적인 분석이 아닌, 이 전문 분야에서 중요한 패턴과 인사이트를 찾아주세요.\n\n`
     : '';
-
+  
   const prompt = `
 ${personaPrefix}당신은 개인 비서입니다. 사용자의 기록들을 깊이 있게 분석해서 의미 있는 인사이트를 제공해주세요.
 
@@ -624,7 +624,7 @@ export async function suggestGroups(memories: Memory[], personaContext?: string)
   }
 
   const personaPrefix = personaContext 
-    ? `사용자는 "${personaContext}" 역할로 활동 중입니다. 이 관점에서 그룹을 제안해주세요.\n\n`
+    ? `🎯 페르소나: 사용자는 "${personaContext}" 역할로 활동 중입니다.\n\n이 전문 분야의 관점에서 그룹을 제안해주세요. 이 페르소나의 맥락과 목표에 맞는 의미 있는 그룹을 만들어주세요.\n\n`
     : '';
 
   const prompt = `
@@ -681,4 +681,147 @@ JSON 형식:
   }));
 
   return { groups: groupsWithIds };
+}
+
+// 화이트보드 레이아웃 생성 (연결선 기반)
+export async function generateLayout(params: {
+  memories: Array<{ id: string; title?: string; content: string }>;
+  connections: Array<{ from: string; to: string }>;
+  currentPositions: Record<string, { x: number; y: number }>;
+  cardSize: 's' | 'm' | 'l';
+}): Promise<Record<string, { x: number; y: number }>> {
+  const { memories, connections, currentPositions, cardSize } = params;
+  
+  if (memories.length === 0) {
+    return {};
+  }
+
+  // 카드 크기에 따른 간격 설정
+  const cardSpacing = cardSize === 's' ? 280 : cardSize === 'l' ? 400 : 340;
+  const minDistance = cardSpacing;
+  const groupSpacing = cardSpacing * 2.5;
+
+  // 연결된 기록들을 그룹화 (연결 컴포넌트 찾기)
+  const visited = new Set<string>();
+  const groups: string[][] = [];
+
+  const findConnected = (startId: string, group: string[]) => {
+    if (visited.has(startId)) return;
+    visited.add(startId);
+    group.push(startId);
+    
+    connections.forEach(conn => {
+      if (conn.from === startId && !visited.has(conn.to)) {
+        findConnected(conn.to, group);
+      } else if (conn.to === startId && !visited.has(conn.from)) {
+        findConnected(conn.from, group);
+      }
+    });
+  };
+
+  memories.forEach(m => {
+    if (!visited.has(m.id)) {
+      const group: string[] = [];
+      findConnected(m.id, group);
+      if (group.length > 0) {
+        groups.push(group);
+      }
+    }
+  });
+
+  // AI에게 각 그룹의 배치 전략 요청
+  const prompt = `
+당신은 화이트보드 레이아웃 디자이너입니다. 연결선이 있는 기록들을 시각적으로 잘 보이도록 배열해주세요.
+
+[기록 정보]
+${memories.map(m => {
+  const plain = stripHtml(m.content);
+  return `- ID: ${m.id}, 제목: ${m.title || '(제목 없음)'}, 내용: ${plain.substring(0, 100)}...`;
+}).join('\n')}
+
+[연결 정보]
+${connections.map(c => `- ${c.from} ↔ ${c.to}`).join('\n')}
+
+[그룹 정보]
+${groups.map((group, idx) => `그룹 ${idx + 1}: ${group.join(', ')}`).join('\n')}
+
+요구사항:
+1. 연결된 기록들은 가까이 배치하되, 내용이 잘 보이도록 너무 겹치지 않게
+2. 연결선이 잘 보이도록 적절한 간격 유지 (최소 ${minDistance}px)
+3. 관련 있는 그룹들은 모여있도록 배치
+4. 각 그룹 내에서는 연결 관계를 고려한 배치
+5. 화면을 효율적으로 사용하되, 여백도 적절히
+
+각 기록의 x, y 좌표를 반환해주세요. 좌표는 0부터 시작합니다.
+
+JSON 형식:
+{
+  "positions": {
+    "memoryId1": { "x": 100, "y": 200 },
+    "memoryId2": { "x": 400, "y": 200 },
+    ...
+  },
+  "reasoning": "배치 전략에 대한 간단한 설명"
+}
+`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.5,
+      response_format: { type: 'json_object' },
+    });
+
+    const result = JSON.parse(response.choices[0].message.content || '{}');
+    return result.positions || {};
+  } catch (error) {
+    console.error('AI 레이아웃 생성 실패, 기본 레이아웃 사용:', error);
+    
+    // AI 실패 시 기본 레이아웃 (그룹별로 배치)
+    const layout: Record<string, { x: number; y: number }> = {};
+    let currentX = 50;
+    let currentY = 50;
+    let maxY = currentY;
+
+    groups.forEach((group, groupIdx) => {
+      const groupStartX = currentX;
+      const groupStartY = currentY;
+      
+      // 그룹 내에서 연결 관계 고려한 배치
+      group.forEach((memoryId, idx) => {
+        const col = idx % 3;
+        const row = Math.floor(idx / 3);
+        layout[memoryId] = {
+          x: groupStartX + col * cardSpacing,
+          y: groupStartY + row * cardSpacing,
+        };
+        maxY = Math.max(maxY, groupStartY + row * cardSpacing);
+      });
+
+      // 다음 그룹은 아래로
+      currentY = maxY + groupSpacing;
+      if (groupIdx % 2 === 1) {
+        currentX += groupSpacing * 2;
+        currentY = 50;
+      }
+    });
+
+    // 연결되지 않은 기록들도 배치
+    memories.forEach(m => {
+      if (!layout[m.id]) {
+        layout[m.id] = {
+          x: currentX,
+          y: currentY,
+        };
+        currentX += cardSpacing;
+        if (currentX > 2000) {
+          currentX = 50;
+          currentY += cardSpacing;
+        }
+      }
+    });
+
+    return layout;
+  }
 }

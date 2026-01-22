@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { memoryDb, goalDb } from '@/lib/db';
+import { getUserId } from '@/lib/auth';
 import { stripHtml } from '@/lib/text';
 
 export async function POST(
@@ -7,10 +8,18 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
     const { suggestions } = await req.json();
 
-    const memory = memoryDb.getById(id);
+    const memory = memoryDb.getById(id, userId);
     if (!memory) {
       return NextResponse.json(
         { error: '기억을 찾을 수 없습니다.' },
@@ -49,8 +58,9 @@ export async function POST(
     else if (memory.topic === '요청' || memory.topic === '질문') category = 'request';
     else if (memory.topic === '습관' || memory.topic === '일상') category = 'habit';
 
-    // goalDb.create signature: (title, sourceMemoryIds, category, description?)
+    // goalDb.create signature: (userId, title, sourceMemoryIds, category, description?)
     const goal = goalDb.create(
+      userId,
       title,
       [id], // sourceMemoryIds
       category,
@@ -59,7 +69,7 @@ export async function POST(
 
     // milestones 업데이트 (create 후에)
     if (milestones.length > 0) {
-      goalDb.update(goal.id, { milestones });
+      goalDb.update(goal.id, userId, { milestones });
     }
 
     return NextResponse.json({ 

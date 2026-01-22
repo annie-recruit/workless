@@ -1,19 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { groupDb } from '@/lib/db';
+import { getUserId } from '@/lib/auth';
 
 // GET: 그룹 조회
 export async function GET(req: NextRequest) {
   try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type'); // 'ai' | 'user' | 'all'
 
     let groups;
     if (type === 'ai') {
-      groups = groupDb.getAIGenerated();
+      groups = groupDb.getAIGenerated(userId);
     } else if (type === 'user') {
-      groups = groupDb.getUserCreated();
+      groups = groupDb.getUserCreated(userId);
     } else {
-      groups = groupDb.getAll();
+      groups = groupDb.getAll(userId);
     }
 
     return NextResponse.json({ groups });
@@ -29,6 +38,14 @@ export async function GET(req: NextRequest) {
 // POST: 그룹 생성
 export async function POST(req: NextRequest) {
   try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const { name, memoryIds, color, isAIGenerated = false } = body;
 
@@ -39,7 +56,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const group = groupDb.create(name, memoryIds, isAIGenerated, color);
+    const group = groupDb.create(userId, name, memoryIds, isAIGenerated, color);
 
     return NextResponse.json({ group });
   } catch (error) {
@@ -54,6 +71,14 @@ export async function POST(req: NextRequest) {
 // PUT: 그룹 수정
 export async function PUT(req: NextRequest) {
   try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const { id, name, memoryIds, color } = body;
 
@@ -64,12 +89,21 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    // 사용자 소유 확인
+    const existing = groupDb.getById(id, userId);
+    if (!existing) {
+      return NextResponse.json(
+        { error: '그룹을 찾을 수 없거나 권한이 없습니다' },
+        { status: 404 }
+      );
+    }
+
     const updates: any = {};
     if (name !== undefined) updates.name = name;
     if (memoryIds !== undefined) updates.memoryIds = memoryIds;
     if (color !== undefined) updates.color = color;
 
-    groupDb.update(id, updates);
+    groupDb.update(id, userId, updates);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -84,6 +118,14 @@ export async function PUT(req: NextRequest) {
 // DELETE: 그룹 삭제
 export async function DELETE(req: NextRequest) {
   try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
@@ -91,6 +133,15 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json(
         { error: 'ID가 필요합니다' },
         { status: 400 }
+      );
+    }
+
+    // 사용자 소유 확인
+    const existing = groupDb.getById(id, userId);
+    if (!existing) {
+      return NextResponse.json(
+        { error: '그룹을 찾을 수 없거나 권한이 없습니다' },
+        { status: 404 }
       );
     }
 

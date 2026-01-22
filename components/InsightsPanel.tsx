@@ -18,9 +18,11 @@ interface InsightsPanelProps {
 export default function InsightsPanel({ personaId }: InsightsPanelProps) {
   const [insights, setInsights] = useState<Insights | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchInsights = async () => {
     setLoading(true);
+    setError(null);
     try {
       const url = personaId 
         ? `/api/insights?personaId=${personaId}` 
@@ -29,9 +31,15 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
       if (res.ok) {
         const data = await res.json();
         setInsights(data);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.details || '인사이트를 불러올 수 없습니다';
+        setError(errorMessage);
+        console.error('Insights API error:', errorData);
       }
     } catch (error) {
       console.error('Failed to fetch insights:', error);
+      setError('인사이트를 불러오는 중 오류가 발생했습니다');
     } finally {
       setLoading(false);
     }
@@ -45,6 +53,21 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-gray-400">분석 중...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center p-4">
+        <div className="text-red-500 mb-2">⚠️ 오류</div>
+        <div className="text-gray-600 text-sm text-center mb-4">{error}</div>
+        <button
+          onClick={fetchInsights}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
+        >
+          다시 시도
+        </button>
       </div>
     );
   }

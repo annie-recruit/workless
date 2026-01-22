@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { memoryDb } from '@/lib/db';
+import { memoryDb, personaDb } from '@/lib/db';
 import { summarizeAttachments } from '@/lib/ai';
+import { getUserId } from '@/lib/auth';
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
@@ -12,8 +13,39 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
-    const memory = memoryDb.getById(id);
+    const { searchParams } = new URL(req.url);
+    const personaId = searchParams.get('personaId');
+    
+    console.log('💡 제안 API - 받은 personaId:', personaId, 'userId:', userId);
+    
+    // 페르소나 컨텍스트 조회
+    let personaContext: string | undefined;
+    let personaName: string | undefined;
+    if (personaId) {
+      const persona = personaDb.getById(personaId, userId);
+      console.log('💡 페르소나 조회 결과:', persona ? persona.name : '없음');
+      if (persona) {
+        personaName = persona.name;
+        // context가 있으면 사용, 없으면 description 사용
+        personaContext = persona.context || persona.description;
+        console.log('🎭 페르소나 적용:', personaName, '컨텍스트:', personaContext?.substring(0, 50) + '...');
+      } else {
+        console.log('⚠️ 페르소나를 찾을 수 없음:', personaId, 'userId:', userId);
+      }
+    } else {
+      console.log('ℹ️ 페르소나 미선택 - 기본 모드로 제안');
+    }
+
+    const memory = memoryDb.getById(id, userId);
 
     if (!memory) {
       return NextResponse.json(
@@ -34,9 +66,9 @@ export async function GET(
 
     // AI에게 제안 요청
     const prompt = `
-당신은 개인의 근처에서 인생의 작은 결정부터 최대 결정까지 면밀히 검토하고 조언해주는 코치이자 비서입니다. 사용자의 기록을 **정확히 이해하고** 맥락에 맞는 실행 가능한 제안을 해주세요.
+${personaContext ? `🎯 페르소나 관점: "${personaName || '전문가'}" (${personaContext})\n이 페르소나의 전문 분야와 관점을 반영하여 제안해주세요.\n\n` : ''}당신은 개인의 근처에서 인생의 작은 결정부터 최대 결정까지 면밀히 검토하고 조언해주는 코치이자 비서입니다. 사용자의 기록을 **정확히 이해하고** 맥락에 맞는 실행 가능한 제안을 해주세요.
 
-⚠️ 중요: 기록의 내용과 주제를 정확히 파악하고, **그 맥락에 맞는** 제안을 해야 합니다.
+⚠️ 중요: 기록의 내용과 주제를 정확히 파악하고, **그 맥락에 맞는** 제안을 해야 합니다.${personaContext ? `\n\n🎯 페르소나 관점: "${personaContext}" 전문가로서 이 기록을 분석하고, 이 분야의 관점에서 가장 유용한 제안을 해주세요.` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 [기록 내용]
@@ -86,12 +118,22 @@ JSON 형식:
 ⚠️ 다시 한번 강조: 기록의 **실제 내용**을 정확히 반영하고, 일반적인 생산성 팁이 아닌 **이 기록에 특화된** 제안을 해주세요.
 `;
 
+    const systemMessage = personaContext
+      ? `당신은 "${personaName || '전문가'}" 페르소나의 관점에서 조언하는 코치이자 비서입니다.
+
+페르소나 정보:
+- 이름: ${personaName || '전문가'}
+- 관점: ${personaContext}
+
+이 페르소나의 전문 분야의 지식과 경험을 바탕으로 사용자의 기록을 정확히 이해하고 맥락에 맞는 구체적인 제안을 하세요. 일반적인 조언보다는 기록의 실제 내용과 이 전문 분야의 관점에 기반한 실행 가능한 제안에 집중하세요.`
+      : '당신은 개인의 근처에서 인생의 작은 결정부터 최대 결정까지 면밀히 검토하고 조언해주는 코치이자 비서입니다. 사용자의 기록을 정확히 이해하고 맥락에 맞는 구체적인 제안을 하며, 일반적인 조언보다는 기록의 실제 내용에 기반한 실행 가능한 제안에 집중하세요.';
+
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
-          content: '당신은 개인의 근처에서 인생의 작은 결정부터 최대 결정까지 면밀히 검토하고 조언해주는 코치이자 비서입니다. 사용자의 기록을 정확히 이해하고 맥락에 맞는 구체적인 제안을 하며, 일반적인 조언보다는 기록의 실제 내용에 기반한 실행 가능한 제안에 집중하세요.'
+          content: systemMessage
         },
         { role: 'user', content: prompt }
       ],
@@ -104,8 +146,23 @@ JSON 형식:
     return NextResponse.json({ suggestions });
   } catch (error) {
     console.error('Failed to generate suggestions:', error);
+    
+    // OpenAI API 키 오류인 경우 명확한 메시지
+    if (error instanceof Error && error.message.includes('API key')) {
+      return NextResponse.json(
+        { 
+          error: 'OpenAI API 키가 올바르지 않습니다. .env.local 파일의 OPENAI_API_KEY를 확인해주세요.',
+          details: error.message 
+        },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: '제안 생성 실패' },
+      { 
+        error: '제안 생성 실패',
+        details: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }

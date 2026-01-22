@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { memoryDb, groupDb } from '@/lib/db';
+import { getUserId } from '@/lib/auth';
 import OpenAI from 'openai';
 import { nanoid } from 'nanoid';
 import { stripHtml } from '@/lib/text';
@@ -13,8 +14,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
     const { id } = await params;
-    const memory = memoryDb.getById(id);
+    const memory = memoryDb.getById(id, userId);
 
     if (!memory) {
       return NextResponse.json(
@@ -24,7 +33,7 @@ export async function POST(
     }
 
     // 모든 기억 가져오기
-    const allMemories = memoryDb.getAll();
+    const allMemories = memoryDb.getAll(userId);
     
     // AI에게 관련 기억 찾기
     const prompt = `
@@ -76,6 +85,7 @@ JSON 형식:
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
 
     const group = groupDb.create(
+      userId,
       result.groupName || '새 그룹',
       groupMemoryIds,
       true, // isAIGenerated

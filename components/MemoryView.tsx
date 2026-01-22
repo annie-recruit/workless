@@ -9,6 +9,7 @@ import LinkManager from './LinkManager';
 interface MemoryViewProps {
   memories: Memory[];
   onMemoryDeleted?: () => void;
+  personaId?: string | null;
 }
 
 const stripHtmlClient = (html: string) => {
@@ -98,15 +99,17 @@ const CARD_DIMENSIONS = {
 
 const BOARD_PADDING = 220;
 
-export default function MemoryView({ memories, onMemoryDeleted }: MemoryViewProps) {
+export default function MemoryView({ memories, onMemoryDeleted, personaId }: MemoryViewProps) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [draggedMemoryId, setDraggedMemoryId] = useState<string | null>(null);
   const [dropTargetGroupId, setDropTargetGroupId] = useState<string | null>(null);
   const [linkManagerMemory, setLinkManagerMemory] = useState<Memory | null>(null);
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [previousPositions, setPreviousPositions] = useState<Record<string, { x: number; y: number }> | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isAutoArranging, setIsAutoArranging] = useState(false);
   const [cardSize, setCardSize] = useState<'s' | 'm' | 'l'>('m');
   const [cardColor, setCardColor] = useState<'amber' | 'blue' | 'green' | 'pink' | 'purple'>('amber');
   const [cardColorMap, setCardColorMap] = useState<Record<string, 'amber' | 'blue' | 'green' | 'pink' | 'purple'>>({});
@@ -514,6 +517,90 @@ export default function MemoryView({ memories, onMemoryDeleted }: MemoryViewProp
     };
   }, [cardColorMap, storageKey]);
 
+  const handleAutoArrange = async () => {
+    if (filteredMemories.length === 0) return;
+    
+    setIsAutoArranging(true);
+    
+    try {
+      // 현재 위치 백업
+      setPreviousPositions({ ...positions });
+      
+      // 연결 정보 준비
+      const connections = connectionPairs.map(pair => ({
+        from: pair.from,
+        to: pair.to,
+      }));
+      
+      // 메모리 정보 준비 (제목, 내용만)
+      const memoryData = filteredMemories.map(m => ({
+        id: m.id,
+        title: m.title || undefined,
+        content: m.content,
+      }));
+      
+      // AI 레이아웃 생성 API 호출
+      const res = await fetch('/api/board/arrange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          memories: memoryData,
+          connections,
+          currentPositions: positions,
+          cardSize,
+        }),
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        const newLayout: Record<string, { x: number; y: number }> = data.layout || {};
+        
+        // 새 레이아웃 적용
+        setPositions(newLayout);
+        
+        // 보드 크기 조정
+        const { width: cardWidth, height: cardHeight } = CARD_DIMENSIONS[cardSize];
+        let maxX = 0;
+        let maxY = 0;
+        (Object.values(newLayout) as { x: number; y: number }[]).forEach((pos) => {
+          maxX = Math.max(maxX, pos.x + cardWidth);
+          maxY = Math.max(maxY, pos.y + cardHeight);
+        });
+        setBoardSize({
+          width: Math.max(1400, maxX + BOARD_PADDING),
+          height: Math.max(900, maxY + BOARD_PADDING),
+        });
+      } else {
+        alert('자동 배열에 실패했습니다');
+      }
+    } catch (error) {
+      console.error('Auto arrange error:', error);
+      alert('자동 배열 중 오류가 발생했습니다');
+    } finally {
+      setIsAutoArranging(false);
+    }
+  };
+
+  const handleRestoreLayout = () => {
+    if (previousPositions) {
+      setPositions(previousPositions);
+      setPreviousPositions(null);
+      
+      // 보드 크기 조정
+      const { width: cardWidth, height: cardHeight } = CARD_DIMENSIONS[cardSize];
+      let maxX = 0;
+      let maxY = 0;
+      Object.values(previousPositions).forEach(pos => {
+        maxX = Math.max(maxX, pos.x + cardWidth);
+        maxY = Math.max(maxY, pos.y + cardHeight);
+      });
+      setBoardSize({
+        width: Math.max(1400, maxX + BOARD_PADDING),
+        height: Math.max(900, maxY + BOARD_PADDING),
+      });
+    }
+  };
+
   const handlePointerDown = (memoryId: string, event: React.PointerEvent) => {
     event.preventDefault();
     event.stopPropagation();
@@ -565,6 +652,10 @@ export default function MemoryView({ memories, onMemoryDeleted }: MemoryViewProp
         pairs.push({ from: memory.id, to: relatedId });
       });
     });
+    // 디버깅용 로그
+    if (pairs.length > 0) {
+      console.log('🔗 연결선 개수:', pairs.length, pairs);
+    }
     return pairs;
   }, [filteredMemories]);
 
@@ -573,8 +664,6 @@ export default function MemoryView({ memories, onMemoryDeleted }: MemoryViewProp
       {/* 필터 바 - 폴더 스타일 */}
       <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-sm font-medium text-gray-500">필터:</span>
-        
         {/* 전체 */}
         <button
           onClick={() => setSelectedGroupId(null)}
@@ -715,6 +804,23 @@ export default function MemoryView({ memories, onMemoryDeleted }: MemoryViewProp
                 <span className="text-[11px] text-gray-400">
                   {Math.round(boardSize.width)}×{Math.round(boardSize.height)}
                 </span>
+                {previousPositions && (
+                  <button
+                    onClick={handleRestoreLayout}
+                    className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600"
+                    title="이전 배열로 되돌리기"
+                  >
+                    이전 배열로
+                  </button>
+                )}
+                <button
+                  onClick={handleAutoArrange}
+                  disabled={isAutoArranging}
+                  className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700"
+                  title="연결선 기반으로 자동 배열"
+                >
+                  {isAutoArranging ? '배열 중...' : '맞춤 배열'}
+                </button>
               </div>
               <div className="flex items-center gap-1">
                 <button
@@ -754,67 +860,77 @@ export default function MemoryView({ memories, onMemoryDeleted }: MemoryViewProp
                   transformOrigin: 'top left',
                 }}
               >
-                <svg
-                  className="absolute inset-0 pointer-events-none"
-                  width={boardSize.width}
-                  height={boardSize.height}
-                >
-                  <defs>
-                    <marker
-                      id="arrowhead"
-                      markerWidth="10"
-                      markerHeight="10"
-                      refX="8"
-                      refY="3"
-                      orient="auto"
-                      markerUnits="strokeWidth"
-                    >
-                      <path d="M0,0 L0,6 L9,3 z" fill="#CBD5F5" />
-                    </marker>
-                  </defs>
-                  {connectionPairs.map(pair => {
-                    const from = positions[pair.from];
-                    const to = positions[pair.to];
-                    if (!from || !to) return null;
-                    const fromX = from.x + CARD_DIMENSIONS[cardSize].centerX;
-                    const fromY = from.y + CARD_DIMENSIONS[cardSize].centerY;
-                    const toX = to.x + CARD_DIMENSIONS[cardSize].centerX;
-                    const toY = to.y + CARD_DIMENSIONS[cardSize].centerY;
-                    const midX = (fromX + toX) / 2;
-                    const midY = (fromY + toY) / 2;
-                    const dx = toX - fromX;
-                    const dy = toY - fromY;
-                    const len = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-                    const offset = 40;
-                    const cx = midX - (dy / len) * offset;
-                    const cy = midY + (dx / len) * offset;
-                    const note = linkNotes[getLinkKey(pair.from, pair.to)];
-                    return (
-                      <g key={`${pair.from}-${pair.to}`}>
-                        <path
-                          d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
-                          stroke="#CBD5F5"
-                          strokeWidth="2"
-                          fill="none"
-                          markerEnd="url(#arrowhead)"
-                        />
-                        {note && (
-                          <text
-                            x={cx}
-                            y={cy - 6}
-                            textAnchor="middle"
-                            fill="#64748B"
-                            fontSize="11"
-                            style={{ userSelect: 'none' }}
-                          >
-                            {note.length > 18 ? `${note.slice(0, 18)}...` : note}
-                          </text>
-                        )}
-                      </g>
-                    );
-                  })}
-                </svg>
+                {/* 연결선 SVG - 카드 뒤에 렌더링 */}
+                {connectionPairs.length > 0 && (
+                  <svg
+                    className="absolute inset-0 pointer-events-none"
+                    width={boardSize.width}
+                    height={boardSize.height}
+                    style={{ zIndex: 1 }}
+                  >
+                    <defs>
+                      <marker
+                        id="arrowhead"
+                        markerWidth="10"
+                        markerHeight="10"
+                        refX="8"
+                        refY="3"
+                        orient="auto"
+                        markerUnits="strokeWidth"
+                      >
+                        <path d="M0,0 L0,6 L9,3 z" fill="#6366F1" />
+                      </marker>
+                    </defs>
+                    {connectionPairs.map(pair => {
+                      const from = positions[pair.from];
+                      const to = positions[pair.to];
+                      if (!from || !to) {
+                        console.log('⚠️ 연결선 위치 없음:', pair, { from, to });
+                        return null;
+                      }
+                      const fromX = from.x + CARD_DIMENSIONS[cardSize].centerX;
+                      const fromY = from.y + CARD_DIMENSIONS[cardSize].centerY;
+                      const toX = to.x + CARD_DIMENSIONS[cardSize].centerX;
+                      const toY = to.y + CARD_DIMENSIONS[cardSize].centerY;
+                      const midX = (fromX + toX) / 2;
+                      const midY = (fromY + toY) / 2;
+                      const dx = toX - fromX;
+                      const dy = toY - fromY;
+                      const len = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+                      const offset = 40;
+                      const cx = midX - (dy / len) * offset;
+                      const cy = midY + (dx / len) * offset;
+                      const note = linkNotes[getLinkKey(pair.from, pair.to)];
+                      return (
+                        <g key={`${pair.from}-${pair.to}`}>
+                          <path
+                            d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
+                            stroke="#6366F1"
+                            strokeWidth="3"
+                            fill="none"
+                            markerEnd="url(#arrowhead)"
+                            opacity="0.9"
+                          />
+                          {note && (
+                            <text
+                              x={cx}
+                              y={cy - 6}
+                              textAnchor="middle"
+                              fill="#475569"
+                              fontSize="11"
+                              fontWeight="500"
+                              style={{ userSelect: 'none' }}
+                            >
+                              {note.length > 18 ? `${note.slice(0, 18)}...` : note}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })}
+                  </svg>
+                )}
 
+                {/* 메모리 카드들 */}
                 {filteredMemories.map((memory) => {
                   const position = positions[memory.id] || { x: 0, y: 0 };
                   const memoryColor = cardColorMap[memory.id] || cardColor;
@@ -830,29 +946,39 @@ export default function MemoryView({ memories, onMemoryDeleted }: MemoryViewProp
                   return (
                     <div
                 key={memory.id} 
-                      onPointerDown={(event) => handlePointerDown(memory.id, event)}
+                      onPointerDown={(event) => {
+                        // 편집 모드 체크: MemoryCard 내부의 data-editing 속성 확인
+                        const cardElement = (event.currentTarget as HTMLElement).querySelector(`[data-editing="true"]`);
+                        if (cardElement) {
+                          // 편집 모드에서는 드래그 비활성화
+                          return;
+                        }
+                        handlePointerDown(memory.id, event);
+                      }}
                       style={{
                         transform: `translate(${position.x}px, ${position.y}px)`,
                         willChange: draggingId === memory.id ? 'transform' : 'auto',
                         opacity: draggingId === memory.id ? 0.8 : 1,
+                        zIndex: draggingId === memory.id ? 20 : 10,
                       }}
                       className={`absolute ${cardSizeClass} select-none touch-none cursor-grab active:cursor-grabbing transition-opacity ${
-                        draggingId === memory.id ? 'z-20 cursor-grabbing shadow-2xl' : 'z-10'
+                        draggingId === memory.id ? 'cursor-grabbing shadow-2xl' : ''
                       }`}
                     >
                       <MemoryCard
-                memory={memory} 
-                onDelete={onMemoryDeleted} 
-                allMemories={memories}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-                onOpenLinkManager={setLinkManagerMemory}
+                        memory={memory} 
+                        onDelete={onMemoryDeleted} 
+                        allMemories={memories}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                        onOpenLinkManager={setLinkManagerMemory}
                         variant="board"
                         colorClass={memoryColorClass}
                         onCardColorChange={(color) => {
                           setCardColorMap(prev => ({ ...prev, [memory.id]: color }));
                         }}
                         linkNotes={linkNotes}
+                        personaId={personaId}
                       />
                     </div>
                   );
@@ -889,6 +1015,7 @@ function MemoryCard({
   colorClass,
   onCardColorChange,
   linkNotes,
+  personaId,
 }: { 
   memory: Memory; 
   onDelete?: () => void; 
@@ -900,7 +1027,16 @@ function MemoryCard({
   colorClass?: string;
   onCardColorChange?: (color: 'amber' | 'blue' | 'green' | 'pink' | 'purple') => void;
   linkNotes?: Record<string, string>;
+  personaId?: string | null;
 }) {
+  // 로컬 memory 상태 관리 (수정 후 즉시 반영)
+  const [localMemory, setLocalMemory] = useState<Memory>(memory);
+  
+  // memory prop이 변경되면 로컬 상태도 업데이트
+  useEffect(() => {
+    setLocalMemory(memory);
+  }, [memory.id]); // memory.id가 변경될 때만 업데이트 (같은 메모리면 업데이트 안 함)
+  
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
@@ -910,8 +1046,8 @@ function MemoryCard({
   const [suggestions, setSuggestions] = useState<any>(null);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(memory.title || '');
-  const [editContent, setEditContent] = useState(memory.content);
+  const [editTitle, setEditTitle] = useState(localMemory.title || '');
+  const [editContent, setEditContent] = useState(localMemory.content);
   const editRef = useRef<HTMLDivElement>(null);
   const prevIsEditingRef = useRef(false);
   const [isGrouping, setIsGrouping] = useState(false);
@@ -919,7 +1055,7 @@ function MemoryCard({
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [groupStep, setGroupStep] = useState<'loading' | 'confirm' | 'animating'>('loading');
   
-  const timeAgo = formatDistanceToNow(memory.createdAt, { 
+  const timeAgo = formatDistanceToNow(localMemory.createdAt, { 
     addSuffix: true,
     locale: ko 
   });
@@ -938,7 +1074,12 @@ function MemoryCard({
       // 요약이 없으면 API 호출
       setIsLoadingSummary(true);
       try {
-        const res = await fetch(`/api/memories/${memory.id}/summarize`);
+        console.log('📝 요약 요청 - personaId:', personaId);
+        const url = personaId 
+          ? `/api/memories/${localMemory.id}/summarize?personaId=${personaId}`
+          : `/api/memories/${localMemory.id}/summarize`;
+        console.log('📝 요약 API URL:', url);
+        const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
           setSummary(data.summary);
@@ -963,7 +1104,12 @@ function MemoryCard({
       // 제안이 없으면 API 호출
       setIsLoadingSuggestions(true);
       try {
-        const res = await fetch(`/api/memories/${memory.id}/suggestions`);
+        console.log('💡 제안 요청 - personaId:', personaId);
+        const url = personaId 
+          ? `/api/memories/${localMemory.id}/suggestions?personaId=${personaId}`
+          : `/api/memories/${localMemory.id}/suggestions`;
+        console.log('💡 제안 API URL:', url);
+        const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
           setSuggestions(data.suggestions);
@@ -988,7 +1134,7 @@ function MemoryCard({
     
     setIsDeleting(true);
     try {
-      const res = await fetch(`/api/memories?id=${memory.id}`, {
+      const res = await fetch(`/api/memories?id=${localMemory.id}`, {
         method: 'DELETE',
       });
       
@@ -1012,20 +1158,23 @@ function MemoryCard({
         const updatedHtml = editRef.current?.innerHTML || editContent;
         const titleToSave = editTitle.trim() || null;
         
-        console.log('Saving memory:', {
-          id: memory.id,
-          title: titleToSave,
-          contentLength: updatedHtml.length,
-        });
-        
-        const res = await fetch(`/api/memories?id=${memory.id}`, {
+        const res = await fetch(`/api/memories?id=${localMemory.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: titleToSave, content: updatedHtml }),
         });
         
         if (res.ok) {
-          window.location.reload();
+          // 로컬 상태 즉시 업데이트 (새로고침 없이)
+          setLocalMemory(prev => ({
+            ...prev,
+            title: titleToSave || undefined,
+            content: updatedHtml,
+          }));
+          setIsEditing(false);
+          // 편집 모드 종료 시 상태 초기화
+          setEditTitle(titleToSave || '');
+          setEditContent(updatedHtml);
         } else {
           const errorData = await res.json();
           console.error('Edit error response:', errorData);
@@ -1037,8 +1186,8 @@ function MemoryCard({
       }
     } else {
       // 편집 모드로 전환
-      setEditTitle(memory.title || '');
-      setEditContent(memory.content);
+      setEditTitle(localMemory.title || '');
+      setEditContent(localMemory.content);
       setIsEditing(true);
     }
   };
@@ -1056,7 +1205,7 @@ function MemoryCard({
     setShowGroupModal(true);
     
     try {
-      const res = await fetch(`/api/memories/${memory.id}/auto-group`, {
+      const res = await fetch(`/api/memories/${localMemory.id}/auto-group`, {
         method: 'POST',
       });
       
@@ -1105,7 +1254,7 @@ function MemoryCard({
     if (!confirm('이 AI 제안을 목표로 전환하시겠습니까?')) return;
 
     try {
-      const res = await fetch(`/api/memories/${memory.id}/convert-to-goal`, {
+      const res = await fetch(`/api/memories/${localMemory.id}/convert-to-goal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ suggestions }),
@@ -1127,9 +1276,9 @@ function MemoryCard({
 
   // 텍스트가 200자 이상이면 접기 기능 활성화
   const MAX_LENGTH = 200;
-  const plainContent = stripHtmlClient(memory.content);
+  const plainContent = stripHtmlClient(localMemory.content);
   const isLong = plainContent.length > MAX_LENGTH;
-  const safeHtml = sanitizeHtml(memory.content);
+  const safeHtml = sanitizeHtml(localMemory.content);
 
   const cardClassName = variant === 'board'
     ? `${colorClass || 'bg-amber-50 border-amber-200'} shadow-md hover:shadow-lg`
@@ -1137,11 +1286,29 @@ function MemoryCard({
 
   return (
     <div 
-      id={`memory-${memory.id}`}
-      draggable={true}
-      onDragStart={() => onDragStart?.(memory.id)}
-      onDragEnd={() => onDragEnd?.()}
-      className={`group relative p-3 border rounded-lg transition-all scroll-mt-4 cursor-move h-full flex flex-col ${cardClassName}`}
+      id={`memory-${localMemory.id}`}
+      data-editing={isEditing ? 'true' : 'false'}
+      draggable={!isEditing}
+      onDragStart={(e) => {
+        if (isEditing) {
+          e.preventDefault();
+          return;
+        }
+        onDragStart?.(localMemory.id);
+      }}
+      onDragEnd={() => {
+        if (isEditing) return;
+        onDragEnd?.();
+      }}
+      className={`group relative p-3 border rounded-lg transition-all scroll-mt-4 h-full flex flex-col ${
+        isEditing ? 'cursor-default' : 'cursor-move'
+      } ${cardClassName}`}
+      onPointerDown={(e) => {
+        if (isEditing) {
+          // 편집 모드에서는 드래그 시작 방지
+          e.stopPropagation();
+        }
+      }}
     >
       {/* 드래그 아이콘 */}
       <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-30 transition-opacity pointer-events-none">
@@ -1202,6 +1369,9 @@ function MemoryCard({
             type="text"
             value={editTitle}
             onChange={(e) => setEditTitle(e.target.value)}
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onDragStart={(e) => e.preventDefault()}
             placeholder="제목 (선택)"
             className="w-full px-3 py-2 mb-2 text-sm font-semibold border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -1249,6 +1419,9 @@ function MemoryCard({
           <div
             ref={editRef}
             contentEditable
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onDragStart={(e) => e.preventDefault()}
             className="w-full p-3 border border-blue-300 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs whitespace-pre-wrap"
             onInput={() => setEditContent(editRef.current?.innerHTML || '')}
             suppressContentEditableWarning
@@ -1257,9 +1430,9 @@ function MemoryCard({
       ) : (
         <div className="mb-2 pr-8">
           {/* 제목 */}
-          {memory.title && (
+          {localMemory.title && (
             <h3 className="text-sm font-semibold text-gray-900 mb-1.5">
-              {memory.title}
+              {localMemory.title}
             </h3>
           )}
           {/* 내용 */}
@@ -1436,9 +1609,9 @@ function MemoryCard({
       )}
 
       {/* 첨부 파일 표시 */}
-      {memory.attachments && memory.attachments.length > 0 && (
+      {localMemory.attachments && localMemory.attachments.length > 0 && (
         <div className="mb-3 space-y-2">
-          {memory.attachments.map((attachment) => {
+          {localMemory.attachments.map((attachment) => {
             const isImage = attachment.mimetype.startsWith('image/');
             
             if (isImage) {
@@ -1483,21 +1656,21 @@ function MemoryCard({
       <div className="flex items-center gap-2 text-[11px] text-gray-500 flex-wrap">
         <span>{timeAgo}</span>
         
-        {memory.topic && (
+        {localMemory.topic && (
           <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[11px]">
-            {memory.topic}
+            {localMemory.topic}
           </span>
         )}
         
-        {memory.nature && (
+        {localMemory.nature && (
           <span className="px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded text-[11px]">
-            {memory.nature}
+            {localMemory.nature}
           </span>
         )}
         
-        {memory.repeatCount !== undefined && memory.repeatCount > 1 && (
+        {localMemory.repeatCount !== undefined && localMemory.repeatCount > 1 && (
           <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded text-[11px]">
-            🔁 {memory.repeatCount}
+            🔁 {localMemory.repeatCount}
           </span>
         )}
       </div>
@@ -1512,20 +1685,20 @@ function MemoryCard({
             <div className="text-[11px] text-gray-500 mb-1 flex items-center justify-between">
               <span>연결된 기록</span>
               <button
-                onClick={() => onOpenLinkManager?.(memory)}
+                onClick={() => onOpenLinkManager?.(localMemory)}
                 className="text-[11px] text-blue-500 hover:text-blue-600"
               >
                 + 추가
               </button>
             </div>
-            {memory.relatedMemoryIds && memory.relatedMemoryIds.length > 0 ? (
+            {localMemory.relatedMemoryIds && localMemory.relatedMemoryIds.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
-                {memory.relatedMemoryIds.slice(0, 3).map(relatedId => {
+                {localMemory.relatedMemoryIds.slice(0, 3).map(relatedId => {
                   const relatedMemory = allMemories.find(m => m.id === relatedId);
                   if (!relatedMemory) return null;
-                  const noteKey = relatedMemory.id < memory.id
-                    ? `${relatedMemory.id}:${memory.id}`
-                    : `${memory.id}:${relatedMemory.id}`;
+                  const noteKey = relatedMemory.id < localMemory.id
+                    ? `${relatedMemory.id}:${localMemory.id}`
+                    : `${localMemory.id}:${relatedMemory.id}`;
                   const note = linkNotes?.[noteKey];
                   
                   return (
@@ -1554,7 +1727,7 @@ function MemoryCard({
                         onClick={async () => {
                           if (confirm('이 연결을 삭제하시겠습니까?')) {
                             try {
-                              const res = await fetch(`/api/memories/link?memoryId1=${memory.id}&memoryId2=${relatedId}`, {
+                              const res = await fetch(`/api/memories/link?memoryId1=${localMemory.id}&memoryId2=${relatedId}`, {
                                 method: 'DELETE',
                               });
                               if (res.ok) {
@@ -1576,9 +1749,9 @@ function MemoryCard({
                     </div>
                   );
                 })}
-                {memory.relatedMemoryIds.length > 3 && (
+                {localMemory.relatedMemoryIds.length > 3 && (
                   <span className="text-xs text-gray-400 self-center">
-                    +{memory.relatedMemoryIds.length - 3}개 더
+                    +{localMemory.relatedMemoryIds.length - 3}개 더
                   </span>
                 )}
               </div>
@@ -1644,7 +1817,7 @@ function MemoryCard({
                     {/* 현재 기록 */}
                     <li className="text-xs text-gray-700 flex items-start gap-2 p-2 bg-white/60 rounded">
                       <span className="text-blue-500 mt-0.5">📄</span>
-                      <span className="flex-1 line-clamp-2">{stripHtmlClient(memory.content)}</span>
+                      <span className="flex-1 line-clamp-2">{stripHtmlClient(localMemory.content)}</span>
                     </li>
                     {/* 관련 기록들 */}
                     {groupResult.relatedMemories?.map((m: any, idx: number) => {

@@ -21,10 +21,13 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
   const [isEditorFocused, setIsEditorFocused] = useState(false);
   const [isMentionPanelOpen, setIsMentionPanelOpen] = useState(false);
   const [mentionSearch, setMentionSearch] = useState('');
+  const [editorHeight, setEditorHeight] = useState(120);
+  const [isResizing, setIsResizing] = useState(false);
   const voiceRecorderRef = useRef<{ start: () => void; stop: () => void } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const mentionRangeRef = useRef<Range | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -80,6 +83,32 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
   useEffect(() => {
     fetchMemories();
   }, []);
+
+  // 리사이즈 핸들러
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const newHeight = e.clientY - rect.top;
+      if (newHeight >= 100 && newHeight <= 600) {
+        setEditorHeight(newHeight);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
 
   const getEditorHtml = () => editorRef.current?.innerHTML || '';
   const getEditorText = () => (editorRef.current?.innerText || '').trim();
@@ -419,10 +448,11 @@ ${summary}`;
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="제목 (선택)"
-          className="w-full px-4 py-2 text-lg font-medium border-b border-gray-200 focus:outline-none focus:border-blue-400 transition-colors"
+          className="w-full px-3 py-1.5 text-sm font-medium border-b border-gray-200 focus:outline-none focus:border-blue-400 transition-colors mb-2"
         />
         
         <div 
+          ref={containerRef}
           className="relative"
           onDragEnter={handleDragEnter}
           onDragOver={handleDragOver}
@@ -430,19 +460,20 @@ ${summary}`;
           onDrop={handleDrop}
         >
           <div
-            className={`w-full border-2 rounded-2xl transition-all ${
+            className={`w-full border-2 rounded-xl transition-all flex flex-col ${
               isDragging 
                 ? 'border-blue-500 bg-blue-50 border-dashed' 
                 : 'border-gray-200 focus-within:border-blue-400'
             }`}
+            style={{ minHeight: `${editorHeight}px` }}
           >
             {/* 툴바 */}
-            <div className="flex flex-wrap items-center gap-1 px-3 py-2 border-b border-gray-100 bg-white/70 rounded-t-2xl">
+            <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 bg-white/70 rounded-t-xl">
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => execCommand('bold')}
-                className="px-2 py-1 text-sm rounded hover:bg-gray-100 font-semibold"
+                className="px-1.5 py-0.5 text-xs rounded hover:bg-gray-100 font-semibold"
                 title="굵게"
               >
                 B
@@ -451,19 +482,10 @@ ${summary}`;
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => execCommand('italic')}
-                className="px-2 py-1 text-sm rounded hover:bg-gray-100 italic"
+                className="px-1.5 py-0.5 text-xs rounded hover:bg-gray-100 italic"
                 title="기울임"
               >
                 I
-              </button>
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => execCommand('underline')}
-                className="px-2 py-1 text-sm rounded hover:bg-gray-100 underline"
-                title="밑줄"
-              >
-                U
               </button>
               <button
                 type="button"
@@ -472,7 +494,7 @@ ${summary}`;
                   const url = prompt('링크 URL을 입력해주세요');
                   if (url) execCommand('createLink', url);
                 }}
-                className="px-2 py-1 text-sm rounded hover:bg-gray-100"
+                className="px-1.5 py-0.5 text-xs rounded hover:bg-gray-100"
                 title="하이퍼링크"
               >
                 🔗
@@ -483,48 +505,25 @@ ${summary}`;
                 onClick={() => {
                   setIsMentionPanelOpen(!isMentionPanelOpen);
                 }}
-                className="px-2 py-1 text-sm rounded hover:bg-gray-100"
+                className="px-1.5 py-0.5 text-xs rounded hover:bg-gray-100"
                 title="@태그"
               >
                 @
               </button>
-
-              <select
-                onMouseDown={(e) => e.preventDefault()}
-                onChange={(e) => execCommand('fontName', e.target.value)}
-                className="ml-1 px-2 py-1 text-xs border border-gray-200 rounded bg-white"
-                defaultValue="system-ui"
-                title="글씨체"
-              >
-                <option value="system-ui">기본</option>
-                <option value="serif">세리프</option>
-                <option value="monospace">모노</option>
-              </select>
-
-              <select
-                onMouseDown={(e) => e.preventDefault()}
-                onChange={(e) => execCommand('fontSize', e.target.value)}
-                className="px-2 py-1 text-xs border border-gray-200 rounded bg-white"
-                defaultValue="3"
-                title="글씨 크기"
-              >
-                <option value="2">작게</option>
-                <option value="3">보통</option>
-                <option value="4">크게</option>
-              </select>
             </div>
 
             {/* 입력 영역 */}
-            <div className="relative">
+            <div className="relative flex-1 flex flex-col">
               {!getEditorText() && !isEditorFocused && (
                 <div className="absolute top-3 left-4 text-gray-400 pointer-events-none">
-                  아무 말이나 입력하세요... 볼드/기울임/링크/@태그 가능
+                  아무 말이나 입력하세요...
                 </div>
               )}
               <div
                 ref={editorRef}
                 contentEditable={!loading}
-                className="min-h-[120px] px-4 py-3 text-lg outline-none"
+                className="flex-1 px-4 py-3 text-base outline-none overflow-y-auto"
+                style={{ minHeight: `${editorHeight - 100}px` }}
                 onInput={() => {
                   setContent(getEditorHtml());
                   saveSelection();
@@ -542,6 +541,79 @@ ${summary}`;
                 onBlur={() => setIsEditorFocused(false)}
                 suppressContentEditableWarning
               />
+              
+              {/* 하단 버튼 영역 */}
+              <div className="flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-gray-50/50 rounded-b-xl">
+                <div className="flex items-center gap-1.5">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf,.txt,.md,.doc,.docx"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={loading}
+                    className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded disabled:opacity-50 transition-colors"
+                    title="파일 첨부"
+                  >
+                    📎
+                  </button>
+                  {!isRecording && !isProcessing ? (
+                    <button
+                      type="button"
+                      onClick={startRecording}
+                      disabled={loading}
+                      className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded disabled:opacity-50 transition-colors"
+                      title="회의 녹음"
+                    >
+                      🎤
+                    </button>
+                  ) : isRecording ? (
+                    <button
+                      type="button"
+                      onClick={() => voiceRecorderRef.current?.stop()}
+                      className="px-2 py-1 text-xs text-red-600 hover:text-red-900 hover:bg-red-100 rounded transition-colors flex items-center gap-1"
+                      title="녹음 중지"
+                    >
+                      <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
+                      {formatTime(recordingTime)}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled
+                      className="px-2 py-1 text-xs text-gray-400 rounded flex items-center gap-1"
+                    >
+                      <span className="animate-spin text-xs">⏳</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* 저장 버튼 */}
+                <button
+                  type="submit"
+                  disabled={loading || !content.trim()}
+                  className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
+                >
+                  {loading ? '저장 중...' : '기억하기'}
+                </button>
+              </div>
+            </div>
+            
+            {/* 리사이즈 핸들 */}
+            <div
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setIsResizing(true);
+              }}
+              className="absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize hover:bg-blue-200/30 transition-colors rounded-b-xl flex items-center justify-center group"
+              style={{ zIndex: 10 }}
+            >
+              <div className="w-12 h-1 bg-gray-300 rounded-full group-hover:bg-gray-400 transition-colors"></div>
             </div>
           </div>
 
@@ -601,19 +673,19 @@ ${summary}`;
 
         {/* 첨부 파일 목록 */}
         {files.length > 0 && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 mt-2">
             {files.map((file, index) => (
               <div
                 key={index}
-                className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg text-sm"
+                className="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded text-xs"
               >
-                <span className="truncate max-w-[200px]">
+                <span className="truncate max-w-[150px]">
                   {file.type.startsWith('image/') ? '🖼️' : '📎'} {file.name}
                 </span>
                 <button
                   type="button"
                   onClick={() => removeFile(index)}
-                  className="text-gray-500 hover:text-red-500"
+                  className="text-gray-500 hover:text-red-500 text-xs"
                 >
                   ✕
                 </button>
@@ -621,65 +693,6 @@ ${summary}`;
             ))}
           </div>
         )}
-
-        <div className="flex items-center justify-between">
-          {/* 파일 선택 버튼 */}
-          <div className="flex gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*,.pdf,.txt,.md,.doc,.docx"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={loading}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors"
-            >
-              📎 파일 첨부
-            </button>
-            {!isRecording && !isProcessing ? (
-              <button
-                type="button"
-                onClick={startRecording}
-                disabled={loading}
-                className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:opacity-50 transition-colors flex items-center gap-2"
-              >
-                🎤 회의 녹음
-              </button>
-            ) : isRecording ? (
-              <button
-                type="button"
-                onClick={() => voiceRecorderRef.current?.stop()}
-                className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center gap-2"
-              >
-                <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                녹음 중 {formatTime(recordingTime)}
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled
-                className="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg flex items-center gap-2"
-              >
-                <span className="animate-spin">⏳</span>
-                처리 중...
-              </button>
-            )}
-          </div>
-
-          {/* 저장 버튼 */}
-          <button
-            type="submit"
-            disabled={loading || !content.trim()}
-            className="px-6 py-2.5 bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? '저장 중...' : '기억해줘'}
-          </button>
-        </div>
       </form>
 
       {/* 조건부 제안 */}

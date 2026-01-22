@@ -23,6 +23,7 @@ console.log(`📊 Database path: ${dbPath}`);
 db.exec(`
   CREATE TABLE IF NOT EXISTS memories (
     id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
     title TEXT,
     content TEXT NOT NULL,
     createdAt INTEGER NOT NULL,
@@ -47,6 +48,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS groups (
     id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
     name TEXT NOT NULL,
     color TEXT,
     memoryIds TEXT NOT NULL,
@@ -57,6 +59,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS goals (
     id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
     title TEXT NOT NULL,
     description TEXT,
     category TEXT NOT NULL,
@@ -71,43 +74,58 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS board_positions (
+    userId TEXT NOT NULL,
     groupId TEXT NOT NULL,
     memoryId TEXT NOT NULL,
     x INTEGER NOT NULL,
     y INTEGER NOT NULL,
     updatedAt INTEGER NOT NULL,
-    PRIMARY KEY (groupId, memoryId)
+    PRIMARY KEY (userId, groupId, memoryId)
   );
 
   CREATE TABLE IF NOT EXISTS board_settings (
-    groupId TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    groupId TEXT NOT NULL,
     cardSize TEXT,
     cardColor TEXT,
-    updatedAt INTEGER NOT NULL
+    updatedAt INTEGER NOT NULL,
+    PRIMARY KEY (userId, groupId)
   );
 
   CREATE TABLE IF NOT EXISTS board_card_colors (
+    userId TEXT NOT NULL,
     groupId TEXT NOT NULL,
     memoryId TEXT NOT NULL,
     color TEXT NOT NULL,
     updatedAt INTEGER NOT NULL,
-    PRIMARY KEY (groupId, memoryId)
+    PRIMARY KEY (userId, groupId, memoryId)
   );
 
   CREATE TABLE IF NOT EXISTS memory_links (
+    userId TEXT NOT NULL,
     memoryId1 TEXT NOT NULL,
     memoryId2 TEXT NOT NULL,
     note TEXT,
     updatedAt INTEGER NOT NULL,
-    PRIMARY KEY (memoryId1, memoryId2)
+    PRIMARY KEY (userId, memoryId1, memoryId2)
   );
 
   CREATE TABLE IF NOT EXISTS personas (
     id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
     name TEXT NOT NULL,
     icon TEXT NOT NULL,
     description TEXT,
     context TEXT,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    name TEXT,
+    image TEXT,
     createdAt INTEGER NOT NULL,
     updatedAt INTEGER NOT NULL
   );
@@ -134,10 +152,104 @@ try {
   console.error('Migration error:', error);
 }
 
+// 마이그레이션: 모든 테이블에 userId 컬럼 추가 (없으면)
+try {
+  const tables = ['memories', 'groups', 'goals', 'personas', 'board_positions', 'board_settings', 'board_card_colors', 'memory_links'];
+  tables.forEach(tableName => {
+    const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as any[];
+    const hasUserId = columns.some((col: any) => col.name === 'userId');
+    if (!hasUserId) {
+      console.log(`📊 Adding userId column to ${tableName} table...`);
+      try {
+        db.exec(`ALTER TABLE ${tableName} ADD COLUMN userId TEXT NOT NULL DEFAULT ''`);
+      } catch (err) {
+        console.error(`Failed to add userId to ${tableName}:`, err);
+      }
+    }
+  });
+  
+  // board_settings 테이블의 PRIMARY KEY 수정 (기존 테이블이 groupId만 PRIMARY KEY인 경우)
+  try {
+    const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='board_settings'").get() as any;
+    if (tableInfo && tableInfo.sql && tableInfo.sql.includes('groupId TEXT PRIMARY KEY')) {
+      console.log('📊 Fixing board_settings PRIMARY KEY...');
+      // 기존 데이터 백업
+      const oldData = db.prepare('SELECT * FROM board_settings').all() as any[];
+      
+      // 테이블 재생성
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS board_settings_new (
+          userId TEXT NOT NULL,
+          groupId TEXT NOT NULL,
+          cardSize TEXT,
+          cardColor TEXT,
+          updatedAt INTEGER NOT NULL,
+          PRIMARY KEY (userId, groupId)
+        );
+      `);
+      
+      // 데이터 마이그레이션 (userId가 없는 경우 빈 문자열로)
+      oldData.forEach(row => {
+        const userId = row.userId || '';
+        db.prepare(`
+          INSERT INTO board_settings_new (userId, groupId, cardSize, cardColor, updatedAt)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(userId, row.groupId, row.cardSize, row.cardColor, row.updatedAt);
+      });
+      
+      // 기존 테이블 삭제 및 새 테이블로 교체
+      db.exec('DROP TABLE board_settings');
+      db.exec('ALTER TABLE board_settings_new RENAME TO board_settings');
+    }
+  } catch (err) {
+    console.error('Failed to fix board_settings PRIMARY KEY:', err);
+  }
+  
+  // board_positions 테이블의 PRIMARY KEY 수정 (기존 테이블이 userId가 없는 경우)
+  try {
+    const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='board_positions'").get() as any;
+    if (tableInfo && tableInfo.sql && !tableInfo.sql.includes('PRIMARY KEY (userId, groupId, memoryId)')) {
+      console.log('📊 Fixing board_positions PRIMARY KEY...');
+      // 기존 데이터 백업
+      const oldData = db.prepare('SELECT * FROM board_positions').all() as any[];
+      
+      // 테이블 재생성
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS board_positions_new (
+          userId TEXT NOT NULL,
+          groupId TEXT NOT NULL,
+          memoryId TEXT NOT NULL,
+          x INTEGER NOT NULL,
+          y INTEGER NOT NULL,
+          updatedAt INTEGER NOT NULL,
+          PRIMARY KEY (userId, groupId, memoryId)
+        );
+      `);
+      
+      // 데이터 마이그레이션 (userId가 없는 경우 빈 문자열로)
+      oldData.forEach(row => {
+        const userId = row.userId || '';
+        db.prepare(`
+          INSERT INTO board_positions_new (userId, groupId, memoryId, x, y, updatedAt)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).run(userId, row.groupId, row.memoryId, row.x, row.y, row.updatedAt);
+      });
+      
+      // 기존 테이블 삭제 및 새 테이블로 교체
+      db.exec('DROP TABLE board_positions');
+      db.exec('ALTER TABLE board_positions_new RENAME TO board_positions');
+    }
+  } catch (err) {
+    console.error('Failed to fix board_positions PRIMARY KEY:', err);
+  }
+} catch (error) {
+  console.error('Migration error:', error);
+}
+
 // Memory CRUD
 export const memoryDb = {
   // 생성
-  create(content: string, classification?: Partial<Memory>): Memory {
+  create(content: string, userId: string, classification?: Partial<Memory>): Memory {
     const memory: Memory = {
       id: nanoid(),
       content,
@@ -148,13 +260,14 @@ export const memoryDb = {
 
     const stmt = db.prepare(`
       INSERT INTO memories (
-        id, title, content, createdAt, topic, nature, timeContext,
+        id, userId, title, content, createdAt, topic, nature, timeContext,
         relatedMemoryIds, clusterTag, repeatCount, lastMentionedAt, attachments
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
       memory.id,
+      userId,
       memory.title || null,
       memory.content,
       memory.createdAt,
@@ -172,31 +285,39 @@ export const memoryDb = {
   },
 
   // 조회
-  getById(id: string): Memory | null {
-    const stmt = db.prepare('SELECT * FROM memories WHERE id = ?');
-    const row = stmt.get(id) as any;
+  getById(id: string, userId?: string): Memory | null {
+    const stmt = userId 
+      ? db.prepare('SELECT * FROM memories WHERE id = ? AND userId = ?')
+      : db.prepare('SELECT * FROM memories WHERE id = ?');
+    const row = userId ? stmt.get(id, userId) : stmt.get(id) as any;
     if (!row) return null;
     return this.parseRow(row);
   },
 
   // 전체 조회
-  getAll(): Memory[] {
-    const stmt = db.prepare('SELECT * FROM memories ORDER BY createdAt DESC');
-    const rows = stmt.all() as any[];
+  getAll(userId?: string): Memory[] {
+    const stmt = userId
+      ? db.prepare('SELECT * FROM memories WHERE userId = ? ORDER BY createdAt DESC')
+      : db.prepare('SELECT * FROM memories ORDER BY createdAt DESC');
+    const rows = userId ? stmt.all(userId) : stmt.all() as any[];
     return rows.map(row => this.parseRow(row));
   },
 
   // 클러스터별 조회
-  getByCluster(clusterTag: string): Memory[] {
-    const stmt = db.prepare('SELECT * FROM memories WHERE clusterTag = ? ORDER BY createdAt DESC');
-    const rows = stmt.all(clusterTag) as any[];
+  getByCluster(clusterTag: string, userId?: string): Memory[] {
+    const stmt = userId
+      ? db.prepare('SELECT * FROM memories WHERE clusterTag = ? AND userId = ? ORDER BY createdAt DESC')
+      : db.prepare('SELECT * FROM memories WHERE clusterTag = ? ORDER BY createdAt DESC');
+    const rows = userId ? stmt.all(clusterTag, userId) : stmt.all(clusterTag) as any[];
     return rows.map(row => this.parseRow(row));
   },
 
   // 주제별 조회
-  getByTopic(topic: string): Memory[] {
-    const stmt = db.prepare('SELECT * FROM memories WHERE topic = ? ORDER BY createdAt DESC');
-    const rows = stmt.all(topic) as any[];
+  getByTopic(topic: string, userId?: string): Memory[] {
+    const stmt = userId
+      ? db.prepare('SELECT * FROM memories WHERE topic = ? AND userId = ? ORDER BY createdAt DESC')
+      : db.prepare('SELECT * FROM memories WHERE topic = ? ORDER BY createdAt DESC');
+    const rows = userId ? stmt.all(topic, userId) : stmt.all(topic) as any[];
     return rows.map(row => this.parseRow(row));
   },
 
@@ -319,9 +440,10 @@ export const clusterDb = {
 // Group CRUD
 export const groupDb = {
   // 생성
-  create(name: string, memoryIds: string[], isAIGenerated: boolean = false, color?: string): Group {
+  create(userId: string, name: string, memoryIds: string[], isAIGenerated: boolean = false, color?: string): Group {
     const group: Group = {
       id: nanoid(),
+      userId,
       name,
       color,
       memoryIds,
@@ -331,12 +453,13 @@ export const groupDb = {
     };
 
     const stmt = db.prepare(`
-      INSERT INTO groups (id, name, color, memoryIds, isAIGenerated, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO groups (id, userId, name, color, memoryIds, isAIGenerated, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
       group.id,
+      group.userId,
       group.name,
       group.color || null,
       JSON.stringify(group.memoryIds),
@@ -349,41 +472,43 @@ export const groupDb = {
   },
 
   // 조회
-  getById(id: string): Group | null {
-    const stmt = db.prepare('SELECT * FROM groups WHERE id = ?');
-    const row = stmt.get(id) as any;
+  getById(id: string, userId?: string): Group | null {
+    const stmt = userId
+      ? db.prepare('SELECT * FROM groups WHERE id = ? AND userId = ?')
+      : db.prepare('SELECT * FROM groups WHERE id = ?');
+    const row = userId ? stmt.get(id, userId) : stmt.get(id) as any;
     if (!row) return null;
     return this.parseRow(row);
   },
 
   // 전체 조회
-  getAll(): Group[] {
-    const stmt = db.prepare('SELECT * FROM groups ORDER BY updatedAt DESC');
-    const rows = stmt.all() as any[];
+  getAll(userId: string): Group[] {
+    const stmt = db.prepare('SELECT * FROM groups WHERE userId = ? ORDER BY updatedAt DESC');
+    const rows = stmt.all(userId) as any[];
     return rows.map(row => this.parseRow(row));
   },
 
   // AI 생성 그룹만 조회
-  getAIGenerated(): Group[] {
-    const stmt = db.prepare('SELECT * FROM groups WHERE isAIGenerated = 1 ORDER BY updatedAt DESC');
-    const rows = stmt.all() as any[];
+  getAIGenerated(userId: string): Group[] {
+    const stmt = db.prepare('SELECT * FROM groups WHERE userId = ? AND isAIGenerated = 1 ORDER BY updatedAt DESC');
+    const rows = stmt.all(userId) as any[];
     return rows.map(row => this.parseRow(row));
   },
 
   // 사용자 생성 그룹만 조회
-  getUserCreated(): Group[] {
-    const stmt = db.prepare('SELECT * FROM groups WHERE isAIGenerated = 0 ORDER BY updatedAt DESC');
-    const rows = stmt.all() as any[];
+  getUserCreated(userId: string): Group[] {
+    const stmt = db.prepare('SELECT * FROM groups WHERE userId = ? AND isAIGenerated = 0 ORDER BY updatedAt DESC');
+    const rows = stmt.all(userId) as any[];
     return rows.map(row => this.parseRow(row));
   },
 
   // 업데이트
-  update(id: string, updates: Partial<Group>): void {
+  update(id: string, userId: string, updates: Partial<Group>): void {
     const fields = ['updatedAt = ?'];
     const values: any[] = [Date.now()];
 
     for (const [key, value] of Object.entries(updates)) {
-      if (key === 'id' || key === 'createdAt' || key === 'updatedAt') continue;
+      if (key === 'id' || key === 'createdAt' || key === 'updatedAt' || key === 'userId') continue;
       fields.push(`${key} = ?`);
       if (key === 'memoryIds' && Array.isArray(value)) {
         values.push(JSON.stringify(value));
@@ -394,8 +519,8 @@ export const groupDb = {
       }
     }
 
-    const stmt = db.prepare(`UPDATE groups SET ${fields.join(', ')} WHERE id = ?`);
-    stmt.run(...values, id);
+    const stmt = db.prepare(`UPDATE groups SET ${fields.join(', ')} WHERE id = ? AND userId = ?`);
+    stmt.run(...values, id, userId);
   },
 
   // 삭제
@@ -417,9 +542,10 @@ export const groupDb = {
 // Goal CRUD
 export const goalDb = {
   // 생성
-  create(title: string, sourceMemoryIds: string[], category: 'idea' | 'request' | 'habit', description?: string): Goal {
+  create(userId: string, title: string, sourceMemoryIds: string[], category: 'idea' | 'request' | 'habit', description?: string): Goal {
     const goal: Goal = {
       id: nanoid(),
+      userId,
       title,
       description,
       category,
@@ -432,12 +558,13 @@ export const goalDb = {
     };
 
     const stmt = db.prepare(`
-      INSERT INTO goals (id, title, description, category, status, progress, sourceMemoryIds, milestones, targetDate, createdAt, updatedAt, completedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO goals (id, userId, title, description, category, status, progress, sourceMemoryIds, milestones, targetDate, createdAt, updatedAt, completedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
       goal.id,
+      goal.userId,
       goal.title,
       goal.description || null,
       goal.category,
@@ -455,34 +582,36 @@ export const goalDb = {
   },
 
   // 조회
-  getById(id: string): Goal | null {
-    const stmt = db.prepare('SELECT * FROM goals WHERE id = ?');
-    const row = stmt.get(id) as any;
+  getById(id: string, userId?: string): Goal | null {
+    const stmt = userId
+      ? db.prepare('SELECT * FROM goals WHERE id = ? AND userId = ?')
+      : db.prepare('SELECT * FROM goals WHERE id = ?');
+    const row = userId ? stmt.get(id, userId) : stmt.get(id) as any;
     if (!row) return null;
     return this.parseRow(row);
   },
 
   // 전체 조회
-  getAll(): Goal[] {
-    const stmt = db.prepare('SELECT * FROM goals ORDER BY updatedAt DESC');
-    const rows = stmt.all() as any[];
+  getAll(userId: string): Goal[] {
+    const stmt = db.prepare('SELECT * FROM goals WHERE userId = ? ORDER BY updatedAt DESC');
+    const rows = stmt.all(userId) as any[];
     return rows.map(row => this.parseRow(row));
   },
 
   // 상태별 조회
-  getByStatus(status: 'active' | 'completed' | 'archived'): Goal[] {
-    const stmt = db.prepare('SELECT * FROM goals WHERE status = ? ORDER BY updatedAt DESC');
-    const rows = stmt.all(status) as any[];
+  getByStatus(userId: string, status: 'active' | 'completed' | 'archived'): Goal[] {
+    const stmt = db.prepare('SELECT * FROM goals WHERE userId = ? AND status = ? ORDER BY updatedAt DESC');
+    const rows = stmt.all(userId, status) as any[];
     return rows.map(row => this.parseRow(row));
   },
 
   // 업데이트
-  update(id: string, updates: Partial<Goal>) {
+  update(id: string, userId: string, updates: Partial<Goal>) {
     const fields: string[] = [];
     const values: any[] = [];
 
     Object.entries(updates).forEach(([key, value]) => {
-      if (key !== 'id' && key !== 'createdAt') {
+      if (key !== 'id' && key !== 'createdAt' && key !== 'userId') {
         fields.push(`${key} = ?`);
         if (key === 'sourceMemoryIds' && Array.isArray(value)) {
           values.push(JSON.stringify(value));
@@ -499,15 +628,22 @@ export const goalDb = {
     fields.push('updatedAt = ?');
     values.push(Date.now());
     values.push(id);
+    values.push(userId);
 
-    const stmt = db.prepare(`UPDATE goals SET ${fields.join(', ')} WHERE id = ?`);
+    const stmt = db.prepare(`UPDATE goals SET ${fields.join(', ')} WHERE id = ? AND userId = ?`);
     stmt.run(...(values as any[]));
   },
 
   // 삭제
-  delete(id: string) {
-    const stmt = db.prepare('DELETE FROM goals WHERE id = ?');
-    stmt.run(id);
+  delete(id: string, userId?: string) {
+    const stmt = userId
+      ? db.prepare('DELETE FROM goals WHERE id = ? AND userId = ?')
+      : db.prepare('DELETE FROM goals WHERE id = ?');
+    if (userId) {
+      stmt.run(id, userId);
+    } else {
+      stmt.run(id);
+    }
   },
 
   // Row 파싱
@@ -522,24 +658,24 @@ export const goalDb = {
 
 // Board Position CRUD
 export const boardPositionDb = {
-  getByGroup(groupId: string): { memoryId: string; x: number; y: number; updatedAt: number }[] {
-    const stmt = db.prepare('SELECT * FROM board_positions WHERE groupId = ?');
-    return stmt.all(groupId) as any[];
+  getByGroup(userId: string, groupId: string): { memoryId: string; x: number; y: number; updatedAt: number }[] {
+    const stmt = db.prepare('SELECT * FROM board_positions WHERE userId = ? AND groupId = ?');
+    return stmt.all(userId, groupId) as any[];
   },
 
-  upsertMany(groupId: string, positions: { memoryId: string; x: number; y: number }[]): void {
+  upsertMany(userId: string, groupId: string, positions: { memoryId: string; x: number; y: number }[]): void {
     const now = Date.now();
     const stmt = db.prepare(`
-      INSERT INTO board_positions (groupId, memoryId, x, y, updatedAt)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(groupId, memoryId) DO UPDATE SET
+      INSERT INTO board_positions (userId, groupId, memoryId, x, y, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(userId, groupId, memoryId) DO UPDATE SET
         x = excluded.x,
         y = excluded.y,
         updatedAt = excluded.updatedAt
     `);
     const transaction = db.transaction((rows: typeof positions) => {
       rows.forEach(row => {
-        stmt.run(groupId, row.memoryId, Math.round(row.x), Math.round(row.y), now);
+        stmt.run(userId, groupId, row.memoryId, Math.round(row.x), Math.round(row.y), now);
       });
     });
     transaction(positions);
@@ -547,43 +683,43 @@ export const boardPositionDb = {
 };
 
 export const boardSettingsDb = {
-  getByGroup(groupId: string): { groupId: string; cardSize?: string; cardColor?: string; updatedAt: number } | null {
-    const stmt = db.prepare('SELECT * FROM board_settings WHERE groupId = ?');
-    return (stmt.get(groupId) as any) || null;
+  getByGroup(userId: string, groupId: string): { groupId: string; cardSize?: string; cardColor?: string; updatedAt: number } | null {
+    const stmt = db.prepare('SELECT * FROM board_settings WHERE userId = ? AND groupId = ?');
+    return (stmt.get(userId, groupId) as any) || null;
   },
 
-  upsert(groupId: string, cardSize?: string, cardColor?: string): void {
+  upsert(userId: string, groupId: string, cardSize?: string, cardColor?: string): void {
     const now = Date.now();
     const stmt = db.prepare(`
-      INSERT INTO board_settings (groupId, cardSize, cardColor, updatedAt)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(groupId) DO UPDATE SET
+      INSERT INTO board_settings (userId, groupId, cardSize, cardColor, updatedAt)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(userId, groupId) DO UPDATE SET
         cardSize = excluded.cardSize,
         cardColor = excluded.cardColor,
         updatedAt = excluded.updatedAt
     `);
-    stmt.run(groupId, cardSize || null, cardColor || null, now);
+    stmt.run(userId, groupId, cardSize || null, cardColor || null, now);
   },
 };
 
 export const boardCardColorDb = {
-  getByGroup(groupId: string): { memoryId: string; color: string; updatedAt: number }[] {
-    const stmt = db.prepare('SELECT * FROM board_card_colors WHERE groupId = ?');
-    return stmt.all(groupId) as any[];
+  getByGroup(userId: string, groupId: string): { memoryId: string; color: string; updatedAt: number }[] {
+    const stmt = db.prepare('SELECT * FROM board_card_colors WHERE userId = ? AND groupId = ?');
+    return stmt.all(userId, groupId) as any[];
   },
 
-  upsertMany(groupId: string, colors: { memoryId: string; color: string }[]): void {
+  upsertMany(userId: string, groupId: string, colors: { memoryId: string; color: string }[]): void {
     const now = Date.now();
     const stmt = db.prepare(`
-      INSERT INTO board_card_colors (groupId, memoryId, color, updatedAt)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(groupId, memoryId) DO UPDATE SET
+      INSERT INTO board_card_colors (userId, groupId, memoryId, color, updatedAt)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(userId, groupId, memoryId) DO UPDATE SET
         color = excluded.color,
         updatedAt = excluded.updatedAt
     `);
     const transaction = db.transaction((rows: typeof colors) => {
       rows.forEach(row => {
-        stmt.run(groupId, row.memoryId, row.color, now);
+        stmt.run(userId, groupId, row.memoryId, row.color, now);
       });
     });
     transaction(colors);
@@ -632,7 +768,7 @@ export interface Persona {
 }
 
 export const personaDb = {
-  create(name: string, icon: string, description?: string, context?: string): Persona {
+  create(name: string, userId: string, icon: string, description?: string, context?: string): Persona {
     const persona: Persona = {
       id: nanoid(),
       name,
@@ -644,21 +780,25 @@ export const personaDb = {
     };
 
     const stmt = db.prepare(`
-      INSERT INTO personas (id, name, icon, description, context, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO personas (id, userId, name, icon, description, context, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(persona.id, persona.name, persona.icon, persona.description || null, persona.context || null, persona.createdAt, persona.updatedAt);
+    stmt.run(persona.id, userId, persona.name, persona.icon, persona.description || null, persona.context || null, persona.createdAt, persona.updatedAt);
     return persona;
   },
 
-  getAll(): Persona[] {
-    const stmt = db.prepare('SELECT * FROM personas ORDER BY createdAt ASC');
-    return stmt.all() as Persona[];
+  getAll(userId?: string): Persona[] {
+    const stmt = userId
+      ? db.prepare('SELECT * FROM personas WHERE userId = ? ORDER BY createdAt ASC')
+      : db.prepare('SELECT * FROM personas ORDER BY createdAt ASC');
+    return (userId ? stmt.all(userId) : stmt.all()) as Persona[];
   },
 
-  getById(id: string): Persona | null {
-    const stmt = db.prepare('SELECT * FROM personas WHERE id = ?');
-    return stmt.get(id) as Persona | null;
+  getById(id: string, userId?: string): Persona | null {
+    const stmt = userId
+      ? db.prepare('SELECT * FROM personas WHERE id = ? AND userId = ?')
+      : db.prepare('SELECT * FROM personas WHERE id = ?');
+    return (userId ? stmt.get(id, userId) : stmt.get(id)) as Persona | null;
   },
 
   update(id: string, updates: Partial<Persona>): void {
@@ -685,6 +825,36 @@ export const personaDb = {
   delete(id: string): void {
     const stmt = db.prepare('DELETE FROM personas WHERE id = ?');
     stmt.run(id);
+  },
+};
+
+// User CRUD
+export const userDb = {
+  // 생성 또는 업데이트
+  upsert(id: string, email: string, name?: string, image?: string): void {
+    const now = Date.now();
+    const stmt = db.prepare(`
+      INSERT INTO users (id, email, name, image, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        email = excluded.email,
+        name = excluded.name,
+        image = excluded.image,
+        updatedAt = excluded.updatedAt
+    `);
+    stmt.run(id, email, name || null, image || null, now, now);
+  },
+
+  // 조회
+  getById(id: string): { id: string; email: string; name: string | null; image: string | null; createdAt: number; updatedAt: number } | undefined {
+    const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
+    return stmt.get(id) as any;
+  },
+
+  // 이메일로 조회
+  getByEmail(email: string): { id: string; email: string; name: string | null; image: string | null; createdAt: number; updatedAt: number } | undefined {
+    const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
+    return stmt.get(email) as any;
   },
 };
 

@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { goalDb } from '@/lib/db';
+import { getUserId } from '@/lib/auth';
 import { Goal } from '@/types';
 
 // GET: 모든 목표 조회
 export async function GET(req: NextRequest) {
   try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status') as 'active' | 'completed' | 'archived' | null;
 
-    const goals = status ? goalDb.getByStatus(status) : goalDb.getAll();
+    const goals = status ? goalDb.getByStatus(userId, status) : goalDb.getAll(userId);
     return NextResponse.json({ goals });
   } catch (error) {
     console.error('Failed to fetch goals:', error);
@@ -22,6 +31,14 @@ export async function GET(req: NextRequest) {
 // POST: 새 목표 생성
 export async function POST(req: NextRequest) {
   try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
     const { title, description, category, sourceMemoryIds } = await req.json();
 
     if (!title || !category || !Array.isArray(sourceMemoryIds)) {
@@ -31,7 +48,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const newGoal = goalDb.create(title, sourceMemoryIds, category, description);
+    const newGoal = goalDb.create(userId, title, sourceMemoryIds, category, description);
     return NextResponse.json({ goal: newGoal }, { status: 201 });
   } catch (error) {
     console.error('Failed to create goal:', error);
@@ -45,6 +62,14 @@ export async function POST(req: NextRequest) {
 // PUT: 목표 업데이트
 export async function PUT(req: NextRequest) {
   try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
@@ -55,9 +80,18 @@ export async function PUT(req: NextRequest) {
       );
     }
 
+    // 사용자 소유 확인
+    const existing = goalDb.getById(id, userId);
+    if (!existing) {
+      return NextResponse.json(
+        { error: '목표를 찾을 수 없거나 권한이 없습니다' },
+        { status: 404 }
+      );
+    }
+
     const updates = await req.json();
-    goalDb.update(id, updates);
-    const updatedGoal = goalDb.getById(id);
+    goalDb.update(id, userId, updates);
+    const updatedGoal = goalDb.getById(id, userId);
     return NextResponse.json({ goal: updatedGoal });
   } catch (error) {
     console.error('Failed to update goal:', error);
@@ -71,6 +105,14 @@ export async function PUT(req: NextRequest) {
 // DELETE: 목표 삭제
 export async function DELETE(req: NextRequest) {
   try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
@@ -81,7 +123,16 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    goalDb.delete(id);
+    // 사용자 소유 확인
+    const existing = goalDb.getById(id, userId);
+    if (!existing) {
+      return NextResponse.json(
+        { error: '목표를 찾을 수 없거나 권한이 없습니다' },
+        { status: 404 }
+      );
+    }
+
+    goalDb.delete(id, userId);
     return NextResponse.json({ message: '목표 삭제 성공' });
   } catch (error) {
     console.error('Failed to delete goal:', error);

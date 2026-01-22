@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { memoryDb, memoryLinkDb } from '@/lib/db';
+import { getUserId } from '@/lib/auth';
 
 // POST: 두 기록 간 링크 추가 (양방향)
 export async function POST(req: NextRequest) {
   try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
     const { memoryId1, memoryId2, note } = await req.json();
 
     if (!memoryId1 || !memoryId2) {
@@ -21,8 +30,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 두 기록 가져오기
-    const memory1 = memoryDb.getById(memoryId1);
-    const memory2 = memoryDb.getById(memoryId2);
+    const memory1 = memoryDb.getById(memoryId1, userId);
+    const memory2 = memoryDb.getById(memoryId2, userId);
 
     if (!memory1 || !memory2) {
       return NextResponse.json(
@@ -57,8 +66,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ 
       message: '링크 추가 완료',
-      memory1: memoryDb.getById(memoryId1),
-      memory2: memoryDb.getById(memoryId2)
+      memory1: memoryDb.getById(memoryId1, userId),
+      memory2: memoryDb.getById(memoryId2, userId)
     });
   } catch (error) {
     console.error('Failed to link memories:', error);
@@ -72,6 +81,14 @@ export async function POST(req: NextRequest) {
 // DELETE: 두 기록 간 링크 삭제 (양방향)
 export async function DELETE(req: NextRequest) {
   try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const memoryId1 = searchParams.get('memoryId1');
     const memoryId2 = searchParams.get('memoryId2');
@@ -84,8 +101,8 @@ export async function DELETE(req: NextRequest) {
     }
 
     // 두 기록 가져오기
-    const memory1 = memoryDb.getById(memoryId1);
-    const memory2 = memoryDb.getById(memoryId2);
+    const memory1 = memoryDb.getById(memoryId1, userId);
+    const memory2 = memoryDb.getById(memoryId2, userId);
 
     if (!memory1 || !memory2) {
       return NextResponse.json(
@@ -111,8 +128,8 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ 
       message: '링크 삭제 완료',
-      memory1: memoryDb.getById(memoryId1),
-      memory2: memoryDb.getById(memoryId2)
+      memory1: memoryDb.getById(memoryId1, userId),
+      memory2: memoryDb.getById(memoryId2, userId)
     });
   } catch (error) {
     console.error('Failed to unlink memories:', error);

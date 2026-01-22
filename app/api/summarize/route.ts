@@ -2,10 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { memoryDb, clusterDb, personaDb } from '@/lib/db';
 import { generateSummary, generateSuggestions } from '@/lib/ai';
 import { searchMemories, organizeMemoriesByContext } from '@/lib/clustering';
+import { getUserId } from '@/lib/auth';
 
 // POST: 요약 요청
 export async function POST(req: NextRequest) {
   try {
+    const userId = await getUserId(req);
+    if (!userId) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다' },
+        { status: 401 }
+      );
+    }
+
     const { query, personaId } = await req.json();
 
     if (!query || typeof query !== 'string') {
@@ -15,17 +24,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 페르소나 컨텍스트 조회
+    // 페르소나 컨텍스트 조회 (사용자별)
     let personaContext: string | undefined;
     if (personaId) {
-      const persona = personaDb.getById(personaId);
+      const persona = personaDb.getById(personaId, userId);
       if (persona && persona.context) {
         personaContext = persona.context;
       }
     }
 
-    // 전체 기억 조회
-    const allMemories = memoryDb.getAll();
+    // 전체 기억 조회 (사용자별)
+    const allMemories = memoryDb.getAll(userId);
 
     // 관련 기억 검색
     const relatedMemories = searchMemories(query, allMemories);
