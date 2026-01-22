@@ -383,7 +383,7 @@ async function fetchWithPuppeteer(url: string): Promise<string> {
       });
       
       // 추가 대기 (JavaScript 실행 시간 확보)
-      await page.waitForTimeout(3000); // 3초 대기
+      await new Promise(resolve => setTimeout(resolve, 3000)); // 3초 대기
 
       // 페이지 내용 가져오기
       const text = await page.evaluate(() => {
