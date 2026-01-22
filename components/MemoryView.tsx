@@ -732,10 +732,18 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     });
 
     // 같은 두 카드 사이의 연결 개수 계산 (병렬 선 표시용)
+    // 양방향 연결을 고려 (A->B와 B->A는 같은 연결)
     const pairKeyToCount = new Map<string, number>();
+    const pairKeyToConnections = new Map<string, Array<typeof pairsWithColor[0]>>();
+    
     pairsWithColor.forEach(pair => {
       const key = [pair.from, pair.to].sort().join(':');
       pairKeyToCount.set(key, (pairKeyToCount.get(key) || 0) + 1);
+      
+      if (!pairKeyToConnections.has(key)) {
+        pairKeyToConnections.set(key, []);
+      }
+      pairKeyToConnections.get(key)!.push(pair);
     });
 
     // 각 연결 쌍에 오프셋 인덱스 할당 (같은 두 카드 사이의 여러 연결을 병렬로 표시)
@@ -747,6 +755,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       pairKeyToIndex.set(key, currentIndex + 1);
       (pair as any).offsetIndex = currentIndex;
       (pair as any).totalConnections = count; // 같은 두 카드 사이의 총 연결 개수
+      
+      // 디버깅용 로그
+      if (count > 1) {
+        console.log(`🔗 병렬 연결 감지: ${pair.from} <-> ${pair.to}, 총 ${count}개, 인덱스 ${currentIndex}`);
+      }
     });
 
     if (pairsWithColor.length > 0) {
@@ -1005,7 +1018,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       const markerId = `arrowhead-${pair.color.replace('#', '')}`;
                       
                       return (
-                        <g key={`${pair.from}-${pair.to}`}>
+                        <g key={`${pair.from}-${pair.to}-${offsetIndex}`}>
                           <path
                             d={`M ${adjustedFromX} ${adjustedFromY} Q ${cx} ${cy} ${adjustedToX} ${adjustedToY}`}
                             stroke={pair.color}
