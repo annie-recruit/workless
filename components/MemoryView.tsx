@@ -840,7 +840,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 }}
               >
                 {/* 연결선 SVG - 카드 뒤에 렌더링 */}
-                {connectionPairs.length > 0 && (
+                {connectionPairsWithColor.length > 0 && (
                   <svg
                     className="absolute inset-0 pointer-events-none"
                     width={boardSize.width}
@@ -848,46 +848,72 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     style={{ zIndex: 1 }}
                   >
                     <defs>
-                      <marker
-                        id="arrowhead"
-                        markerWidth="10"
-                        markerHeight="10"
-                        refX="8"
-                        refY="3"
-                        orient="auto"
-                        markerUnits="strokeWidth"
-                      >
-                        <path d="M0,0 L0,6 L9,3 z" fill="#6366F1" />
-                      </marker>
+                      {/* 각 색상별 화살표 마커 생성 */}
+                      {connectionPairsWithColor.map((pair, idx) => {
+                        const markerId = `arrowhead-${pair.color.replace('#', '')}`;
+                        return (
+                          <marker
+                            key={markerId}
+                            id={markerId}
+                            markerWidth="10"
+                            markerHeight="10"
+                            refX="8"
+                            refY="3"
+                            orient="auto"
+                            markerUnits="strokeWidth"
+                          >
+                            <path d="M0,0 L0,6 L9,3 z" fill={pair.color} />
+                          </marker>
+                        );
+                      })}
                     </defs>
-                    {connectionPairs.map(pair => {
+                    {connectionPairsWithColor.map(pair => {
                       const from = positions[pair.from];
                       const to = positions[pair.to];
                       if (!from || !to) {
                         console.log('⚠️ 연결선 위치 없음:', pair, { from, to });
                         return null;
                       }
+                      
+                      // 여러 연결선이 있을 때 오프셋 계산
+                      const offsetIndex = (pair as any).offsetIndex || 0;
+                      const totalOutgoing = (pair as any).totalOutgoing || 1;
+                      const lineOffset = totalOutgoing > 1 ? (offsetIndex - (totalOutgoing - 1) / 2) * 8 : 0;
+                      
                       const fromX = from.x + CARD_DIMENSIONS[cardSize].centerX;
                       const fromY = from.y + CARD_DIMENSIONS[cardSize].centerY;
                       const toX = to.x + CARD_DIMENSIONS[cardSize].centerX;
                       const toY = to.y + CARD_DIMENSIONS[cardSize].centerY;
-                      const midX = (fromX + toX) / 2;
-                      const midY = (fromY + toY) / 2;
+                      
+                      // 오프셋 적용 (수직 방향으로 약간 이동)
                       const dx = toX - fromX;
                       const dy = toY - fromY;
                       const len = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+                      const perpX = -dy / len;
+                      const perpY = dx / len;
+                      
+                      const adjustedFromX = fromX + perpX * lineOffset;
+                      const adjustedFromY = fromY + perpY * lineOffset;
+                      const adjustedToX = toX + perpX * lineOffset;
+                      const adjustedToY = toY + perpY * lineOffset;
+                      
+                      const midX = (adjustedFromX + adjustedToX) / 2;
+                      const midY = (adjustedFromY + adjustedToY) / 2;
                       const offset = 40;
                       const cx = midX - (dy / len) * offset;
                       const cy = midY + (dx / len) * offset;
+                      
                       const note = linkNotes[getLinkKey(pair.from, pair.to)];
+                      const markerId = `arrowhead-${pair.color.replace('#', '')}`;
+                      
                       return (
                         <g key={`${pair.from}-${pair.to}`}>
                           <path
-                            d={`M ${fromX} ${fromY} Q ${cx} ${cy} ${toX} ${toY}`}
-                            stroke="#6366F1"
+                            d={`M ${adjustedFromX} ${adjustedFromY} Q ${cx} ${cy} ${adjustedToX} ${adjustedToY}`}
+                            stroke={pair.color}
                             strokeWidth="3"
                             fill="none"
-                            markerEnd="url(#arrowhead)"
+                            markerEnd={`url(#${markerId})`}
                             opacity="0.9"
                           />
                           {note && (
