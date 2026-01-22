@@ -485,7 +485,11 @@ async function fetchWithPuppeteer(url: string): Promise<string> {
             return `${metaInfo.title ? `제목: ${metaInfo.title}` : ''}${metaInfo.description ? `\n${metaInfo.description}` : ''}`;
           }
         } catch (metaError) {
-          await browser.close();
+          try {
+            await browser.close();
+          } catch (closeError) {
+            // 브라우저 종료 실패 무시
+          }
         }
       }
     } catch (fallbackError) {
