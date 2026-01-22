@@ -1106,11 +1106,12 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
       {/* 링크 관리 모달 */}
       {linkManagerMemory && (
-        <LinkManager
-          currentMemory={linkManagerMemory}
-          allMemories={localMemories}
-          onClose={() => setLinkManagerMemory(null)}
-          onLinked={async (updatedMemory1, updatedMemory2) => {
+        <div data-tutorial-target="link-memories">
+          <LinkManager
+            currentMemory={linkManagerMemory}
+            allMemories={localMemories}
+            onClose={() => setLinkManagerMemory(null)}
+            onLinked={async (updatedMemory1, updatedMemory2) => {
             // 로컬 상태 즉시 업데이트 (페이지 리로드 없이)
             setLocalMemories(prev => {
               const updated = [...prev];
@@ -1135,6 +1136,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
             }
           }}
         />
+        </div>
       )}
     </div>
   );

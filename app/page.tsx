@@ -9,6 +9,7 @@ import QueryPanel from '@/components/QueryPanel';
 import InsightsPanel from '@/components/InsightsPanel';
 import GroupManager from '@/components/GroupManager';
 import PersonaSelector from '@/components/PersonaSelector';
+import Tutorial, { TutorialStep } from '@/components/Tutorial';
 import { Memory } from '@/types';
 
 export default function Home() {
@@ -18,6 +19,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [showInsights, setShowInsights] = useState(true); // 인사이트 패널 토글
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
   const contentMaxWidth = showInsights ? 'calc(100vw - 420px)' : 'calc(100vw - 40px)';
 
   const fetchMemories = async () => {
@@ -168,15 +170,28 @@ export default function Home() {
           <div className="mb-6 flex items-center justify-between border-b border-gray-200 pb-2">
             {/* 왼쪽: 페르소나 선택기와 그룹 관리 */}
             <div className="flex items-center gap-3">
-              <PersonaSelector
-                selectedPersonaId={selectedPersonaId}
-                onPersonaChange={setSelectedPersonaId}
-              />
+              <div data-tutorial-target="persona-selector">
+                <PersonaSelector
+                  selectedPersonaId={selectedPersonaId}
+                  onPersonaChange={setSelectedPersonaId}
+                />
+              </div>
               <button
                 onClick={() => setShowModal('groups')}
                 className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
+                data-tutorial-target="group-manager"
               >
                 그룹 관리
+              </button>
+              <button
+                onClick={() => setShowTutorial(true)}
+                className="px-4 py-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 transition-colors text-sm font-medium flex items-center gap-1"
+                title="튜토리얼 다시 보기"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                튜토리얼
               </button>
             </div>
 
@@ -228,7 +243,7 @@ export default function Home() {
           </div>
 
           {/* 보관함 영역 */}
-          <div>
+          <div data-tutorial-target="board-view">
             {loading ? (
               <div className="text-center py-12 text-gray-400">
                 불러오는 중...
