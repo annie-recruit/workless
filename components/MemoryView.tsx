@@ -105,6 +105,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [draggedMemoryId, setDraggedMemoryId] = useState<string | null>(null);
   const [dropTargetGroupId, setDropTargetGroupId] = useState<string | null>(null);
   const [linkManagerMemory, setLinkManagerMemory] = useState<Memory | null>(null);
+  // 로컬 메모리 상태 (연결 추가 시 즉시 반영)
+  const [localMemories, setLocalMemories] = useState<Memory[]>(memories);
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [previousPositions, setPreviousPositions] = useState<Record<string, { x: number; y: number }> | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -125,6 +127,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   useEffect(() => {
     fetchGroups();
   }, []);
+
+  // memories prop이 변경되면 로컬 상태도 업데이트
+  useEffect(() => {
+    setLocalMemories(memories);
+  }, [memories]);
 
   useEffect(() => {
     const storedSize = localStorage.getItem('workless.board.cardSize');
@@ -1074,10 +1081,31 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       {linkManagerMemory && (
         <LinkManager
           currentMemory={linkManagerMemory}
-          allMemories={memories}
+          allMemories={localMemories}
           onClose={() => setLinkManagerMemory(null)}
-          onLinked={() => {
-            window.location.reload();
+          onLinked={async (updatedMemory1, updatedMemory2) => {
+            // 로컬 상태 즉시 업데이트 (페이지 리로드 없이)
+            setLocalMemories(prev => {
+              const updated = [...prev];
+              const index1 = updated.findIndex(m => m.id === updatedMemory1.id);
+              const index2 = updated.findIndex(m => m.id === updatedMemory2.id);
+              
+              if (index1 !== -1) {
+                updated[index1] = updatedMemory1;
+              }
+              if (index2 !== -1) {
+                updated[index2] = updatedMemory2;
+              }
+              
+              return updated;
+            });
+            
+            // linkManagerMemory도 업데이트
+            if (linkManagerMemory.id === updatedMemory1.id) {
+              setLinkManagerMemory(updatedMemory1);
+            } else if (linkManagerMemory.id === updatedMemory2.id) {
+              setLinkManagerMemory(updatedMemory2);
+            }
           }}
         />
       )}

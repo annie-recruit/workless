@@ -7,7 +7,7 @@ interface LinkManagerProps {
   currentMemory: Memory;
   allMemories: Memory[];
   onClose: () => void;
-  onLinked: () => void;
+  onLinked: (updatedMemory1: Memory, updatedMemory2: Memory) => void;
 }
 
 export default function LinkManager({ currentMemory, allMemories, onClose, onLinked }: LinkManagerProps) {
@@ -46,7 +46,11 @@ export default function LinkManager({ currentMemory, allMemories, onClose, onLin
       });
 
       if (res.ok) {
-        onLinked();
+        const data = await res.json();
+        // 업데이트된 메모리 정보를 콜백으로 전달
+        if (data.memory1 && data.memory2) {
+          onLinked(data.memory1, data.memory2);
+        }
         onClose();
       } else {
         alert('링크 추가 실패');
