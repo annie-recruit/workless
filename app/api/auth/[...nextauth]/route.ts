@@ -27,10 +27,30 @@ const authOptions: NextAuthOptions = {
       }
       return true;
     },
+    async jwt({ token, user, account }) {
+      // 초기 로그인 시 사용자 정보를 토큰에 저장
+      if (user) {
+        token.id = user.id;
+        token.email = user.email;
+        token.name = user.name;
+        token.picture = user.image;
+      }
+      return token;
+    },
     async session({ session, token }) {
       if (session.user && token.sub) {
         // 세션에 사용자 ID 추가
         (session.user as any).id = token.sub;
+      }
+      // 토큰에서 이미지 정보를 세션에 추가
+      if (token.picture && session.user) {
+        session.user.image = token.picture as string;
+      }
+      if (token.name && session.user) {
+        session.user.name = token.name as string;
+      }
+      if (token.email && session.user) {
+        session.user.email = token.email as string;
       }
       return session;
     },

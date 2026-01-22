@@ -182,12 +182,22 @@ export default function Home() {
             <div className="flex items-center gap-1">
               {session ? (
                 <div className="flex items-center gap-2">
-                  {session.user?.image && (
+                  {session.user?.image ? (
                     <img
                       src={session.user.image}
                       alt={session.user.name || 'User'}
-                      className="w-6 h-6 rounded-full"
+                      className="w-6 h-6 rounded-full object-cover"
+                      onError={(e) => {
+                        // 이미지 로드 실패 시 숨김
+                        e.currentTarget.style.display = 'none';
+                      }}
                     />
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center">
+                      <span className="text-xs text-gray-600">
+                        {(session.user?.name || session.user?.email || 'U')[0].toUpperCase()}
+                      </span>
+                    </div>
                   )}
                   <span className="px-2 text-gray-600 text-sm">
                     {session.user?.name || session.user?.email}
