@@ -378,9 +378,12 @@ async function fetchWithPuppeteer(url: string): Promise<string> {
       
       console.log('🌐 [Puppeteer 2/3] 페이지 로드 중...');
       await page.goto(url, { 
-        waitUntil: 'networkidle2',
-        timeout: 30000,
+        waitUntil: 'domcontentloaded', // networkidle2 대신 domcontentloaded 사용 (더 빠름)
+        timeout: 60000, // 타임아웃 60초로 증가
       });
+      
+      // 추가 대기 (JavaScript 실행 시간 확보)
+      await page.waitForTimeout(3000); // 3초 대기
 
       // 페이지 내용 가져오기
       const text = await page.evaluate(() => {
@@ -397,6 +400,18 @@ async function fetchWithPuppeteer(url: string): Promise<string> {
       console.log('🌐 [Puppeteer 3/3] 텍스트 추출 완료, 길이:', text.length);
 
       if (!text.trim() || text.length < 50) {
+        // 텍스트가 없으면 메타 태그에서 정보 추출 시도
+        const metaInfo = await page.evaluate(() => {
+          const title = document.title || '';
+          const description = (document.querySelector('meta[name="description"]') as HTMLMetaElement)?.content || 
+                            (document.querySelector('meta[property="og:description"]') as HTMLMetaElement)?.content || '';
+          return { title, description };
+        });
+        
+        if (metaInfo.title || metaInfo.description) {
+          return `${metaInfo.title ? `제목: ${metaInfo.title}` : ''}${metaInfo.description ? `\n설명: ${metaInfo.description}` : ''}`;
+        }
+        
         return '(웹페이지 내용을 추출하지 못했습니다)';
       }
 
@@ -412,7 +427,39 @@ async function fetchWithPuppeteer(url: string): Promise<string> {
     }
   } catch (error) {
     console.error('❌ Puppeteer 실패:', error instanceof Error ? error.message : String(error));
-    return '(웹페이지 요약 실패 - JavaScript 기반 사이트는 처리할 수 없습니다)';
+    
+    // 타임아웃이나 네트워크 에러인 경우, 메타 태그 정보라도 추출 시도
+    try {
+      const puppeteer = await import('puppeteer').catch(() => null);
+      if (puppeteer) {
+        const browser = await puppeteer.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        });
+        try {
+          const page = await browser.newPage();
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+          const metaInfo = await page.evaluate(() => {
+            const title = document.title || '';
+            const description = (document.querySelector('meta[name="description"]') as HTMLMetaElement)?.content || 
+                              (document.querySelector('meta[property="og:description"]') as HTMLMetaElement)?.content || '';
+            const ogTitle = (document.querySelector('meta[property="og:title"]') as HTMLMetaElement)?.content || '';
+            return { title: ogTitle || title, description };
+          });
+          await browser.close();
+          
+          if (metaInfo.title || metaInfo.description) {
+            return `${metaInfo.title ? `제목: ${metaInfo.title}` : ''}${metaInfo.description ? `\n${metaInfo.description}` : ''}`;
+          }
+        } catch (metaError) {
+          await browser.close();
+        }
+      }
+    } catch (fallbackError) {
+      // 폴백도 실패하면 그냥 에러 메시지 반환
+    }
+    
+    return '(웹페이지 요약 실패 - 페이지 로드 시간이 초과되었거나 접근이 제한된 페이지입니다)';
   }
 }
 
