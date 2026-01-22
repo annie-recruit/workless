@@ -672,7 +672,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       });
     });
 
-    // 연결 그룹 찾기 (같은 네트워크에 속한 연결들은 같은 색상)
+    // 연결 그룹 찾기 (독립적인 연결 네트워크별로 그룹화)
+    // 각 그룹은 서로 연결된 노드들의 집합
     const connectionGroups: Array<Set<string>> = [];
     const nodeToGroup = new Map<string, number>();
     
@@ -716,32 +717,36 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       '#14B8A6', // teal
     ];
 
-    // 각 연결 쌍에 색상 할당
+    // 각 연결 쌍에 색상 할당 (연결 그룹별로)
     const pairsWithColor = pairs.map(pair => {
       const fromGroup = nodeToGroup.get(pair.from);
-      const colorIndex = fromGroup !== undefined ? fromGroup % colors.length : 0;
+      const toGroup = nodeToGroup.get(pair.to);
+      // 두 노드가 같은 그룹에 속하면 그 그룹의 색상 사용
+      const groupIndex = fromGroup !== undefined ? fromGroup : (toGroup !== undefined ? toGroup : -1);
+      const colorIndex = groupIndex >= 0 ? groupIndex % colors.length : 0;
       return {
         ...pair,
         color: colors[colorIndex],
-        groupIndex: fromGroup !== undefined ? fromGroup : -1,
+        groupIndex: groupIndex,
       };
     });
 
-    // 각 카드에서 나가는 연결 개수 계산 (여러 줄 표시용)
-    const outgoingCount = new Map<string, number>();
+    // 같은 두 카드 사이의 연결 개수 계산 (병렬 선 표시용)
+    const pairKeyToCount = new Map<string, number>();
     pairsWithColor.forEach(pair => {
-      outgoingCount.set(pair.from, (outgoingCount.get(pair.from) || 0) + 1);
+      const key = [pair.from, pair.to].sort().join(':');
+      pairKeyToCount.set(key, (pairKeyToCount.get(key) || 0) + 1);
     });
 
-    // 각 연결에 오프셋 인덱스 할당
-    const connectionIndex = new Map<string, number>();
+    // 각 연결 쌍에 오프셋 인덱스 할당 (같은 두 카드 사이의 여러 연결을 병렬로 표시)
+    const pairKeyToIndex = new Map<string, number>();
     pairsWithColor.forEach(pair => {
-      const key = `${pair.from}-${pair.to}`;
-      const count = outgoingCount.get(pair.from) || 1;
-      const currentIndex = connectionIndex.get(pair.from) || 0;
-      connectionIndex.set(pair.from, currentIndex + 1);
+      const key = [pair.from, pair.to].sort().join(':');
+      const count = pairKeyToCount.get(key) || 1;
+      const currentIndex = pairKeyToIndex.get(key) || 0;
+      pairKeyToIndex.set(key, currentIndex + 1);
       (pair as any).offsetIndex = currentIndex;
-      (pair as any).totalOutgoing = count;
+      (pair as any).totalConnections = count; // 같은 두 카드 사이의 총 연결 개수
     });
 
     if (pairsWithColor.length > 0) {
@@ -967,10 +972,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         return null;
                       }
                       
-                      // 여러 연결선이 있을 때 오프셋 계산
+                      // 같은 두 카드 사이의 여러 연결선을 병렬로 표시하기 위한 오프셋 계산
                       const offsetIndex = (pair as any).offsetIndex || 0;
-                      const totalOutgoing = (pair as any).totalOutgoing || 1;
-                      const lineOffset = totalOutgoing > 1 ? (offsetIndex - (totalOutgoing - 1) / 2) * 8 : 0;
+                      const totalConnections = (pair as any).totalConnections || 1;
+                      // 여러 연결이 있으면 병렬로 표시 (간격 12px)
+                      const lineOffset = totalConnections > 1 ? (offsetIndex - (totalConnections - 1) / 2) * 12 : 0;
                       
                       const fromX = from.x + CARD_DIMENSIONS[cardSize].centerX;
                       const fromY = from.y + CARD_DIMENSIONS[cardSize].centerY;
