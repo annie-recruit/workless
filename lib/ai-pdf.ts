@@ -96,7 +96,7 @@ export async function parsePDFWithAdobe(filepath: string): Promise<string> {
       return '(PDF 텍스트 추출 실패)';
     }
 
-    const maxLen = 5000;
+    const maxLen = 10000;
     if (text.length > maxLen) {
       return text.substring(0, maxLen) + `\n\n... (내용이 길어서 일부만 표시. 총 ${text.length}자)`;
     }

@@ -28,9 +28,9 @@ export async function readTextFile(filepath: string): Promise<string> {
     const fullPath = getActualFilePath(filepath);
     const content = readFileSync(fullPath, 'utf-8');
     
-    // 너무 길면 앞부분만 (2000자)
-    if (content.length > 2000) {
-      return content.substring(0, 2000) + '... (내용이 길어서 일부만 표시)';
+    // 너무 길면 앞부분만 (10000자로 증가)
+    if (content.length > 10000) {
+      return content.substring(0, 10000) + `\n\n... (내용이 길어서 일부만 표시. 총 ${content.length}자)`;
     }
     
     return content;
@@ -190,8 +190,8 @@ export async function parsePDF(filepath: string): Promise<string> {
         console.warn('⚠️ PDF 텍스트 추출이 불완전할 수 있습니다.');
       }
       
-      if (text.length > 1000) {
-        text = text.substring(0, 1000) + '... (내용 계속)';
+      if (text.length > 10000) {
+        text = text.substring(0, 10000) + `\n\n... (내용이 길어서 일부만 표시. 총 ${text.length}자)`;
       }
       
       if (text.trim()) {
