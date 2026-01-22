@@ -201,7 +201,12 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
       <div
         ref={overlayRef}
         className="fixed inset-0 z-[9998] bg-black/50 transition-opacity"
-        onClick={handleNext}
+        onClick={(e) => {
+          // 툴팁 자체를 클릭한 경우가 아니면 다음으로 진행
+          if (e.target === overlayRef.current) {
+            handleNext();
+          }
+        }}
       >
         {/* Highlight area */}
         {targetElement && (
