@@ -54,12 +54,15 @@ export async function GET(
       );
     }
 
-    // 첨부파일이 있으면 분석
+    // 첨부파일이 있으면 분석 (URL 포함)
     let attachmentContext = '';
     if (memory.attachments && memory.attachments.length > 0) {
       console.log('📎 첨부파일 분석 시작:', memory.attachments.length, '개');
-      attachmentContext = await summarizeAttachments(memory.attachments);
+      attachmentContext = await summarizeAttachments(memory.attachments, memory.content);
       console.log('📎 첨부파일 분석 완료:', attachmentContext.substring(0, 100) + '...');
+    } else if (memory.content) {
+      // 첨부파일이 없어도 내용에서 URL 추출
+      attachmentContext = await summarizeAttachments([], memory.content);
     }
 
     // 기억 내용 + 첨부파일 컨텍스트 합치기

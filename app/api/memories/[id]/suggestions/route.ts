@@ -54,12 +54,18 @@ export async function GET(
       );
     }
 
-    // 첨부파일이 있다면 내용 분석
+    // 첨부파일이 있다면 내용 분석 (URL 포함)
     let fullContext = memory.content;
     if (memory.attachments && memory.attachments.length > 0) {
-      const fileContext = await summarizeAttachments(memory.attachments);
+      const fileContext = await summarizeAttachments(memory.attachments, memory.content);
       if (fileContext) {
         fullContext += `\n\n[첨부된 파일 내용]\n${fileContext}`;
+      }
+    } else if (memory.content) {
+      // 첨부파일이 없어도 내용에서 URL 추출
+      const urlContext = await summarizeAttachments([], memory.content);
+      if (urlContext) {
+        fullContext += `\n\n[링크 내용]\n${urlContext}`;
       }
     }
     const attachmentNames = memory.attachments?.map(att => att.filename).join(', ') || '없음';
