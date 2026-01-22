@@ -385,28 +385,61 @@ async function fetchWithPuppeteer(url: string): Promise<string> {
       // 추가 대기 (JavaScript 실행 시간 확보)
       await new Promise(resolve => setTimeout(resolve, 3000)); // 3초 대기
 
-      // 페이지 내용 가져오기
-      const text = await page.evaluate(() => {
-        // script, style 태그 제거
-        const scripts = document.querySelectorAll('script, style, noscript');
-        scripts.forEach(el => el.remove());
+      // 페이지 내용 가져오기 (안전하게)
+      let text = '';
+      try {
+        // 페이지가 안정화될 때까지 대기
+        await page.waitForFunction(
+          () => document.readyState === 'complete',
+          { timeout: 10000 }
+        ).catch(() => {}); // 타임아웃 무시하고 계속 진행
         
-        // 메인 콘텐츠 영역 찾기
-        const mainContent = document.querySelector('main, article, [role="main"], .content, #content') || document.body;
-        return (mainContent as HTMLElement).innerText || document.body.innerText;
-      });
+        text = await page.evaluate(() => {
+          try {
+            // script, style 태그 제거
+            const scripts = document.querySelectorAll('script, style, noscript');
+            scripts.forEach(el => el.remove());
+            
+            // 메인 콘텐츠 영역 찾기
+            const mainContent = document.querySelector('main, article, [role="main"], .content, #content') || document.body;
+            return (mainContent as HTMLElement).innerText || document.body.innerText || '';
+          } catch (e) {
+            // 프레임 분리 등의 에러 발생 시 body 텍스트만 반환
+            return document.body?.innerText || '';
+          }
+        });
+      } catch (e) {
+        // evaluate 실패 시 재시도
+        try {
+          text = await page.evaluate(() => {
+            return document.body?.innerText || '';
+          });
+        } catch (retryError) {
+          console.error('텍스트 추출 재시도 실패:', retryError);
+          text = '';
+        }
+      }
 
       await browser.close();
       console.log('🌐 [Puppeteer 3/3] 텍스트 추출 완료, 길이:', text.length);
 
       if (!text.trim() || text.length < 50) {
         // 텍스트가 없으면 메타 태그에서 정보 추출 시도
-        const metaInfo = await page.evaluate(() => {
-          const title = document.title || '';
-          const description = (document.querySelector('meta[name="description"]') as HTMLMetaElement)?.content || 
-                            (document.querySelector('meta[property="og:description"]') as HTMLMetaElement)?.content || '';
-          return { title, description };
-        });
+        let metaInfo = { title: '', description: '' };
+        try {
+          metaInfo = await page.evaluate(() => {
+            try {
+              const title = document.title || '';
+              const description = (document.querySelector('meta[name="description"]') as HTMLMetaElement)?.content || 
+                                (document.querySelector('meta[property="og:description"]') as HTMLMetaElement)?.content || '';
+              return { title, description };
+            } catch (e) {
+              return { title: '', description: '' };
+            }
+          });
+        } catch (metaError) {
+          // 메타 정보 추출 실패 시 무시
+        }
         
         if (metaInfo.title || metaInfo.description) {
           return `${metaInfo.title ? `제목: ${metaInfo.title}` : ''}${metaInfo.description ? `\n설명: ${metaInfo.description}` : ''}`;
