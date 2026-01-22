@@ -105,17 +105,31 @@ git push origin main
    - [Google Cloud Console](https://console.cloud.google.com/) 접속
    - 새 프로젝트 생성 또는 기존 프로젝트 선택
    - **API 및 서비스** > **사용자 인증 정보** 이동
+   
+   **기존 OAuth 클라이언트 ID가 있는 경우:**
+   - 목록에서 기존 OAuth 클라이언트 ID를 **클릭**하여 수정
+   - **승인된 리디렉션 URI** 섹션에서 **URI 추가** 클릭
+   - 다음 URI를 **정확히** 입력:
+     ```
+     https://your-railway-domain.railway.app/api/auth/callback/google
+     ```
+   - 기존에 `http://localhost:3000/api/auth/callback/google`이 없다면 함께 추가
+   - **저장** 클릭
+   
+   **OAuth 클라이언트 ID가 없는 경우에만:**
    - **사용자 인증 정보 만들기** > **OAuth 클라이언트 ID** 선택
    - 애플리케이션 유형: **웹 애플리케이션**
    - **승인된 리디렉션 URI**에 다음을 **정확히** 추가:
      ```
      https://your-railway-domain.railway.app/api/auth/callback/google
+     http://localhost:3000/api/auth/callback/google
      ```
-     ⚠️ **주의사항:**
-     - `https://`로 시작해야 함
-     - 마지막에 `/` 없이 정확히 입력
-     - Railway 도메인과 정확히 일치해야 함
-     - (로컬 개발용) `http://localhost:3000/api/auth/callback/google`도 추가
+   
+   ⚠️ **주의사항:**
+   - `https://`로 시작해야 함
+   - 마지막에 `/` 없이 정확히 입력
+   - Railway 도메인과 정확히 일치해야 함
+   - 기존 클라이언트 ID를 수정하는 것이 안전합니다 (새로 만들 필요 없음)
    
 3. **OAuth 동의 화면 설정**
    - **OAuth 동의 화면** 탭으로 이동
