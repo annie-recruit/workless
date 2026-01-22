@@ -43,83 +43,98 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
         if (element) {
           setTargetElement(element);
           
-          // Calculate tooltip position with better alignment
-          const rect = element.getBoundingClientRect();
-          const scrollY = window.scrollY;
-          const scrollX = window.scrollX;
-          
-          // 툴팁 크기 고려 (실제 크기 측정)
-          const tooltipWidth = 384; // max-w-sm = 384px
-          const tooltipHeight = 280; // 대략적인 높이
-          const spacing = 20; // 요소와 툴팁 사이 간격
-          const padding = 20; // 화면 가장자리 여백
-          
-          const viewportWidth = window.innerWidth;
-          const viewportHeight = window.innerHeight;
-          
-          let top = 0;
-          let left = 0;
-          
-          switch (step.position) {
-            case 'top':
-              top = rect.top + scrollY - spacing;
-              left = rect.left + scrollX + rect.width / 2;
-              // 위쪽에 공간이 없으면 아래쪽에 표시
-              if (top - scrollY < tooltipHeight + padding) {
+          // 위치 계산 함수
+          const calculatePosition = (targetElement: HTMLElement) => {
+            const rect = targetElement.getBoundingClientRect();
+            const scrollY = window.scrollY;
+            const scrollX = window.scrollX;
+            
+            // 툴팁 크기 고려 (실제 크기 측정)
+            const tooltipWidth = 384; // max-w-sm = 384px
+            const tooltipHeight = 280; // 대략적인 높이
+            const spacing = 20; // 요소와 툴팁 사이 간격
+            const padding = 20; // 화면 가장자리 여백
+            
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            
+            let top = 0;
+            let left = 0;
+            
+            switch (step.position) {
+              case 'top':
+                top = rect.top + scrollY - spacing;
+                left = rect.left + scrollX + rect.width / 2;
+                // 위쪽에 공간이 없으면 아래쪽에 표시
+                if (top - scrollY < tooltipHeight + padding) {
+                  top = rect.bottom + scrollY + spacing;
+                }
+                break;
+              case 'bottom':
                 top = rect.bottom + scrollY + spacing;
-              }
-              break;
-            case 'bottom':
-              top = rect.bottom + scrollY + spacing;
-              left = rect.left + scrollX + rect.width / 2;
-              // 아래쪽에 공간이 없으면 위쪽에 표시
-              if (top - scrollY + tooltipHeight > viewportHeight - padding) {
-                top = rect.top + scrollY - spacing - tooltipHeight;
-              }
-              break;
-            case 'left':
-              top = rect.top + scrollY + rect.height / 2;
-              left = rect.left + scrollX - spacing;
-              // 왼쪽에 공간이 없으면 오른쪽에 표시
-              if (left - scrollX < tooltipWidth + padding) {
+                left = rect.left + scrollX + rect.width / 2;
+                // 아래쪽에 공간이 없으면 위쪽에 표시
+                if (top - scrollY + tooltipHeight > viewportHeight - padding) {
+                  top = rect.top + scrollY - spacing - tooltipHeight;
+                }
+                break;
+              case 'left':
+                top = rect.top + scrollY + rect.height / 2;
+                left = rect.left + scrollX - spacing;
+                // 왼쪽에 공간이 없으면 오른쪽에 표시
+                if (left - scrollX < tooltipWidth + padding) {
+                  left = rect.right + scrollX + spacing;
+                }
+                break;
+              case 'right':
+                top = rect.top + scrollY + rect.height / 2;
                 left = rect.right + scrollX + spacing;
-              }
-              break;
-            case 'right':
-              top = rect.top + scrollY + rect.height / 2;
-              left = rect.right + scrollX + spacing;
-              // 오른쪽에 공간이 없으면 왼쪽에 표시
-              if (left - scrollX + tooltipWidth > viewportWidth - padding) {
-                left = rect.left + scrollX - spacing - tooltipWidth;
-              }
-              break;
-            case 'center':
-            default:
-              // 중앙 정렬 시 요소의 실제 위치 기준
-              top = rect.top + scrollY + rect.height / 2;
-              left = rect.left + scrollX + rect.width / 2;
-              break;
-          }
+                // 오른쪽에 공간이 없으면 왼쪽에 표시
+                if (left - scrollX + tooltipWidth > viewportWidth - padding) {
+                  left = rect.left + scrollX - spacing - tooltipWidth;
+                }
+                break;
+              case 'center':
+              default:
+                // 중앙 정렬 시 요소의 실제 위치 기준
+                top = rect.top + scrollY + rect.height / 2;
+                left = rect.left + scrollX + rect.width / 2;
+                break;
+            }
+            
+            // 화면 밖으로 나가지 않도록 엄격하게 조정
+            // 가로 위치 조정
+            if (left - scrollX < tooltipWidth / 2 + padding) {
+              left = scrollX + tooltipWidth / 2 + padding;
+            } else if (left - scrollX > viewportWidth - tooltipWidth / 2 - padding) {
+              left = scrollX + viewportWidth - tooltipWidth / 2 - padding;
+            }
+            
+            // 세로 위치 조정
+            if (top - scrollY < tooltipHeight / 2 + padding) {
+              top = scrollY + tooltipHeight / 2 + padding;
+            } else if (top - scrollY > viewportHeight - tooltipHeight / 2 - padding) {
+              top = scrollY + viewportHeight - tooltipHeight / 2 - padding;
+            }
+            
+            return { top, left };
+          };
           
-          // 화면 밖으로 나가지 않도록 엄격하게 조정
-          // 가로 위치 조정
-          if (left - scrollX < tooltipWidth / 2 + padding) {
-            left = scrollX + tooltipWidth / 2 + padding;
-          } else if (left - scrollX > viewportWidth - tooltipWidth / 2 - padding) {
-            left = scrollX + viewportWidth - tooltipWidth / 2 - padding;
-          }
-          
-          // 세로 위치 조정
-          if (top - scrollY < tooltipHeight / 2 + padding) {
-            top = scrollY + tooltipHeight / 2 + padding;
-          } else if (top - scrollY > viewportHeight - tooltipHeight / 2 - padding) {
-            top = scrollY + viewportHeight - tooltipHeight / 2 - padding;
-          }
-          
-          setTooltipPosition({ top, left });
+          // 초기 위치 설정
+          const position = calculatePosition(element);
+          setTooltipPosition(position);
           
           // Scroll element into view with better positioning
           element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+          
+          // 타겟 요소를 찾은 후 약간의 지연을 두고 위치 재계산 (렌더링 완료 대기)
+          setTimeout(() => {
+            const updatedElement = document.querySelector(step.targetSelector!) as HTMLElement;
+            if (updatedElement) {
+              const updatedPosition = calculatePosition(updatedElement);
+              setTooltipPosition(updatedPosition);
+            }
+          }, 100);
         } else {
           // Element not found, retry after a short delay
           console.log('튜토리얼 타겟 요소를 찾지 못함:', step.targetSelector);
@@ -146,80 +161,6 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
           top: window.innerHeight / 2 + window.scrollY,
           left: window.innerWidth / 2 + window.scrollX,
         });
-      }
-      
-      // 타겟 요소를 찾은 후 약간의 지연을 두고 위치 재계산 (렌더링 완료 대기)
-      if (element) {
-        setTimeout(() => {
-          const updatedElement = document.querySelector(step.targetSelector!) as HTMLElement;
-          if (updatedElement) {
-            const rect = updatedElement.getBoundingClientRect();
-            const scrollY = window.scrollY;
-            const scrollX = window.scrollX;
-            
-            // 위치 재계산
-            const tooltipWidth = 384;
-            const tooltipHeight = 280;
-            const spacing = 20;
-            const padding = 20;
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-            
-            let top = 0;
-            let left = 0;
-            
-            switch (step.position) {
-              case 'top':
-                top = rect.top + scrollY - spacing;
-                left = rect.left + scrollX + rect.width / 2;
-                if (top - scrollY < tooltipHeight + padding) {
-                  top = rect.bottom + scrollY + spacing;
-                }
-                break;
-              case 'bottom':
-                top = rect.bottom + scrollY + spacing;
-                left = rect.left + scrollX + rect.width / 2;
-                if (top - scrollY + tooltipHeight > viewportHeight - padding) {
-                  top = rect.top + scrollY - spacing - tooltipHeight;
-                }
-                break;
-              case 'left':
-                top = rect.top + scrollY + rect.height / 2;
-                left = rect.left + scrollX - spacing;
-                if (left - scrollX < tooltipWidth + padding) {
-                  left = rect.right + scrollX + spacing;
-                }
-                break;
-              case 'right':
-                top = rect.top + scrollY + rect.height / 2;
-                left = rect.right + scrollX + spacing;
-                if (left - scrollX + tooltipWidth > viewportWidth - padding) {
-                  left = rect.left + scrollX - spacing - tooltipWidth;
-                }
-                break;
-              case 'center':
-              default:
-                top = rect.top + scrollY + rect.height / 2;
-                left = rect.left + scrollX + rect.width / 2;
-                break;
-            }
-            
-            // 화면 경계 체크
-            if (left - scrollX < tooltipWidth / 2 + padding) {
-              left = scrollX + tooltipWidth / 2 + padding;
-            } else if (left - scrollX > viewportWidth - tooltipWidth / 2 - padding) {
-              left = scrollX + viewportWidth - tooltipWidth / 2 - padding;
-            }
-            
-            if (top - scrollY < tooltipHeight / 2 + padding) {
-              top = scrollY + tooltipHeight / 2 + padding;
-            } else if (top - scrollY > viewportHeight - tooltipHeight / 2 - padding) {
-              top = scrollY + viewportHeight - tooltipHeight / 2 - padding;
-            }
-            
-            setTooltipPosition({ top, left });
-          }
-        }, 100);
       }
     };
 
