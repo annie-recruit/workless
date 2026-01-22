@@ -1,10 +1,20 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { Memory, Group } from '@/types';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Memory, Group, CanvasBlock, CalendarBlockConfig, ViewerBlockConfig } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import LinkManager from './LinkManager';
+import CalendarBlock from './CalendarBlock';
+import Minimap from './Minimap';
+import dynamic from 'next/dynamic';
+import { useViewer } from './ViewerContext';
+
+// ViewerBlock을 dynamic import로 로드 (PDF.js가 서버 사이드에서 실행되지 않도록)
+const ViewerBlock = dynamic(() => import('./ViewerBlock'), {
+  ssr: false,
+  loading: () => null,
+});
 
 interface MemoryViewProps {
   memories: Memory[];
@@ -13,7 +23,13 @@ interface MemoryViewProps {
 }
 
 const stripHtmlClient = (html: string) => {
-  return html
+  if (!html) return '';
+  // HTML 엔티티 디코딩
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  let decoded = tempDiv.textContent || tempDiv.innerText || '';
+  
+  return decoded
     .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, ' ')
     .replace(/<[^>]*>/g, ' ')
@@ -92,12 +108,17 @@ const sanitizeHtml = (html: string) => {
 };
 
 const CARD_DIMENSIONS = {
-  s: { width: 260, height: 220, centerX: 130, centerY: 110 },
-  m: { width: 320, height: 240, centerX: 160, centerY: 120 },
-  l: { width: 360, height: 260, centerX: 180, centerY: 130 },
+  s: { width: 200, height: 160, centerX: 100, centerY: 80 },
+  m: { width: 240, height: 180, centerX: 120, centerY: 90 },
+  l: { width: 280, height: 200, centerX: 140, centerY: 100 },
 } as const;
 
-const BOARD_PADDING = 220;
+const BOARD_PADDING = 100;
+
+// 통합 드래그 엔진: 카드와 블록을 하나의 시스템으로 처리
+type DraggableEntity = 
+  | { type: 'memory'; id: string }
+  | { type: 'block'; id: string };
 
 export default function MemoryView({ memories, onMemoryDeleted, personaId }: MemoryViewProps) {
   const [groups, setGroups] = useState<Group[]>([]);
@@ -110,30 +131,51 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [previousPositions, setPreviousPositions] = useState<Record<string, { x: number; y: number }> | null>(null);
   const [positionsLoaded, setPositionsLoaded] = useState(false); // 위치 로드 완료 플래그
-  const [draggingId, setDraggingId] = useState<string | null>(null);
+  
+  // 통합 드래그 상태 (카드와 블록 통합)
+  const [draggingEntity, setDraggingEntity] = useState<DraggableEntity | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [dragStartPositions, setDragStartPositions] = useState<Record<string, { x: number; y: number }>>({}); // 드래그 시작 시점의 위치
+  
+  // 하위 호환성을 위한 별칭 (기존 코드와의 호환)
+  const draggingId = draggingEntity?.type === 'memory' ? draggingEntity.id : null;
+  const draggingBlockId = draggingEntity?.type === 'block' ? draggingEntity.id : null;
+  
   const [selectedMemoryIds, setSelectedMemoryIds] = useState<Set<string>>(new Set()); // 다중 선택
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null); // 드래그 선택 박스
   const [isSelecting, setIsSelecting] = useState(false); // 선택 모드인지
   const [isAutoArranging, setIsAutoArranging] = useState(false);
   const [cardSize, setCardSize] = useState<'s' | 'm' | 'l'>('m');
-  const [cardColor, setCardColor] = useState<'amber' | 'blue' | 'green' | 'pink' | 'purple'>('amber');
-  const [cardColorMap, setCardColorMap] = useState<Record<string, 'amber' | 'blue' | 'green' | 'pink' | 'purple'>>({});
+  const [cardColor, setCardColor] = useState<'green' | 'pink' | 'purple'>('green');
+  const [cardColorMap, setCardColorMap] = useState<Record<string, 'green' | 'pink' | 'purple'>>({});
   const [linkNotes, setLinkNotes] = useState<Record<string, string>>({});
   // AI 묶기 모달 상태 (MemoryView 레벨로 이동)
   const [groupModalMemory, setGroupModalMemory] = useState<Memory | null>(null);
   const [groupResult, setGroupResult] = useState<any>(null);
-  const [showGroupModal, setShowGroupModal] = useState(false);
   const [groupStep, setGroupStep] = useState<'loading' | 'confirm' | 'animating'>('loading');
+  const [clickedCardId, setClickedCardId] = useState<string | null>(null); // 클릭한 카드 ID
+  const [clickedBlockId, setClickedBlockId] = useState<string | null>(null); // 클릭한 블록 ID
+  const [toast, setToast] = useState<{ type: 'loading' | 'confirm' | 'success' | 'delete-link' | 'delete-memory' | 'delete-location' | 'error' | null; data?: any }>({ type: null });
+  // @ 태그 클릭 시 표시할 관련 기록 토스트 (여러 개 중첩 가능)
+  const [mentionToasts, setMentionToasts] = useState<Array<{ id: string; memoryId: string; x: number; y: number; relatedIds: string[] }>>([]);
+  const [editableGroupName, setEditableGroupName] = useState<string>('');
+  const [editableRelatedMemories, setEditableRelatedMemories] = useState<Array<{ id: string; content: string }>>([]);
+  const [groupDescription, setGroupDescription] = useState<string | null>(null);
+  const [isLoadingGroupDescription, setIsLoadingGroupDescription] = useState(false);
   const boardRef = useRef<HTMLDivElement>(null);
+  const boardContainerRef = useRef<HTMLDivElement>(null); // 스크롤 컨테이너 (미니맵에서 사용)
+  // 블록 관련 상태
+  const [blocks, setBlocks] = useState<CanvasBlock[]>([]);
   
   // AI 묶기 API 호출
   useEffect(() => {
-    if (!showGroupModal || !groupModalMemory || groupStep !== 'loading') return;
+    if (!groupModalMemory) return;
     
     const fetchGroup = async () => {
       try {
+        // 로딩 토스트 표시
+        setToast({ type: 'loading', data: { message: 'AI가 관련 기록을 찾고 있어요...' } });
+        
         const res = await fetch(`/api/memories/${groupModalMemory.id}/auto-group`, {
           method: 'POST',
         });
@@ -142,23 +184,29 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           const data = await res.json();
           setGroupResult(data);
           setGroupStep('confirm');
+          // 편집 가능한 상태 초기화
+          setEditableGroupName(data.group?.name || '');
+          setEditableRelatedMemories(data.relatedMemories || []);
+          // 확인 토스트 표시
+          setToast({ type: 'confirm', data });
         } else {
-          alert('자동 묶기 실패');
-          setShowGroupModal(false);
+          const errorData = await res.json().catch(() => ({ error: '자동 묶기 실패' }));
+          setToast({ type: 'error', data: { message: errorData.error || '자동 묶기 실패' } });
           setGroupModalMemory(null);
+          setGroupResult(null);
         }
       } catch (error) {
         console.error('Auto group error:', error);
-        alert('자동 묶기 중 오류 발생');
-        setShowGroupModal(false);
+        setToast({ type: 'error', data: { message: '자동 묶기 중 오류 발생' } });
         setGroupModalMemory(null);
+        setGroupResult(null);
       }
     };
     
     fetchGroup();
-  }, [showGroupModal, groupModalMemory, groupStep]);
+  }, [groupModalMemory]);
   
-  // AI 묶기 모달 핸들러
+  // AI 묶기 토스트 핸들러
   const handleCancelGroup = async () => {
     // 생성된 그룹 삭제
     if (groupResult?.group?.id) {
@@ -170,24 +218,183 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         console.error('Failed to delete group:', error);
       }
     }
-    setShowGroupModal(false);
+    setToast({ type: null });
     setGroupModalMemory(null);
     setGroupResult(null);
+    setGroupStep('loading');
+    setEditableGroupName('');
+    setEditableRelatedMemories([]);
   };
   
-  const handleConfirmGroup = () => {
-    setGroupStep('animating');
-    // 애니메이션 후 새로고침
-    setTimeout(() => {
-      window.location.reload();
-    }, 2500);
+  const handleConfirmGroup = async () => {
+    if (!groupResult?.group) return;
+    
+    try {
+      // 편집된 그룹 이름과 관련 기록 목록 사용
+      const finalGroupName = editableGroupName.trim() || groupResult.group.name;
+      const finalMemoryIds = [
+        groupModalMemory?.id,
+        ...editableRelatedMemories.map(m => m.id)
+      ].filter(Boolean) as string[];
+      
+      // 그룹 이름이 변경되었거나 기록 목록이 변경된 경우 업데이트
+      if (finalGroupName !== groupResult.group.name || finalMemoryIds.length !== groupResult.group.memoryIds.length) {
+        const updateRes = await fetch('/api/groups', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: groupResult.group.id,
+            name: finalGroupName,
+            memoryIds: finalMemoryIds,
+          }),
+        });
+        
+        if (!updateRes.ok) {
+          throw new Error('그룹 업데이트 실패');
+        }
+      }
+      
+      // 성공 토스트 표시
+      setToast({ type: 'success', data: { message: `그룹 "${finalGroupName}"이 생성되었습니다!` } });
+      
+      // 그룹 목록 새로고침
+      await fetchGroups();
+      
+      // 새로 생성된 그룹으로 자동 선택
+      setSelectedGroupId(groupResult.group.id);
+      
+      // 2초 후 토스트 닫기
+      setTimeout(() => {
+        setToast({ type: null });
+        setGroupModalMemory(null);
+        setGroupResult(null);
+        setGroupStep('loading');
+        setEditableGroupName('');
+        setEditableRelatedMemories([]);
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to confirm group:', error);
+      setToast({ type: null });
+      alert('그룹 생성 중 오류 발생');
+    }
+  };
+
+  // 연결 삭제 핸들러
+  const handleDeleteLink = async () => {
+    if (!toast.data?.memoryId1 || !toast.data?.memoryId2) return;
+    
+    const { memoryId1, memoryId2 } = toast.data;
+    
+    try {
+      const res = await fetch(`/api/memories/link?memoryId1=${memoryId1}&memoryId2=${memoryId2}`, {
+        method: 'DELETE',
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        // 로컬 상태 즉시 업데이트 (페이지 리로드 없이)
+        if (data.memory1 && data.memory2) {
+          setLocalMemories(prev => {
+            const updated = [...prev];
+            const index1 = updated.findIndex(m => m.id === data.memory1.id);
+            const index2 = updated.findIndex(m => m.id === data.memory2.id);
+            
+            if (index1 !== -1) {
+              updated[index1] = data.memory1;
+            }
+            if (index2 !== -1) {
+              updated[index2] = data.memory2;
+            }
+            
+            return updated;
+          });
+        }
+        setToast({ type: null });
+      } else {
+        setToast({ type: null });
+        alert('링크 삭제 실패');
+      }
+    } catch (error) {
+      console.error('Failed to delete link:', error);
+      setToast({ type: null });
+      alert('링크 삭제 중 오류 발생');
+    }
+  };
+
+  // 기록 삭제 핸들러
+  const handleDeleteMemory = async () => {
+    if (!toast.data?.memoryId) return;
+    
+    try {
+      const res = await fetch(`/api/memories?id=${toast.data.memoryId}`, {
+        method: 'DELETE',
+      });
+      
+      if (res.ok) {
+        setToast({ type: null });
+        onMemoryDeleted?.();
+      } else {
+        setToast({ type: null });
+        alert('삭제에 실패했습니다');
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      setToast({ type: null });
+      alert('삭제에 실패했습니다');
+    }
+  };
+
+  // 위치 삭제 핸들러
+  const handleDeleteLocation = async () => {
+    if (!toast.data?.memoryId) return;
+    
+    try {
+      const memory = localMemories.find(m => m.id === toast.data.memoryId);
+      if (!memory) return;
+      
+      const res = await fetch(`/api/memories?id=${memory.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          title: memory.title || undefined, 
+          content: memory.content,
+          location: null 
+        }),
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        // 로컬 상태 즉시 업데이트
+        setLocalMemories(prev => {
+          const updated = [...prev];
+          const index = updated.findIndex(m => m.id === memory.id);
+          if (index !== -1) {
+            updated[index] = { ...updated[index], location: undefined };
+          }
+          return updated;
+        });
+        setToast({ type: null });
+      } else {
+        setToast({ type: null });
+        alert('위치 정보 삭제에 실패했습니다');
+      }
+    } catch (error) {
+      console.error('Failed to delete location:', error);
+      setToast({ type: null });
+      alert('위치 정보 삭제에 실패했습니다');
+    }
   };
   const [boardSize, setBoardSize] = useState({ width: 1600, height: 1200 });
+  const [viewportBounds, setViewportBounds] = useState({ left: 0, top: 0, width: 0, height: 0 });
   const [zoom, setZoom] = useState(1);
   const zoomRef = useRef(1);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const settingsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const colorsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // 통합 드래그 엔진: RAF 단일 루프
+  const dragRafIdRef = useRef<number | null>(null);
+  const lastPointerPosRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     fetchGroups();
@@ -204,7 +411,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     if (storedSize === 's' || storedSize === 'm' || storedSize === 'l') {
       setCardSize(storedSize);
     }
-    if (storedColor === 'amber' || storedColor === 'blue' || storedColor === 'green' || storedColor === 'pink' || storedColor === 'purple') {
+    if (storedColor === 'green' || storedColor === 'pink' || storedColor === 'purple') {
       setCardColor(storedColor);
     }
   }, []);
@@ -229,6 +436,141 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     }
   };
 
+  // 블록 로드
+  const fetchBlocks = async () => {
+    try {
+      const res = await fetch('/api/board/blocks');
+      if (res.ok) {
+        const data = await res.json();
+        setBlocks(data.blocks || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch blocks:', error);
+    }
+  };
+
+  // 블록 생성 (캘린더)
+  const handleCreateCalendarBlock = async () => {
+    try {
+      const res = await fetch('/api/board/blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'calendar',
+          x: 100,
+          y: 100,
+          width: 350,
+          height: 400,
+          config: {
+            view: 'month',
+            selectedDate: Date.now(),
+            linkedMemoryIds: [],
+          },
+        }),
+      });
+
+      if (res.ok) {
+        await fetchBlocks();
+      }
+    } catch (error) {
+      console.error('Failed to create calendar block:', error);
+    }
+  };
+
+  // 미니맵 생성 (보드당 하나만)
+  const handleCreateMinimapBlock = async () => {
+    try {
+      const res = await fetch('/api/board/blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'minimap',
+          x: 20,
+          y: 20,
+          width: 240,
+          height: 160,
+          config: {},
+        }),
+      });
+
+      if (res.ok) {
+        await fetchBlocks();
+      }
+    } catch (error) {
+      console.error('Failed to create minimap block:', error);
+    }
+  };
+
+  // Viewer 블록 생성
+  const handleCreateViewerBlock = async () => {
+    try {
+      const res = await fetch('/api/board/blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'viewer',
+          x: 100,
+          y: 100,
+          width: 600,
+          height: 400,
+          config: {
+            currentSource: null,
+            history: [],
+            historyIndex: -1,
+            pinned: false,
+          },
+        }),
+      });
+
+      if (res.ok) {
+        await fetchBlocks();
+      }
+    } catch (error) {
+      console.error('Failed to create viewer block:', error);
+    }
+  };
+
+  // 블록 업데이트
+  const handleBlockUpdate = useCallback(async (blockId: string, updates: Partial<{ x: number; y: number; config: any }>) => {
+    try {
+      // 위치 업데이트의 경우 이미 로컬 상태가 업데이트되어 있으므로 API만 호출
+      // config 업데이트의 경우도 ViewerBlock에서 이미 로컬 상태를 관리하므로 API만 호출
+      const res = await fetch(`/api/board/blocks?id=${blockId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+
+      if (!res.ok) {
+        console.error('Failed to update block:', res.statusText);
+      }
+      // API 응답으로 상태를 업데이트하지 않음 (로컬 상태가 이미 업데이트되어 있으므로)
+      // 무한 루프 방지
+    } catch (error) {
+      console.error('Failed to update block:', error);
+    }
+  }, []);
+
+  // 블록 삭제
+  const handleBlockDelete = async (blockId: string) => {
+    try {
+      const res = await fetch(`/api/board/blocks?id=${blockId}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setBlocks(prev => prev.filter(b => b.id !== blockId));
+      }
+    } catch (error) {
+      console.error('Failed to delete block:', error);
+    }
+  };
+
+  // 블록 초기 로드
+  useEffect(() => {
+    fetchBlocks();
+  }, []);
+
   // 드래그 앤 드롭 핸들러
   const handleDragStart = (memoryId: string) => {
     setDraggedMemoryId(memoryId);
@@ -245,10 +587,59 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   };
 
   const clampZoom = (value: number) => Math.min(Math.max(value, 0.5), 1.6);
+  
+  const updateViewportBounds = useCallback(() => {
+    if (boardContainerRef.current) {
+      const scrollLeft = boardContainerRef.current.scrollLeft;
+      const scrollTop = boardContainerRef.current.scrollTop;
+      const clientWidth = boardContainerRef.current.clientWidth;
+      const clientHeight = boardContainerRef.current.clientHeight;
+      
+      setViewportBounds({
+        left: scrollLeft / zoom,
+        top: scrollTop / zoom,
+        width: clientWidth / zoom,
+        height: clientHeight / zoom,
+      });
+    }
+  }, [zoom]);
+
   const changeZoom = (delta: number) => {
-    setZoom(prev => clampZoom(prev + delta));
+    setZoom(prev => {
+      const newZoom = clampZoom(prev + delta);
+      // zoom 변경 후 뷰포트 업데이트
+      setTimeout(updateViewportBounds, 0);
+      return newZoom;
+    });
   };
-  const resetZoom = () => setZoom(1);
+  const resetZoom = () => {
+    setZoom(1);
+    setTimeout(updateViewportBounds, 0);
+  };
+
+  // 초기 뷰포트 설정 및 zoom 변경 시 업데이트
+  useEffect(() => {
+    const update = () => {
+      if (boardContainerRef.current) {
+        const scrollLeft = boardContainerRef.current.scrollLeft;
+        const scrollTop = boardContainerRef.current.scrollTop;
+        const clientWidth = boardContainerRef.current.clientWidth;
+        const clientHeight = boardContainerRef.current.clientHeight;
+        
+        setViewportBounds({
+          left: scrollLeft / zoom,
+          top: scrollTop / zoom,
+          width: clientWidth / zoom,
+          height: clientHeight / zoom,
+        });
+      }
+    };
+    
+    update();
+    const handleResize = () => update();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [zoom, boardSize]);
 
   const ensureBoardBounds = (x: number, y: number) => {
     const { width: cardWidth, height: cardHeight } = CARD_DIMENSIONS[cardSize];
@@ -322,6 +713,58 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     }
   };
 
+  // @ 태그 클릭 핸들러: 태깅된 기록만 토스트 표시
+  const handleMentionClick = (clickedElementId: string, mentionedMemoryId: string, isBlock: boolean = false) => {
+    const targetMemory = localMemories.find(m => m.id === mentionedMemoryId);
+    if (!targetMemory) return;
+
+    // 태깅된 기록만 표시 (관련 기록 제외)
+
+    // DOM 기준으로 요소 위치 계산 (보드 좌표계로 변환)
+    const elementId = isBlock ? `calendar-block-${clickedElementId}` : `memory-${clickedElementId}`;
+    const element = document.getElementById(elementId) || document.querySelector(`[data-calendar-block="${clickedElementId}"]`);
+    if (!element || !boardRef.current) return;
+
+    const boardRect = boardRef.current.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+    const scale = zoomRef.current;
+
+    // 화면 좌표를 보드 좌표로 변환
+    const elementX = (elementRect.left - boardRect.left) / scale;
+    const elementY = (elementRect.top - boardRect.top) / scale;
+    const elementWidth = isBlock ? (blocks.find(b => b.id === clickedElementId)?.width || 350) : CARD_DIMENSIONS[cardSize].width;
+    const toastWidth = 300; // 토스트 예상 너비
+
+    // 요소 오른쪽에 토스트 표시 (공간 부족하면 왼쪽)
+    const rightSpace = boardSize.width - (elementX + elementWidth);
+    const leftSpace = elementX;
+    
+    let toastX: number;
+    if (rightSpace >= toastWidth + 20) {
+      // 오른쪽에 표시
+      toastX = elementX + elementWidth + 10;
+    } else if (leftSpace >= toastWidth + 20) {
+      // 왼쪽에 표시
+      toastX = elementX - toastWidth - 10;
+    } else {
+      // 공간이 부족하면 오른쪽 우선
+      toastX = elementX + elementWidth + 10;
+    }
+
+    // Y 위치 clamp (보드 범위 내)
+    const toastY = Math.max(0, Math.min(elementY, boardSize.height - 200));
+
+    // 새로운 토스트 추가 (기존 토스트는 유지)
+    const newToastId = `toast-${Date.now()}-${Math.random()}`;
+    setMentionToasts(prev => [...prev, {
+      id: newToastId,
+      memoryId: mentionedMemoryId,
+      x: toastX,
+      y: toastY,
+      relatedIds: [mentionedMemoryId], // 태깅된 기록만 표시
+    }]);
+  };
+
   const storageKey = selectedGroupId || 'all';
   const zoomStorageKey = `workless.board.zoom.${storageKey}`;
 
@@ -347,8 +790,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   useEffect(() => {
     const fetchBoardState = async () => {
       try {
+        // positions는 항상 'all'에서 가져와서 전체 모드와 동일한 배치 유지
         const [positionsRes, settingsRes, colorsRes] = await Promise.all([
-          fetch(`/api/board/positions?groupId=${storageKey}`),
+          fetch(`/api/board/positions?groupId=all`),
           fetch(`/api/board/settings?groupId=${storageKey}`),
           fetch(`/api/board/colors?groupId=${storageKey}`),
         ]);
@@ -374,14 +818,14 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           if (settings?.cardSize === 's' || settings?.cardSize === 'm' || settings?.cardSize === 'l') {
             setCardSize(settings.cardSize);
           }
-          if (settings?.cardColor === 'amber' || settings?.cardColor === 'blue' || settings?.cardColor === 'green' || settings?.cardColor === 'pink' || settings?.cardColor === 'purple') {
+          if (settings?.cardColor === 'green' || settings?.cardColor === 'pink' || settings?.cardColor === 'purple') {
             setCardColor(settings.cardColor);
           }
         }
 
         if (colorsRes.ok) {
           const data = await colorsRes.json();
-          const next: Record<string, 'amber' | 'blue' | 'green' | 'pink' | 'purple'> = {};
+          const next: Record<string, 'green' | 'pink' | 'purple'> = {};
           (data.colors || []).forEach((row: any) => {
             if (row.color) {
               next[row.memoryId] = row.color;
@@ -396,7 +840,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       }
     };
     fetchBoardState();
-  }, [storageKey]);
+  }, [storageKey]); // storageKey가 변경되면 settings와 colors만 다시 로드
 
   const getLinkKey = (id1: string, id2: string) => {
     return id1 < id2 ? `${id1}:${id2}` : `${id2}:${id1}`;
@@ -409,6 +853,88 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     if (!group) return [];
     return localMemories.filter(m => group.memoryIds.includes(m.id));
   }, [localMemories, selectedGroupId, groups]);
+
+  // 그룹 선택 시 설명 가져오기
+  useEffect(() => {
+    if (!selectedGroupId) {
+      setGroupDescription(null);
+      return;
+    }
+
+    const fetchGroupDescription = async () => {
+      setIsLoadingGroupDescription(true);
+      setGroupDescription(null); // 초기화
+      try {
+        const res = await fetch(`/api/groups/${selectedGroupId}/description`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.description && data.description.trim()) {
+            setGroupDescription(data.description);
+          } else {
+            setGroupDescription('이 그룹에 대한 설명을 생성할 수 없습니다.');
+          }
+        } else {
+          const errorData = await res.json().catch(() => ({ error: '그룹 설명을 가져올 수 없습니다' }));
+          setGroupDescription(`오류: ${errorData.error || '그룹 설명을 가져올 수 없습니다'}`);
+        }
+      } catch (error) {
+        console.error('Failed to fetch group description:', error);
+        setGroupDescription('그룹 설명을 불러오는 중 오류가 발생했습니다.');
+      } finally {
+        setIsLoadingGroupDescription(false);
+      }
+    };
+
+    fetchGroupDescription();
+  }, [selectedGroupId]);
+
+  // 그룹 선택 시 메모리를 컴팩트하게 재배치
+  useEffect(() => {
+    if (!selectedGroupId || filteredMemories.length === 0) {
+      return;
+    }
+
+    // positionsLoaded를 기다리지 않고 즉시 재배치
+    // 약간의 지연을 두어 DOM이 준비될 때까지 대기
+    const timer = setTimeout(() => {
+      const { width: cardWidth, height: cardHeight } = CARD_DIMENSIONS[cardSize];
+      // 그룹 모드에서는 간격을 더 줄임
+      const spacingX = cardWidth + 30; // 카드 너비 + 30px 간격
+      const spacingY = cardHeight + 30; // 카드 높이 + 30px 간격
+      const startX = 40; // 왼쪽 여백 더 줄임
+      const startY = 40; // 상단 여백 더 줄임
+      
+      // 그리드로 재배치 (한 줄에 3-4개씩)
+      const colsPerRow = Math.min(4, Math.ceil(Math.sqrt(filteredMemories.length * 1.2)));
+      
+      const newPositions: Record<string, { x: number; y: number }> = {};
+      filteredMemories.forEach((memory, idx) => {
+        const col = idx % colsPerRow;
+        const row = Math.floor(idx / colsPerRow);
+        newPositions[memory.id] = {
+          x: startX + col * spacingX,
+          y: startY + row * spacingY,
+        };
+      });
+      
+      setPositions(newPositions);
+      
+      // 보드 크기도 즉시 조정
+      let maxX = 0;
+      let maxY = 0;
+      Object.values(newPositions).forEach(pos => {
+        maxX = Math.max(maxX, pos.x + cardWidth);
+        maxY = Math.max(maxY, pos.y + cardHeight);
+      });
+      const padding = 40; // 그룹 모드 여백
+      setBoardSize({
+        width: Math.max(1200, maxX + padding),
+        height: Math.max(800, maxY + padding),
+      });
+    }, 100); // 100ms 지연으로 DOM 준비 대기
+
+    return () => clearTimeout(timer);
+  }, [selectedGroupId, filteredMemories, cardSize]);
 
   useEffect(() => {
     // 위치가 로드되기 전에는 기본 위치 설정 안 함
@@ -441,10 +967,12 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       maxX = Math.max(maxX, pos.x + cardWidth);
       maxY = Math.max(maxY, pos.y + cardHeight);
     });
-    const width = Math.max(1400, maxX + BOARD_PADDING);
-    const height = Math.max(900, maxY + BOARD_PADDING);
+    // 그룹 모드일 때는 여백을 줄임
+    const padding = selectedGroupId ? 80 : BOARD_PADDING;
+    const width = Math.max(1400, maxX + padding);
+    const height = Math.max(900, maxY + padding);
     setBoardSize({ width, height });
-  }, [positions, cardSize]);
+  }, [positions, cardSize, selectedGroupId]);
 
   useEffect(() => {
     const fetchLinkNotes = async () => {
@@ -477,9 +1005,19 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     }
   }, [filteredMemories]);
 
+  // 통합 드래그 엔진: 단일 RAF 루프로 모든 드래그 처리
   useEffect(() => {
+    if (!draggingEntity || !boardRef.current) {
+      // 드래그 중이 아니면 RAF 취소
+      if (dragRafIdRef.current !== null) {
+        cancelAnimationFrame(dragRafIdRef.current);
+        dragRafIdRef.current = null;
+      }
+      return;
+    }
+
     const handleMove = (event: PointerEvent) => {
-      // 선택 모드일 때는 선택 박스 업데이트
+      // 선택 모드 처리
       if (isSelecting && selectionBox && boardRef.current) {
         const rect = boardRef.current.getBoundingClientRect();
         const scale = zoomRef.current;
@@ -504,12 +1042,10 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           const cardTop = pos.y;
           const cardBottom = pos.y + cardDims.height;
           
-          // 카드가 선택 박스와 겹치는지 확인
           if (cardRight >= boxLeft && cardLeft <= boxRight && 
               cardBottom >= boxTop && cardTop <= boxBottom) {
             selected.add(memory.id);
           } else if (!event.ctrlKey && !event.metaKey) {
-            // Ctrl/Cmd가 눌려있지 않으면 박스 밖 카드는 선택 해제
             selected.delete(memory.id);
           }
         });
@@ -517,66 +1053,200 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         setSelectedMemoryIds(selected);
         return;
       }
-      
-      // 선택 모드가 아닐 때는 카드 드래그 처리
-      if (!draggingId || !boardRef.current) return;
-      const rect = boardRef.current.getBoundingClientRect();
+
+      // 드래그 중: 마지막 포인터 위치만 저장 (RAF에서 처리)
+      const rect = boardRef.current!.getBoundingClientRect();
       const scale = zoomRef.current;
-      const x = (event.clientX - rect.left) / scale - dragOffset.x;
-      const y = (event.clientY - rect.top) / scale - dragOffset.y;
-      
-      // 기준 카드의 새 위치
-      const newBaseX = Math.max(0, x);
-      const newBaseY = Math.max(0, y);
-      
-      // 다중 선택 모드이고 여러 카드가 선택되어 있으면
-      if (selectedMemoryIds.has(draggingId) && selectedMemoryIds.size > 1) {
-        // 드래그 시작 시점의 위치를 기준으로 delta 계산
-        const startPos = dragStartPositions[draggingId] || positions[draggingId] || { x: 0, y: 0 };
-        const deltaX = newBaseX - startPos.x;
-        const deltaY = newBaseY - startPos.y;
-        
-        // 선택된 모든 카드를 정확히 같은 거리만큼 이동 (드래그 시작 위치 기준)
-        setPositions(prev => {
-          const next = { ...prev };
-          selectedMemoryIds.forEach(id => {
-            const startPosForCard = dragStartPositions[id] || prev[id] || { x: 0, y: 0 };
-            next[id] = {
-              x: Math.max(0, startPosForCard.x + deltaX),
-              y: Math.max(0, startPosForCard.y + deltaY),
-            };
-          });
-          return next;
-        });
-      } else {
-        // 단일 카드 드래그
-        setPositions(prev => ({
-          ...prev,
-          [draggingId]: {
-            x: newBaseX,
-            y: newBaseY,
-          },
-        }));
+      lastPointerPosRef.current = {
+        x: (event.clientX - rect.left) / scale,
+        y: (event.clientY - rect.top) / scale,
+      };
+
+      // RAF가 없으면 시작
+      if (dragRafIdRef.current === null) {
+        const updatePosition = () => {
+          if (!lastPointerPosRef.current || !boardRef.current) {
+            dragRafIdRef.current = null;
+            return;
+          }
+
+          const { x: mouseX, y: mouseY } = lastPointerPosRef.current;
+          const newX = Math.max(0, mouseX - dragOffset.x);
+          const newY = Math.max(0, mouseY - dragOffset.y);
+
+          if (draggingEntity.type === 'block') {
+            // 블록 드래그: transform 기반 (더 정밀한 위치 업데이트)
+            setBlocks(prev => {
+              const block = prev.find(b => b.id === draggingEntity.id);
+              if (!block) return prev;
+              // 더 작은 임계값으로 불필요한 업데이트 방지
+              if (Math.abs(block.x - newX) < 0.01 && Math.abs(block.y - newY) < 0.01) {
+                return prev;
+              }
+              const updated = [...prev];
+              const index = updated.findIndex(b => b.id === draggingEntity.id);
+              if (index !== -1) {
+                // 정확한 위치로 업데이트 (반올림 없이)
+                updated[index] = { ...block, x: newX, y: newY };
+              }
+              return updated;
+            });
+          } else {
+            // 메모리 카드 드래그: transform 기반
+            if (selectedMemoryIds.has(draggingEntity.id) && selectedMemoryIds.size > 1) {
+              // 다중 선택
+              const startPos = dragStartPositions[draggingEntity.id] || positions[draggingEntity.id] || { x: 0, y: 0 };
+              const deltaX = newX - startPos.x;
+              const deltaY = newY - startPos.y;
+              
+              setPositions(prev => {
+                const next = { ...prev };
+                let hasChanges = false;
+                selectedMemoryIds.forEach(id => {
+                  const startPosForCard = dragStartPositions[id] || prev[id] || { x: 0, y: 0 };
+                  const finalX = Math.max(0, startPosForCard.x + deltaX);
+                  const finalY = Math.max(0, startPosForCard.y + deltaY);
+                  const currentPos = prev[id];
+                  if (!currentPos || Math.abs(currentPos.x - finalX) > 0.1 || Math.abs(currentPos.y - finalY) > 0.1) {
+                    next[id] = { x: finalX, y: finalY };
+                    hasChanges = true;
+                  } else {
+                    next[id] = currentPos;
+                  }
+                });
+                return hasChanges ? next : prev;
+              });
+            } else {
+              // 단일 카드
+              setPositions(prev => {
+                const currentPos = prev[draggingEntity.id];
+                if (currentPos && Math.abs(currentPos.x - newX) < 0.1 && Math.abs(currentPos.y - newY) < 0.1) {
+                  return prev;
+                }
+                return {
+                  ...prev,
+                  [draggingEntity.id]: { x: newX, y: newY },
+                };
+              });
+            }
+          }
+
+          ensureBoardBounds(newX, newY);
+          dragRafIdRef.current = requestAnimationFrame(updatePosition);
+        };
+        dragRafIdRef.current = requestAnimationFrame(updatePosition);
       }
-      
-      ensureBoardBounds(newBaseX, newBaseY);
     };
 
-    const handleUp = () => {
-      setDraggingId(null);
+    const handleUp = (event?: PointerEvent) => {
+      // RAF 즉시 취소
+      if (dragRafIdRef.current !== null) {
+        cancelAnimationFrame(dragRafIdRef.current);
+        dragRafIdRef.current = null;
+      }
+
+      if (!draggingEntity || !boardRef.current) {
+        if (isSelecting) {
+          setIsSelecting(false);
+          setSelectionBox(null);
+        }
+        return;
+      }
+
+      // 드롭 시 즉시 최종 위치 확정 (debounce 없음)
+      let finalX: number;
+      let finalY: number;
+
+      if (event) {
+        const rect = boardRef.current.getBoundingClientRect();
+        const scale = zoomRef.current;
+        const mouseX = (event.clientX - rect.left) / scale;
+        const mouseY = (event.clientY - rect.top) / scale;
+        finalX = Math.max(0, mouseX - dragOffset.x);
+        finalY = Math.max(0, mouseY - dragOffset.y);
+      } else if (lastPointerPosRef.current) {
+        finalX = Math.max(0, lastPointerPosRef.current.x - dragOffset.x);
+        finalY = Math.max(0, lastPointerPosRef.current.y - dragOffset.y);
+      } else {
+        // 폴백: 현재 위치 사용
+        if (draggingEntity.type === 'block') {
+          const block = blocks.find(b => b.id === draggingEntity.id);
+          finalX = block?.x ?? 0;
+          finalY = block?.y ?? 0;
+        } else {
+          const pos = positions[draggingEntity.id] || { x: 0, y: 0 };
+          finalX = pos.x;
+          finalY = pos.y;
+        }
+      }
+
+      // 즉시 위치 확정 및 저장
+      if (draggingEntity.type === 'block') {
+        // 드래그 종료 시 정확한 위치로 확정
+        const block = blocks.find(b => b.id === draggingEntity.id);
+        if (block) {
+          // 위치가 실제로 변경되었을 때만 업데이트
+          if (Math.abs(block.x - finalX) > 0.01 || Math.abs(block.y - finalY) > 0.01) {
+            setBlocks(prev => {
+              const updated = [...prev];
+              const index = updated.findIndex(b => b.id === draggingEntity.id);
+              if (index !== -1) {
+                updated[index] = { ...block, x: finalX, y: finalY };
+              }
+              return updated;
+            });
+            // 즉시 저장 (debounce 없음)
+            handleBlockUpdate(draggingEntity.id, { x: finalX, y: finalY });
+          }
+        }
+      } else {
+        // 메모리 카드
+        if (selectedMemoryIds.has(draggingEntity.id) && selectedMemoryIds.size > 1) {
+          const startPos = dragStartPositions[draggingEntity.id] || positions[draggingEntity.id] || { x: 0, y: 0 };
+          const deltaX = finalX - startPos.x;
+          const deltaY = finalY - startPos.y;
+          
+          setPositions(prev => {
+            const next = { ...prev };
+            selectedMemoryIds.forEach(id => {
+              const startPosForCard = dragStartPositions[id] || prev[id] || { x: 0, y: 0 };
+              next[id] = {
+                x: Math.max(0, startPosForCard.x + deltaX),
+                y: Math.max(0, startPosForCard.y + deltaY),
+              };
+            });
+            return next;
+          });
+        } else {
+          setPositions(prev => ({
+            ...prev,
+            [draggingEntity.id]: { x: finalX, y: finalY },
+          }));
+        }
+      }
+
+      // 드래그 상태 즉시 해제
+      setDraggingEntity(null);
+      lastPointerPosRef.current = null;
+
       if (isSelecting) {
         setIsSelecting(false);
         setSelectionBox(null);
       }
     };
 
-    window.addEventListener('pointermove', handleMove);
-    window.addEventListener('pointerup', handleUp);
+    window.addEventListener('pointermove', handleMove, { passive: true });
+    window.addEventListener('pointerup', handleUp, { passive: true });
+    
     return () => {
       window.removeEventListener('pointermove', handleMove);
       window.removeEventListener('pointerup', handleUp);
+      if (dragRafIdRef.current !== null) {
+        cancelAnimationFrame(dragRafIdRef.current);
+        dragRafIdRef.current = null;
+      }
     };
-  }, [draggingId, dragOffset, selectedMemoryIds, positions, isSelecting, selectionBox, filteredMemories, cardSize, dragStartPositions]);
+  }, [draggingEntity, dragOffset, selectedMemoryIds, positions, isSelecting, selectionBox, filteredMemories, cardSize, dragStartPositions, blocks]);
 
   useEffect(() => {
     if (!positions || Object.keys(positions).length === 0) return;
@@ -592,11 +1262,12 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         .filter(Boolean);
 
       try {
+        // positions는 항상 'all'에 저장하여 전체 모드와 동일한 배치 유지
         await fetch('/api/board/positions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            groupId: storageKey,
+            groupId: 'all',
             positions: payload,
           }),
         });
@@ -718,10 +1389,10 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           maxX = Math.max(maxX, pos.x + cardWidth);
           maxY = Math.max(maxY, pos.y + cardHeight);
         });
-        setBoardSize({
-          width: Math.max(1400, maxX + BOARD_PADDING),
-          height: Math.max(900, maxY + BOARD_PADDING),
-        });
+      setBoardSize({
+        width: Math.max(1200, maxX + BOARD_PADDING),
+        height: Math.max(800, maxY + BOARD_PADDING),
+      });
       } else {
         alert('자동 배열에 실패했습니다');
       }
@@ -747,8 +1418,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         maxY = Math.max(maxY, pos.y + cardHeight);
       });
       setBoardSize({
-        width: Math.max(1400, maxX + BOARD_PADDING),
-        height: Math.max(900, maxY + BOARD_PADDING),
+        width: Math.max(1200, maxX + BOARD_PADDING),
+        height: Math.max(800, maxY + BOARD_PADDING),
       });
     }
   };
@@ -757,6 +1428,12 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     // 편집 모드에서는 드래그 비활성화
     const cardElement = (event.currentTarget as HTMLElement).querySelector(`[data-editing="true"]`);
     if (cardElement) {
+      return;
+    }
+
+    // 버튼, 링크, 편집 가능한 요소 클릭 시 드래그 비활성화
+    const target = event.target as HTMLElement;
+    if (target.closest('button') || target.closest('a') || target.closest('[contenteditable]') || target.closest('input') || target.closest('textarea')) {
       return;
     }
 
@@ -783,7 +1460,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       // 선택된 모든 카드를 드래그 - 드래그 시작 시점의 위치 저장
       event.preventDefault();
       event.stopPropagation();
-      const rect = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
+      
+      const boardRect = boardRef.current?.getBoundingClientRect();
+      if (!boardRect) return;
       
       // 선택된 모든 카드의 현재 위치를 드래그 시작 위치로 저장
       const startPositions: Record<string, { x: number; y: number }> = {};
@@ -792,10 +1471,16 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       });
       setDragStartPositions(startPositions);
       
-      setDraggingId(memoryId);
+      // 드래그 오프셋 계산
+      const currentPos = positions[memoryId] || { x: 0, y: 0 };
+      const mouseX = (event.clientX - boardRect.left) / zoomRef.current;
+      const mouseY = (event.clientY - boardRect.top) / zoomRef.current;
+      
+      // 통합 드래그 시스템 사용
+      setDraggingEntity({ type: 'memory', id: memoryId });
       setDragOffset({
-        x: (event.clientX - rect.left) / zoomRef.current,
-        y: (event.clientY - rect.top) / zoomRef.current,
+        x: mouseX - currentPos.x,
+        y: mouseY - currentPos.y,
       });
       return;
     }
@@ -808,11 +1493,20 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
     event.preventDefault();
     event.stopPropagation();
-    const rect = (event.currentTarget as HTMLDivElement).getBoundingClientRect();
-    setDraggingId(memoryId);
+    
+    const boardRect = boardRef.current?.getBoundingClientRect();
+    if (!boardRect) return;
+    
+    // 드래그 시작 시점의 마우스 위치와 카드 위치를 저장
+    const currentPos = positions[memoryId] || { x: 0, y: 0 };
+    const startMouseX = (event.clientX - boardRect.left) / zoomRef.current;
+    const startMouseY = (event.clientY - boardRect.top) / zoomRef.current;
+    
+    // 통합 드래그 시스템 사용
+    setDraggingEntity({ type: 'memory', id: memoryId });
     setDragOffset({
-      x: (event.clientX - rect.left) / zoomRef.current,
-      y: (event.clientY - rect.top) / zoomRef.current,
+      x: startMouseX - currentPos.x,
+      y: startMouseY - currentPos.y,
     });
   };
 
@@ -832,15 +1526,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const cardSizeClass = cardSize === 's' ? 'w-[260px]' : cardSize === 'l' ? 'w-[360px]' : 'w-[320px]';
   const cardSizeCenter = { x: cardSizeData.centerX, y: cardSizeData.centerY };
 
-  const cardColorClass = cardColor === 'blue'
-    ? 'bg-blue-50 border-blue-200'
-    : cardColor === 'green'
+  const cardColorClass = cardColor === 'green'
     ? 'bg-green-50 border-green-200'
     : cardColor === 'pink'
     ? 'bg-pink-50 border-pink-200'
-    : cardColor === 'purple'
-    ? 'bg-purple-50 border-purple-200'
-    : 'bg-amber-50 border-amber-200';
+    : 'bg-purple-50 border-purple-200';
 
   // 연결 그룹을 찾아서 색상 할당
   const connectionPairsWithColor = useMemo(() => {
@@ -1064,6 +1754,32 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         </div>
       </div>
 
+      {/* 그룹 설명 */}
+      {selectedGroupId && (
+        <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
+          {isLoadingGroupDescription ? (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <div className="animate-spin">✨</div>
+              <span>AI가 그룹을 분석하고 있어요...</span>
+            </div>
+          ) : groupDescription ? (
+            <div className="flex items-start gap-3">
+              <div className="text-2xl">📁</div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-gray-800 mb-1">
+                  {groups.find(g => g.id === selectedGroupId)?.name || '그룹'}에 대해
+                </h3>
+                <p className="text-sm text-gray-700 leading-relaxed">{groupDescription}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <span>그룹 설명을 불러올 수 없습니다.</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 화이트보드 뷰 */}
       <div data-tutorial-target="board-view">
         {filteredMemories.length === 0 ? (
@@ -1072,8 +1788,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           </div>
         ) : (
           <div
-            ref={boardRef}
+            ref={boardContainerRef}
             className="relative w-full bg-white border border-gray-200 rounded-2xl shadow-sm overflow-auto"
+            onScroll={updateViewportBounds}
           >
             <div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500">
               <div className="flex items-center gap-2">
@@ -1097,6 +1814,31 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   title="연결선 기반으로 자동 배열"
                 >
                   {isAutoArranging ? '배열 중...' : '맞춤 배열'}
+                </button>
+                <button
+                  onClick={handleCreateCalendarBlock}
+                  className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-1"
+                  title="캘린더 블록 추가"
+                >
+                  <span>📅</span>
+                  <span>캘린더 추가</span>
+                </button>
+                <button
+                  onClick={handleCreateMinimapBlock}
+                  disabled={blocks.some(b => b.type === 'minimap')}
+                  className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 flex items-center gap-1"
+                  title={blocks.some(b => b.type === 'minimap') ? '미니맵은 보드당 하나만 추가할 수 있습니다' : '미니맵 블록 추가'}
+                >
+                  <span>🗺️</span>
+                  <span>미니맵 추가</span>
+                </button>
+                <button
+                  onClick={handleCreateViewerBlock}
+                  className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-1"
+                  title="Viewer 위젯 추가"
+                >
+                  <span>📺</span>
+                  <span>Viewer 추가</span>
                 </button>
               </div>
               <div className="flex items-center gap-1">
@@ -1128,6 +1870,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
               className="relative"
               style={{ minWidth: boardSize.width, minHeight: boardSize.height }}
             >
+              
               <div
                 className="relative"
                 style={{
@@ -1140,7 +1883,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 onPointerDown={(e) => {
                   // 카드나 다른 요소를 클릭한 경우 무시
                   const target = e.target as HTMLElement;
-                  if (target.closest('[data-memory-card]')) {
+                  if (target.closest('[data-memory-card]') || target.closest('[data-calendar-block]')) {
                     return;
                   }
                   
@@ -1150,6 +1893,10 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     if (!e.ctrlKey && !e.metaKey && selectedMemoryIds.size > 0) {
                       setSelectedMemoryIds(new Set());
                     }
+                    
+                    // 블록 선택 해제
+                    setClickedBlockId(null);
+                    setClickedCardId(null);
                     
                     // 드래그 선택 시작
                     const rect = boardRef.current!.getBoundingClientRect();
@@ -1193,6 +1940,203 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     </button>
                   </div>
                 )}
+
+                {/* 블록 렌더링 */}
+                {blocks.map(block => {
+                  if (block.type === 'calendar') {
+                    const config = block.config as CalendarBlockConfig;
+                    return (
+                      <CalendarBlock
+                        key={block.id}
+                        blockId={block.id}
+                        x={block.x}
+                        y={block.y}
+                        width={block.width}
+                        height={block.height}
+                        config={config}
+                        memories={localMemories}
+                        onUpdate={handleBlockUpdate}
+                        onDelete={handleBlockDelete}
+                        onMemoryClick={(memoryId) => {
+                          // 캘린더 위젯에서 @ 태그 클릭 시 토스트 표시
+                          handleMentionClick(block.id, memoryId, true);
+                        }}
+                        onDateClick={(date, memoryIds) => {
+                          // 날짜 클릭 시 해당 날짜의 메모리들로 필터링하거나 하이라이트
+                          memoryIds.forEach(id => {
+                            const element = document.getElementById(`memory-${id}`);
+                            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            element?.classList.add('ring-2', 'ring-green-400');
+                            setTimeout(() => {
+                              element?.classList.remove('ring-2', 'ring-green-400');
+                            }, 2000);
+                          });
+                        }}
+                        onLinkMemory={(memoryId) => {
+                          // 메모리를 캘린더 블록에 연결
+                          const currentConfig = config;
+                          const linkedIds = currentConfig.linkedMemoryIds || [];
+                          if (!linkedIds.includes(memoryId)) {
+                            handleBlockUpdate(block.id, {
+                              config: {
+                                ...currentConfig,
+                                linkedMemoryIds: [...linkedIds, memoryId]
+                              }
+                            });
+                          }
+                        }}
+                        isDragging={draggingBlockId === block.id}
+                        isClicked={clickedBlockId === block.id}
+                        onPointerDown={(e) => {
+                          // 버튼이나 링크 클릭이 아닐 때만 드래그 시작
+                          const target = e.target as HTMLElement;
+                          if (target.closest('button') || target.closest('a') || target.closest('input')) {
+                            return;
+                          }
+                          
+                          if (!boardRef.current) return;
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const rect = boardRef.current.getBoundingClientRect();
+                          const scale = zoomRef.current;
+                          
+                          // 통합 드래그 시스템 사용
+                          setDraggingEntity({ type: 'block', id: block.id });
+                          setDragOffset({
+                            x: (e.clientX - rect.left) / scale - block.x,
+                            y: (e.clientY - rect.top) / scale - block.y,
+                          });
+                        }}
+                        onClick={() => {
+                          setClickedBlockId(block.id);
+                          // 다른 카드 클릭 상태 해제
+                          setClickedCardId(null);
+                        }}
+                      />
+                    );
+                  }
+                  if (block.type === 'minimap') {
+                    return (
+                      <div
+                        key={block.id}
+                        data-minimap-block={block.id}
+                        className="absolute bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden"
+                        style={{
+                          transform: `translate3d(${block.x}px, ${block.y}px, 0)`,
+                          width: `${block.width || 240}px`,
+                          height: `${block.height || 160}px`,
+                          zIndex: draggingBlockId === block.id ? 30 : (clickedBlockId === block.id ? 20 : 10),
+                          opacity: draggingBlockId === block.id ? 0.85 : 1,
+                          transition: 'none',
+                          willChange: draggingBlockId === block.id ? 'transform' : 'auto',
+                          pointerEvents: draggingBlockId === block.id ? 'none' : 'auto',
+                          contain: 'layout style paint',
+                        }}
+                        onPointerDown={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.closest('button') || target.closest('canvas')) {
+                            return;
+                          }
+                          
+                          if (!boardRef.current) return;
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const rect = boardRef.current.getBoundingClientRect();
+                          const scale = zoomRef.current;
+                          
+                          setDraggingEntity({ type: 'block', id: block.id });
+                          setDragOffset({
+                            x: (e.clientX - rect.left) / scale - block.x,
+                            y: (e.clientY - rect.top) / scale - block.y,
+                          });
+                        }}
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.closest('button') || target.closest('canvas')) {
+                            return;
+                          }
+                          setClickedBlockId(block.id);
+                          setClickedCardId(null);
+                        }}
+                      >
+                        {/* 헤더 */}
+                        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm">🗺️</span>
+                            <span className="text-xs font-semibold text-gray-700">Minimap</span>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleBlockDelete(block.id);
+                            }}
+                            className="text-gray-400 hover:text-gray-600 text-xs"
+                            title="삭제"
+                          >
+                            ×
+                          </button>
+                        </div>
+                        {/* 미니맵 캔버스 */}
+                        {boardSize.width > 0 && boardSize.height > 0 && (
+                          <Minimap
+                            boardSize={boardSize}
+                            positions={positions}
+                            blocks={blocks.filter(b => b.type !== 'minimap')}
+                            memories={filteredMemories}
+                            viewportBounds={viewportBounds}
+                            zoom={zoom}
+                            boardContainerRef={boardContainerRef}
+                            cardSize={cardSize}
+                            cardColorMap={cardColorMap}
+                            cardColor={cardColor}
+                          />
+                        )}
+                      </div>
+                    );
+                  }
+                  if (block.type === 'viewer') {
+                    const viewerConfig = block.config as ViewerBlockConfig;
+                    return (
+                      <ViewerBlock
+                        key={block.id}
+                        blockId={block.id}
+                        x={block.x}
+                        y={block.y}
+                        width={block.width}
+                        height={block.height}
+                        config={viewerConfig}
+                        onUpdate={handleBlockUpdate}
+                        onDelete={handleBlockDelete}
+                        isDragging={draggingBlockId === block.id}
+                        isClicked={clickedBlockId === block.id}
+                        onPointerDown={(e) => {
+                          // 버튼이나 링크 클릭이 아닐 때만 드래그 시작
+                          const target = e.target as HTMLElement;
+                          if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('canvas')) {
+                            return;
+                          }
+                          
+                          if (!boardRef.current) return;
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const rect = boardRef.current.getBoundingClientRect();
+                          const scale = zoomRef.current;
+                          
+                          setDraggingEntity({ type: 'block', id: block.id });
+                          setDragOffset({
+                            x: (e.clientX - rect.left) / scale - block.x,
+                            y: (e.clientY - rect.top) / scale - block.y,
+                          });
+                        }}
+                        onClick={() => {
+                          setClickedBlockId(block.id);
+                          setClickedCardId(null);
+                        }}
+                      />
+                    );
+                  }
+                  return null;
+                })}
 
                 {/* 연결선 SVG - 카드 뒤에 렌더링 */}
                 {connectionPairsWithColor.length > 0 && (
@@ -1321,19 +2265,212 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   </div>
                 )}
 
+                {/* @ 태그 관련 기록 토스트들 (여러 개 중첩 가능) */}
+                {mentionToasts.length > 0 && (
+                  <>
+                    {/* 바깥 클릭 시 모든 토스트 닫기용 오버레이 */}
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setMentionToasts([])}
+                    />
+                    {mentionToasts.map((toast) => {
+                      const toastMemory = localMemories.find(m => m.id === toast.memoryId);
+                      if (!toastMemory) return null;
+                      
+                      const safeHtml = sanitizeHtml(toastMemory.content);
+                      const timeAgo = formatDistanceToNow(toastMemory.createdAt, { 
+                        addSuffix: true,
+                        locale: ko 
+                      });
+                      
+                      return (
+                        <div
+                          key={toast.id}
+                          className="absolute bg-white rounded-lg shadow-2xl border-2 border-blue-400 z-50 p-3 min-w-[280px] max-w-[320px] max-h-[500px] overflow-y-auto cursor-pointer"
+                          style={{
+                            left: `${toast.x}px`,
+                            top: `${toast.y}px`,
+                          }}
+                          onClick={(e) => {
+                            // 버튼이나 링크 클릭이 아닐 때만 기록으로 이동
+                            const target = e.target as HTMLElement;
+                            if (!target.closest('button') && !target.closest('a')) {
+                              const element = document.getElementById(`memory-${toast.memoryId}`);
+                              if (element) {
+                                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              }
+                            }
+                            e.stopPropagation();
+                          }}
+                        >
+                          {/* 헤더 */}
+                          <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
+                            <h4 className="text-xs font-semibold text-gray-800">관련 기록</h4>
+                            <button
+                              onClick={() => setMentionToasts(prev => prev.filter(t => t.id !== toast.id))}
+                              className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+                              title="닫기"
+                            >
+                              ×
+                            </button>
+                          </div>
+
+                        {/* 제목 */}
+                        {toastMemory.title && (
+                          <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                            {toastMemory.title}
+                          </h3>
+                        )}
+
+                        {/* 내용 */}
+                        <div
+                          className="text-xs text-gray-800 leading-relaxed whitespace-pre-wrap mb-2"
+                          dangerouslySetInnerHTML={{ __html: safeHtml }}
+                        />
+
+                        {/* 첨부 파일 */}
+                        {toastMemory.attachments && toastMemory.attachments.length > 0 && (
+                          <div className="mb-2 space-y-1">
+                            {toastMemory.attachments.map((attachment) => {
+                              const isImage = attachment.mimetype.startsWith('image/');
+                              
+                              if (isImage) {
+                                return (
+                                  <div key={attachment.id}>
+                                    <img
+                                      src={attachment.filepath}
+                                      alt={attachment.filename}
+                                      className="max-w-full h-auto rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() => window.open(attachment.filepath, '_blank')}
+                                      style={{ maxHeight: '150px' }}
+                                    />
+                                    <p className="text-[10px] text-gray-500 mt-0.5">{attachment.filename}</p>
+                                  </div>
+                                );
+                              } else {
+                                return (
+                                  <a
+                                    key={attachment.id}
+                                    href={attachment.filepath}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                                  >
+                                    <span className="text-sm">
+                                      {attachment.mimetype.includes('pdf') ? '📄' : '📎'}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-[10px] text-gray-700 truncate">{attachment.filename}</p>
+                                      <p className="text-[9px] text-gray-500">
+                                        {(attachment.size / 1024).toFixed(1)} KB
+                                      </p>
+                                    </div>
+                                    <span className="text-blue-500 text-[10px]">열기</span>
+                                  </a>
+                                );
+                              }
+                            })}
+                          </div>
+                        )}
+
+                        {/* 연결된 기록 */}
+                        {toastMemory.relatedMemoryIds && toastMemory.relatedMemoryIds.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-gray-100">
+                            <div className="flex items-start gap-1">
+                              <svg className="w-2.5 h-2.5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                              </svg>
+                              <div className="flex-1">
+                                <div className="text-[10px] text-gray-500 mb-1">연결된 기록</div>
+                                <div className="flex flex-wrap gap-1">
+                                  {toastMemory.relatedMemoryIds.slice(0, 3).map(relatedId => {
+                                    const relatedMemory = localMemories.find(m => m.id === relatedId);
+                                    if (!relatedMemory) return null;
+                                    const relatedContent = stripHtmlClient(relatedMemory.content);
+                                    const relatedTitle = relatedMemory.title || relatedContent.substring(0, 20);
+                                    
+                                    return (
+                                      <button
+                                        key={relatedId}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          // 연결된 기록 클릭 시 새로운 토스트 추가 (기존 토스트는 유지)
+                                          const toastWidth = 320;
+                                          const currentToastX = toast.x;
+                                          const currentToastY = toast.y;
+                                          
+                                          // 현재 토스트 오른쪽에 새 토스트 표시 (공간 부족하면 왼쪽)
+                                          const rightSpace = boardSize.width - (currentToastX + toastWidth);
+                                          const leftSpace = currentToastX;
+                                          
+                                          let newToastX: number;
+                                          if (rightSpace >= toastWidth + 20) {
+                                            newToastX = currentToastX + toastWidth + 10;
+                                          } else if (leftSpace >= toastWidth + 20) {
+                                            newToastX = currentToastX - toastWidth - 10;
+                                          } else {
+                                            newToastX = currentToastX + toastWidth + 10;
+                                          }
+                                          
+                                          const newToastY = Math.max(0, Math.min(currentToastY, boardSize.height - 200));
+                                          
+                                          // 새로운 토스트를 배열에 추가
+                                          const newToastId = `toast-${Date.now()}-${Math.random()}`;
+                                          setMentionToasts(prev => [...prev, {
+                                            id: newToastId,
+                                            memoryId: relatedId,
+                                            x: newToastX,
+                                            y: newToastY,
+                                            relatedIds: [relatedId],
+                                          }]);
+                                        }}
+                                        className="text-[10px] px-1.5 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors border border-blue-200 hover:border-blue-300 line-clamp-1 max-w-[150px] text-left"
+                                        title={relatedTitle}
+                                      >
+                                        {relatedTitle}...
+                                      </button>
+                                    );
+                                  })}
+                                  {toastMemory.relatedMemoryIds.length > 3 && (
+                                    <span className="text-[10px] text-gray-400 self-center">
+                                      +{toastMemory.relatedMemoryIds.length - 3}개 더
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 시간 정보 (위치 제외) */}
+                        <div className="mt-2 pt-2 border-t border-gray-100">
+                          <span className="text-[10px] text-gray-500">{timeAgo}</span>
+                          {toastMemory.topic && (
+                            <span className="ml-2 px-1 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px]">
+                              {toastMemory.topic}
+                            </span>
+                          )}
+                          {toastMemory.nature && (
+                            <span className="ml-1 px-1 py-0.5 bg-purple-50 text-purple-600 rounded text-[10px]">
+                              {toastMemory.nature}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  </>
+                )}
+
                 {/* 메모리 카드들 */}
                 {filteredMemories.map((memory) => {
                   const position = positions[memory.id] || { x: 0, y: 0 };
                   const memoryColor = cardColorMap[memory.id] || cardColor;
-                  const memoryColorClass = memoryColor === 'blue'
-                    ? 'bg-blue-50 border-blue-200'
-                    : memoryColor === 'green'
+                  const memoryColorClass = memoryColor === 'green'
                     ? 'bg-green-50 border-green-200'
                     : memoryColor === 'pink'
                     ? 'bg-pink-50 border-pink-200'
-                    : memoryColor === 'purple'
-                    ? 'bg-purple-50 border-purple-200'
-                    : 'bg-amber-50 border-amber-200';
+                    : 'bg-purple-50 border-purple-200';
                   const isSelected = selectedMemoryIds.has(memory.id);
                   const isDragging = draggingId === memory.id || (isSelected && draggingId && selectedMemoryIds.has(draggingId));
                   
@@ -1341,6 +2478,15 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     <div
                 key={memory.id}
                       data-memory-card={memory.id}
+                      onClick={(event) => {
+                        // 버튼이나 링크 클릭이 아닐 때만 카드를 위로 올리기
+                        const target = event.target as HTMLElement;
+                        if (!target.closest('button') && !target.closest('a') && !target.closest('[contenteditable]')) {
+                          setClickedCardId(memory.id);
+                          // 다른 블록 클릭 상태 해제
+                          setClickedBlockId(null);
+                        }
+                      }}
                       onPointerDown={(event) => {
                         // 편집 모드 체크: MemoryCard 내부의 data-editing 속성 확인
                         const cardElement = (event.currentTarget as HTMLElement).querySelector(`[data-editing="true"]`);
@@ -1348,14 +2494,23 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                           // 편집 모드에서는 드래그 비활성화
                           return;
                         }
+                        
+                        // 버튼, 링크, 편집 가능한 요소 클릭 시 드래그 비활성화
+                        const target = event.target as HTMLElement;
+                        if (target.closest('button') || target.closest('a') || target.closest('[contenteditable]') || target.closest('input') || target.closest('textarea') || target.closest('img')) {
+                          return;
+                        }
+                        
                         handlePointerDown(memory.id, event);
                       }}
                       style={{
-                        transform: `translate(${position.x}px, ${position.y}px)`,
+                        transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
                         willChange: isDragging ? 'transform' : 'auto',
-                        opacity: isDragging ? 0.8 : 1,
-                        zIndex: isDragging ? 20 : (isSelected ? 15 : 10),
-                        transition: isDragging ? 'none' : 'opacity 0.2s',
+                        opacity: isDragging ? 0.85 : 1,
+                        zIndex: isDragging ? 30 : (clickedCardId === memory.id ? 20 : (isSelected ? 15 : 10)),
+                        transition: 'none',
+                        pointerEvents: isDragging ? 'none' : 'auto',
+                        contain: 'layout style paint',
                       }}
                       className={`absolute ${cardSizeClass} select-none touch-none cursor-grab active:cursor-grabbing ${
                         isDragging ? 'cursor-grabbing shadow-2xl' : ''
@@ -1376,10 +2531,12 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         }}
                         linkNotes={linkNotes}
                         personaId={personaId}
+                        onMentionClick={(mentionedMemoryId) => handleMentionClick(memory.id, mentionedMemoryId)}
+                        onCardFocus={(memoryId) => setClickedCardId(memoryId)}
                         onOpenGroupModal={(memory) => {
                           setGroupModalMemory(memory);
-                          setShowGroupModal(true);
                           setGroupStep('loading');
+                          setToast({ type: null }); // 토스트 초기화
                         }}
                         onLinkDeleted={(updatedMemory1, updatedMemory2) => {
                           // 로컬 상태 즉시 업데이트 (페이지 리로드 없이)
@@ -1396,6 +2553,27 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                             }
                             
                             return updated;
+                          });
+                        }}
+                        onRequestDeleteLink={(memoryId1, memoryId2) => {
+                          // 연결 삭제 확인 토스트 표시
+                          setToast({ 
+                            type: 'delete-link', 
+                            data: { memoryId1, memoryId2 } 
+                          });
+                        }}
+                        onRequestDelete={(memoryId) => {
+                          // 기록 삭제 확인 토스트 표시
+                          setToast({ 
+                            type: 'delete-memory', 
+                            data: { memoryId } 
+                          });
+                        }}
+                        onRequestDeleteLocation={(memoryId) => {
+                          // 위치 삭제 확인 토스트 표시
+                          setToast({ 
+                            type: 'delete-location', 
+                            data: { memoryId } 
                           });
                         }}
                       />
@@ -1443,123 +2621,253 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         </div>
       )}
 
-      {/* AI 자동 묶기 모달 */}
-      {showGroupModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-          {/* 블러 배경 */}
-          <div className="absolute inset-0 backdrop-blur-md bg-black/20" onClick={handleCancelGroup} />
-          
-          {/* 모달 내용 */}
-          <div className="relative z-10 bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
-            {groupStep === 'loading' && (
-              /* 1단계: 로딩 - ✨ 하나만 */
-              <div className="text-center">
-                <div className="relative w-24 h-24 mx-auto mb-6 flex items-center justify-center">
-                  <div className="text-7xl animate-spin">✨</div>
-                </div>
-                <p className="text-lg font-semibold text-gray-800 mb-2">
-                  AI가 관련 기록을 찾고 있어요
-                </p>
-                <p className="text-sm text-gray-500 animate-pulse">
-                  잠시만 기다려주세요...
-                </p>
+      {/* AI 자동 묶기 토스트 팝업 */}
+      {toast.type === 'loading' && (
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
+          <div className="bg-white rounded-xl shadow-2xl p-4 min-w-[300px] border border-gray-200">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl animate-spin">✨</div>
+              <div>
+                <p className="text-sm font-semibold text-gray-800">AI가 관련 기록을 찾고 있어요</p>
+                <p className="text-xs text-gray-500">잠시만 기다려주세요...</p>
               </div>
-            )}
+            </div>
+          </div>
+        </div>
+      )}
 
-            {groupStep === 'confirm' && groupResult && (
-              /* 2단계: 확인 */
-              <div className="animate-fade-in">
-                {/* 폴더 아이콘 */}
-                <div className="w-20 h-20 mx-auto mb-4">
-                  <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
-                    <path d="M3 6C3 4.89543 3.89543 4 5 4H9L11 6H19C20.1046 6 21 6.89543 21 8V18C21 19.1046 20.1046 20 19 20H5C3.89543 20 3 19.1046 3 18V6Z" 
-                          fill="url(#folder-gradient)" stroke="#3B82F6" strokeWidth="1.5"/>
-                    <defs>
-                      <linearGradient id="folder-gradient" x1="3" y1="4" x2="21" y2="20">
-                        <stop offset="0%" stopColor="#60A5FA"/>
-                        <stop offset="100%" stopColor="#3B82F6"/>
-                      </linearGradient>
-                    </defs>
-                  </svg>
-                </div>
-                
-                <h3 className="text-xl font-bold text-gray-800 mb-2 text-center">
+      {toast.type === 'confirm' && toast.data && (
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
+          <div className="bg-white rounded-xl shadow-2xl p-5 min-w-[400px] max-w-[500px] border border-gray-200">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="text-2xl">📁</div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-gray-800 mb-1">
                   이렇게 묶을까요?
                 </h3>
-                <p className="text-center text-sm text-gray-600 mb-4">
-                  📁 <span className="font-semibold">{groupResult.group.name}</span>
-                </p>
+                <div className="text-sm text-gray-600 mb-3">
+                  <input
+                    type="text"
+                    value={editableGroupName}
+                    onChange={(e) => setEditableGroupName(e.target.value)}
+                    className="w-full px-2 py-1 text-sm font-semibold border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="그룹 이름"
+                  />
+                </div>
                 
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 mb-6 max-h-48 overflow-y-auto">
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 mb-4 max-h-64 overflow-y-auto">
                   <p className="text-xs font-semibold text-gray-700 mb-2">
-                    묶일 기록들 ({(groupResult.relatedMemories?.length || 0) + 1}개):
+                    묶일 기록들 ({(editableRelatedMemories?.length || 0) + 1}개):
                   </p>
-                  <ul className="space-y-2">
+                  <ul className="space-y-1.5">
                     {/* 현재 기록 */}
-                    <li className="text-xs text-gray-700 flex items-start gap-2 p-2 bg-white/60 rounded">
-                      <span className="text-blue-500 mt-0.5">📄</span>
-                      <span className="flex-1 line-clamp-2">{groupModalMemory ? stripHtmlClient(groupModalMemory.content) : ''}</span>
+                    <li className="text-xs text-gray-700 flex items-center gap-2 p-1.5 bg-white/60 rounded">
+                      <span className="text-blue-500">📄</span>
+                      <span className="flex-1 line-clamp-1">{groupModalMemory ? stripHtmlClient(groupModalMemory.content) : ''}</span>
                     </li>
                     {/* 관련 기록들 */}
-                    {groupResult.relatedMemories?.map((m: any, idx: number) => {
+                    {editableRelatedMemories.map((m, idx: number) => {
                       const relatedMemory = localMemories.find(mem => mem.id === m.id);
                       return (
-                        <li key={idx} className="text-xs text-gray-700 flex items-start gap-2 p-2 bg-white/60 rounded">
-                          <span className="text-blue-500 mt-0.5">📄</span>
-                          <span className="flex-1 line-clamp-2">{relatedMemory ? stripHtmlClient(relatedMemory.content) : (m.content ? stripHtmlClient(m.content) : '')}</span>
+                        <li key={m.id || idx} className="text-xs text-gray-700 flex items-center gap-2 p-1.5 bg-white/60 rounded group">
+                          <span className="text-blue-500">📄</span>
+                          <span className="flex-1 line-clamp-1">{relatedMemory ? stripHtmlClient(relatedMemory.content) : (m.content ? stripHtmlClient(m.content) : '')}</span>
+                          <button
+                            onClick={() => {
+                              setEditableRelatedMemories(prev => prev.filter(item => item.id !== m.id));
+                            }}
+                            className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity"
+                            title="제거"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
                         </li>
                       );
                     })}
                   </ul>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <button
                     onClick={handleCancelGroup}
-                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     취소
                   </button>
                   <button
                     onClick={handleConfirmGroup}
-                    className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    className="flex-1 px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                   >
                     확인
                   </button>
                 </div>
               </div>
-            )}
+              <button
+                onClick={handleCancelGroup}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-            {groupStep === 'animating' && groupResult && (
-              /* 3단계: 애니메이션 */
-              <div className="text-center">
-                {/* 글들이 폴더로 모이는 애니메이션 */}
-                <div className="relative w-full h-48 mb-6">
-                  {/* 떠다니는 문서들 */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-4xl animate-bounce" style={{ animationDelay: '0s', animationDuration: '1s' }}>📄</div>
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-4xl animate-bounce" style={{ animationDelay: '0.2s', animationDuration: '1s' }}>📄</div>
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-4xl animate-bounce" style={{ animationDelay: '0.4s', animationDuration: '1s' }}>📄</div>
-                  </div>
-                  
-                  {/* 중앙 폴더 */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-6xl animate-pulse">📁</div>
-                  </div>
-                </div>
-                
-                <p className="text-lg font-semibold text-gray-800 mb-2 animate-pulse">
-                  그룹을 만들고 있어요
-                </p>
-                <p className="text-sm text-gray-500">
-                  {groupResult.group.name}
+      {toast.type === 'success' && (
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
+          <div className="bg-green-500 text-white rounded-xl shadow-2xl p-4 min-w-[300px] border border-green-600">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">✅</div>
+              <div>
+                <p className="text-sm font-semibold">{toast.data?.message || '완료되었습니다!'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast.type === 'delete-link' && (
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
+          <div className="bg-white rounded-xl shadow-2xl p-5 min-w-[350px] max-w-[450px] border border-gray-200">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="text-2xl">🔗</div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-gray-800 mb-1">
+                  연결을 삭제하시겠습니까?
+                </h3>
+                <p className="text-sm text-gray-600">
+                  이 연결을 삭제하면 두 기록 간의 연결이 끊어집니다.
                 </p>
               </div>
-            )}
+              <button
+                onClick={() => setToast({ type: null })}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setToast({ type: null })}
+                className="flex-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDeleteLink}
+                className="flex-1 px-3 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast.type === 'delete-memory' && (
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
+          <div className="bg-white rounded-xl shadow-2xl p-5 min-w-[350px] max-w-[450px] border border-gray-200">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="text-2xl">🗑️</div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-gray-800 mb-1">
+                  기록을 삭제하시겠습니까?
+                </h3>
+                <p className="text-sm text-gray-600">
+                  이 기록을 삭제하면 복구할 수 없습니다.
+                </p>
+              </div>
+              <button
+                onClick={() => setToast({ type: null })}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setToast({ type: null })}
+                className="flex-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDeleteMemory}
+                className="flex-1 px-3 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast.type === 'delete-location' && (
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
+          <div className="bg-white rounded-xl shadow-2xl p-5 min-w-[350px] max-w-[450px] border border-gray-200">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="text-2xl">📍</div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-gray-800 mb-1">
+                  위치 정보를 삭제하시겠습니까?
+                </h3>
+                <p className="text-sm text-gray-600">
+                  이 위치 정보를 삭제하면 복구할 수 없습니다.
+                </p>
+              </div>
+              <button
+                onClick={() => setToast({ type: null })}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setToast({ type: null })}
+                className="flex-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDeleteLocation}
+                className="flex-1 px-3 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {toast.type === 'error' && (
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
+          <div className="bg-red-500 text-white rounded-xl shadow-2xl p-4 min-w-[300px] border border-red-600">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">❌</div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold">{toast.data?.message || '오류가 발생했습니다'}</p>
+              </div>
+              <button
+                onClick={() => setToast({ type: null })}
+                className="text-white/80 hover:text-white transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1581,6 +2889,11 @@ function MemoryCard({
   personaId,
   onLinkDeleted,
   onOpenGroupModal,
+  onRequestDeleteLink,
+  onRequestDelete,
+  onRequestDeleteLocation,
+  onMentionClick,
+  onCardFocus,
 }: { 
   memory: Memory; 
   onDelete?: () => void; 
@@ -1590,12 +2903,18 @@ function MemoryCard({
   onOpenLinkManager?: (memory: Memory) => void;
   variant?: 'board' | 'list';
   colorClass?: string;
-  onCardColorChange?: (color: 'amber' | 'blue' | 'green' | 'pink' | 'purple') => void;
+  onCardColorChange?: (color: 'green' | 'pink' | 'purple') => void;
   linkNotes?: Record<string, string>;
   personaId?: string | null;
   onLinkDeleted?: (updatedMemory1: Memory, updatedMemory2: Memory) => void;
   onOpenGroupModal?: (memory: Memory) => void;
+  onRequestDeleteLink?: (memoryId1: string, memoryId2: string) => void;
+  onRequestDelete?: (memoryId: string) => void;
+  onRequestDeleteLocation?: (memoryId: string) => void;
+  onMentionClick?: (mentionedMemoryId: string) => void;
+  onCardFocus?: (memoryId: string) => void;
 }) {
+  const { viewerExists, openInViewer } = useViewer();
   // 로컬 memory 상태 관리 (수정 후 즉시 반영)
   const [localMemory, setLocalMemory] = useState<Memory>(memory);
   
@@ -1697,25 +3016,9 @@ function MemoryCard({
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm('이 기억을 삭제하시겠습니까?')) return;
-    
-    setIsDeleting(true);
-    try {
-      const res = await fetch(`/api/memories?id=${localMemory.id}`, {
-        method: 'DELETE',
-      });
-      
-      if (res.ok) {
-        onDelete?.();
-      } else {
-        alert('삭제에 실패했습니다');
-      }
-    } catch (error) {
-      console.error('Delete error:', error);
-      alert('삭제에 실패했습니다');
-    } finally {
-      setIsDeleting(false);
+  const handleDelete = () => {
+    if (onRequestDelete) {
+      onRequestDelete(localMemory.id);
     }
   };
 
@@ -1797,14 +3100,41 @@ function MemoryCard({
     }
   };
 
+  // @ 태그 클릭 핸들러용 ref
+  const contentRef = useRef<HTMLDivElement>(null);
+
   // 텍스트가 200자 이상이면 접기 기능 활성화
   const MAX_LENGTH = 200;
   const plainContent = stripHtmlClient(localMemory.content);
   const isLong = plainContent.length > MAX_LENGTH;
   const safeHtml = sanitizeHtml(localMemory.content);
 
+  // @ 태그 클릭 핸들러를 useEffect로 추가
+  useEffect(() => {
+    const contentElement = contentRef.current;
+    if (!contentElement) return;
+
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const mentionLink = target.closest('a[data-memory-id]');
+      if (mentionLink) {
+        e.preventDefault();
+        e.stopPropagation();
+        const memoryId = mentionLink.getAttribute('data-memory-id');
+        if (memoryId && onMentionClick) {
+          onMentionClick(memoryId);
+        }
+      }
+    };
+
+    contentElement.addEventListener('click', handleClick);
+    return () => {
+      contentElement.removeEventListener('click', handleClick);
+    };
+  }, [onMentionClick, safeHtml]);
+
   const cardClassName = variant === 'board'
-    ? `${colorClass || 'bg-amber-50 border-amber-200'} shadow-md hover:shadow-lg`
+    ? `${colorClass || 'bg-green-50 border-green-200'} shadow-md hover:shadow-lg`
     : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-md';
 
   return (
@@ -1823,7 +3153,7 @@ function MemoryCard({
         if (isEditing) return;
         onDragEnd?.();
       }}
-      className={`group relative p-3 border rounded-lg transition-all scroll-mt-4 h-full flex flex-col ${
+      className={`group relative p-2 border rounded-lg transition-all scroll-mt-4 h-full flex flex-col ${
         isEditing ? 'cursor-default' : 'cursor-move'
       } ${cardClassName}`}
       onPointerDown={(e) => {
@@ -1895,7 +3225,7 @@ function MemoryCard({
             onPointerDown={(e) => e.stopPropagation()}
             onDragStart={(e) => e.preventDefault()}
             placeholder="제목 (선택)"
-            className="w-full px-3 py-2 mb-2 text-sm font-semibold border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-2 py-1 mb-1.5 text-xs font-semibold border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <div className="flex items-center gap-1 px-2 py-1 border border-blue-200 rounded-t-lg bg-blue-50/60">
             <button
@@ -1944,7 +3274,7 @@ function MemoryCard({
             onMouseDown={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
             onDragStart={(e) => e.preventDefault()}
-            className="w-full p-3 border border-blue-300 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs whitespace-pre-wrap"
+            className="w-full p-2 border border-blue-300 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-[11px] whitespace-pre-wrap"
             onInput={() => setEditContent(editRef.current?.innerHTML || '')}
             suppressContentEditableWarning
           />
@@ -1953,13 +3283,14 @@ function MemoryCard({
         <div className="mb-2 pr-8">
           {/* 제목 */}
           {localMemory.title && (
-            <h3 className="text-sm font-semibold text-gray-900 mb-1.5">
-              {localMemory.title}
+            <h3 className="text-xs font-semibold text-gray-900 mb-1">
+              {stripHtmlClient(localMemory.title)}
             </h3>
           )}
           {/* 내용 */}
           <div
-            className={`text-xs text-gray-800 leading-relaxed whitespace-pre-wrap ${!isExpanded && isLong ? 'line-clamp-3' : ''}`}
+            ref={contentRef}
+            className={`text-[11px] text-gray-800 leading-relaxed whitespace-pre-wrap ${!isExpanded && isLong ? 'line-clamp-3' : ''}`}
             dangerouslySetInnerHTML={{ __html: safeHtml }}
           />
           {isLong && !isExpanded && (
@@ -1982,13 +3313,13 @@ function MemoryCard({
       )}
 
       {/* AI 버튼들 */}
-      <div className="mb-2 flex items-center gap-2">
+      <div className="mb-1.5 flex items-center gap-1.5">
         <button
           onClick={handleToggleSummary}
           disabled={isLoadingSummary}
-          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           {isLoadingSummary ? '생성중' : showSummary ? '요약 끄기' : '요약하기'}
@@ -1997,9 +3328,9 @@ function MemoryCard({
         <button
           onClick={handleToggleSuggestions}
           disabled={isLoadingSuggestions}
-          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           {isLoadingSuggestions ? '생성중' : showSuggestions ? '제안 끄기' : '제안받기'}
@@ -2009,8 +3340,6 @@ function MemoryCard({
             <span className="ml-auto" />
             <div className="flex items-center gap-1" data-tutorial-target="ai-features">
               {([
-                { id: 'amber', class: 'bg-amber-200' },
-                { id: 'blue', class: 'bg-blue-200' },
                 { id: 'green', class: 'bg-green-200' },
                 { id: 'pink', class: 'bg-pink-200' },
                 { id: 'purple', class: 'bg-purple-200' },
@@ -2019,7 +3348,7 @@ function MemoryCard({
                   key={item.id}
                   onClick={() => onCardColorChange?.(item.id)}
                   className={`w-4 h-4 rounded-full border ${item.class} border-white shadow`}
-                  title={`${item.id} 카드`}
+                  title={`${item.id === 'green' ? '연두' : item.id === 'pink' ? '핑크' : '보라'} 카드`}
                 />
               ))}
             </div>
@@ -2029,14 +3358,14 @@ function MemoryCard({
 
       {/* AI 요약 표시 */}
       {showSummary && summary && (
-        <div className="mb-2 p-2 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded">
+        <div className="mb-1.5 p-1.5 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded">
           <div className="flex items-start gap-1">
-            <svg className="w-3 h-3 text-purple-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-2.5 h-2.5 text-purple-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
             <div className="flex-1">
-              <div className="text-[11px] font-semibold text-purple-700 mb-0.5">AI 요약</div>
-              <p className="text-[11px] text-gray-700 leading-relaxed">{summary}</p>
+              <div className="text-[10px] font-semibold text-purple-700 mb-0.5">AI 요약</div>
+              <p className="text-[10px] text-gray-700 leading-relaxed">{summary}</p>
             </div>
           </div>
         </div>
@@ -2044,19 +3373,19 @@ function MemoryCard({
 
       {/* AI 제안 표시 */}
       {showSuggestions && suggestions && (
-        <div className="mb-2 p-3 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg space-y-3">
+        <div className="mb-1.5 p-2 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg space-y-2">
           {/* 다음 단계 */}
           {suggestions.nextSteps && suggestions.nextSteps.length > 0 && (
             <div>
               <div className="flex items-center gap-1 mb-1">
-                <svg className="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-2.5 h-2.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
-                <h4 className="text-[11px] font-bold text-blue-700">다음 단계</h4>
+                <h4 className="text-[10px] font-bold text-blue-700">다음 단계</h4>
               </div>
-              <ul className="space-y-1 ml-3">
+              <ul className="space-y-0.5 ml-2">
                 {suggestions.nextSteps.map((step: string, idx: number) => (
-                  <li key={idx} className="text-[11px] text-gray-700 flex items-start gap-1">
+                  <li key={idx} className="text-[10px] text-gray-700 flex items-start gap-1">
                     <span className="text-blue-500 font-bold">•</span>
                     <span>{step}</span>
                   </li>
@@ -2069,14 +3398,14 @@ function MemoryCard({
           {suggestions.resources && suggestions.resources.length > 0 && (
             <div>
               <div className="flex items-center gap-1 mb-1">
-                <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-2.5 h-2.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
-                <h4 className="text-[11px] font-bold text-green-700">관련 자료</h4>
+                <h4 className="text-[10px] font-bold text-green-700">관련 자료</h4>
               </div>
-              <ul className="space-y-1 ml-3">
+              <ul className="space-y-0.5 ml-2">
                 {suggestions.resources.map((resource: any, idx: number) => (
-                  <li key={idx} className="text-[11px] text-gray-700 cursor-default">
+                  <li key={idx} className="text-[10px] text-gray-700 cursor-default">
                     {resource.url ? (
                       <a
                         href={resource.url}
@@ -2102,21 +3431,21 @@ function MemoryCard({
             <div>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1">
-                  <svg className="w-3 h-3 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-2.5 h-2.5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                   </svg>
-                  <h4 className="text-[11px] font-bold text-orange-700">실행 계획</h4>
+                  <h4 className="text-[10px] font-bold text-orange-700">실행 계획</h4>
                 </div>
                 <button
                   onClick={() => handleConvertToGoal(suggestions)}
-                  className="px-2 py-0.5 text-[9px] font-bold text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 rounded-full transition-all shadow-sm"
+                  className="px-1.5 py-0.5 text-[9px] font-bold text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 rounded-full transition-all shadow-sm"
                 >
                   🎯 목표로 전환
                 </button>
               </div>
-              <ul className="space-y-1 ml-3">
+              <ul className="space-y-0.5 ml-2">
                 {suggestions.actionPlan.map((plan: any, idx: number) => (
-                  <li key={idx} className="text-[11px] text-gray-700 flex items-start gap-1">
+                  <li key={idx} className="text-[10px] text-gray-700 flex items-start gap-1">
                     <span className="font-bold text-orange-600">{plan.step}.</span>
                     <div>
                       <span>{plan.action}</span>
@@ -2132,89 +3461,176 @@ function MemoryCard({
 
       {/* 첨부 파일 표시 */}
       {localMemory.attachments && localMemory.attachments.length > 0 && (
-        <div className="mb-3 space-y-2">
+        <div className="mb-1.5 space-y-1.5">
           {localMemory.attachments.map((attachment) => {
             const isImage = attachment.mimetype.startsWith('image/');
+            const isPdf = attachment.mimetype === 'application/pdf';
+            const isDocx = attachment.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+                          attachment.mimetype === 'application/msword' ||
+                          attachment.filename.toLowerCase().endsWith('.docx') ||
+                          attachment.filename.toLowerCase().endsWith('.doc');
+            const isSupported = isImage || isPdf || isDocx;
+            
+            const handleAttachmentClick = (e: React.MouseEvent) => {
+              if (viewerExists && isSupported) {
+                e.preventDefault();
+                e.stopPropagation();
+                openInViewer({
+                  kind: 'file',
+                  url: attachment.filepath,
+                  fileName: attachment.filename,
+                  mimeType: attachment.mimetype,
+                });
+              }
+              // Viewer가 없거나 지원 안 되는 파일은 기본 동작 유지
+            };
             
             if (isImage) {
               return (
-                <div key={attachment.id} className="mt-2">
+                <div key={attachment.id} className="mt-1 relative group">
                   <img
                     src={attachment.filepath}
                     alt={attachment.filename}
                     className="max-w-full h-auto rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-                    onClick={() => window.open(attachment.filepath, '_blank')}
-                    style={{ maxHeight: '300px' }}
+                    onClick={handleAttachmentClick}
+                    style={{ maxHeight: '200px' }}
                   />
-                  <p className="text-xs text-gray-500 mt-1">{attachment.filename}</p>
+                  <div className="flex items-center justify-between mt-0.5">
+                    <p className="text-[10px] text-gray-500">{attachment.filename}</p>
+                    {viewerExists && (
+                      <a
+                        href={attachment.filepath}
+                        download={attachment.filename}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
+                        title="다운로드"
+                      >
+                        ⬇️
+                      </a>
+                    )}
+                  </div>
                 </div>
               );
             } else {
               return (
-                <a
-                  key={attachment.id}
-                  href={attachment.filepath}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <span className="text-lg">
-                    {attachment.mimetype.includes('pdf') ? '📄' : '📎'}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-700 truncate">{attachment.filename}</p>
-                    <p className="text-xs text-gray-500">
-                      {(attachment.size / 1024).toFixed(1)} KB
-                    </p>
-                  </div>
-                  <span className="text-blue-500 text-sm">열기</span>
-                </a>
+                <div key={attachment.id} className="flex items-center gap-1.5">
+                  <a
+                    href={attachment.filepath}
+                    target={viewerExists && isSupported ? undefined : '_blank'}
+                    rel="noopener noreferrer"
+                    onClick={handleAttachmentClick}
+                    className={`flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors flex-1 ${
+                      viewerExists && isSupported ? 'cursor-pointer' : ''
+                    }`}
+                  >
+                    <span className="text-sm">
+                      {attachment.mimetype.includes('pdf') ? '📄' : 
+                       (isDocx ? '📝' : '📎')}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-gray-700 truncate">{attachment.filename}</p>
+                      <p className="text-[9px] text-gray-500">
+                        {(attachment.size / 1024).toFixed(1)} KB
+                      </p>
+                    </div>
+                    {!viewerExists || !isSupported ? (
+                      <span className="text-blue-500 text-[10px]">열기</span>
+                    ) : (
+                      <span className="text-blue-500 text-[10px]">Viewer에서 보기</span>
+                    )}
+                  </a>
+                  {viewerExists && (
+                    <a
+                      href={attachment.filepath}
+                      download={attachment.filename}
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="다운로드"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                    </a>
+                  )}
+                </div>
               );
             }
           })}
         </div>
       )}
       
-      <div className="flex items-center gap-2 text-[11px] text-gray-500 flex-wrap">
+      <div className="flex items-center gap-1.5 text-[10px] text-gray-500 flex-wrap">
         <span>{timeAgo}</span>
         
         {localMemory.topic && (
-          <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded text-[11px]">
+          <span className="px-1 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px]">
             {localMemory.topic}
           </span>
         )}
         
         {localMemory.nature && (
-          <span className="px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded text-[11px]">
+          <span className="px-1 py-0.5 bg-purple-50 text-purple-600 rounded text-[10px]">
             {localMemory.nature}
           </span>
         )}
         
         {localMemory.repeatCount !== undefined && localMemory.repeatCount > 1 && (
-          <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded text-[11px]">
+          <span className="px-1 py-0.5 bg-amber-50 text-amber-600 rounded text-[10px]">
             🔁 {localMemory.repeatCount}
           </span>
+        )}
+        
+        {localMemory.location && (
+          <div className="relative inline-block group">
+            <a
+              href={`https://www.google.com/maps?q=${localMemory.location.latitude},${localMemory.location.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-1 py-0.5 bg-green-50 text-green-600 rounded text-[10px] hover:bg-green-100 transition-colors flex items-center gap-0.5"
+              title={localMemory.location.address || `${localMemory.location.latitude}, ${localMemory.location.longitude}`}
+            >
+              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {localMemory.location.address || '위치'}
+            </a>
+            {/* 위치 삭제 버튼 */}
+            {isEditing && (
+              <button
+                onClick={() => {
+                  if (onRequestDeleteLocation) {
+                    onRequestDeleteLocation(localMemory.id);
+                  }
+                }}
+                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-red-600 transition-all"
+                title="위치 삭제"
+              >
+                ×
+              </button>
+            )}
+          </div>
         )}
       </div>
 
       {/* 관련 기록 링크 */}
-      <div className="mt-2 pt-2 border-t border-gray-100">
+      <div className="mt-1.5 pt-1.5 border-t border-gray-100">
         <div className="flex items-start gap-1">
-          <svg className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-2.5 h-2.5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
           </svg>
           <div className="flex-1">
-            <div className="text-[11px] text-gray-500 mb-1 flex items-center justify-between">
+            <div className="text-[10px] text-gray-500 mb-0.5 flex items-center justify-between">
               <span>연결된 기록</span>
               <button
                 onClick={() => onOpenLinkManager?.(localMemory)}
-                className="text-[11px] text-blue-500 hover:text-blue-600"
+                className="text-[10px] text-blue-500 hover:text-blue-600"
               >
                 + 추가
               </button>
             </div>
             {localMemory.relatedMemoryIds && localMemory.relatedMemoryIds.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1">
                 {localMemory.relatedMemoryIds.slice(0, 3).map(relatedId => {
                   const relatedMemory = allMemories.find(m => m.id === relatedId);
                   if (!relatedMemory) return null;
@@ -2226,67 +3642,48 @@ function MemoryCard({
                   return (
                     <div key={relatedId} className="relative group">
                       <button
-                        onClick={() => {
-                          const element = document.getElementById(`memory-${relatedId}`);
-                          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          element?.classList.add('ring-2', 'ring-blue-400');
-                          setTimeout(() => {
-                            element?.classList.remove('ring-2', 'ring-blue-400');
-                          }, 2000);
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // 연결된 기록 클릭 시 토스트 표시
+                          if (onMentionClick) {
+                            onMentionClick(relatedId);
+                          }
                         }}
-                        className="text-xs px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors border border-blue-200 hover:border-blue-300 line-clamp-1 max-w-[200px] text-left"
+                        className="text-[10px] px-1.5 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors border border-blue-200 hover:border-blue-300 line-clamp-1 max-w-[150px] text-left"
                         title={relatedMemory.title || stripHtmlClient(relatedMemory.content)}
                       >
-                        {relatedMemory.title || stripHtmlClient(relatedMemory.content).substring(0, 30)}...
+                        {relatedMemory.title || stripHtmlClient(relatedMemory.content).substring(0, 20)}...
                       </button>
                       {note && (
-                        <div className="mt-1 text-[10px] text-gray-500 line-clamp-1">
+                        <div className="mt-0.5 text-[9px] text-gray-500 line-clamp-1">
                           메모: {note}
                         </div>
                       )}
                       {/* 링크 삭제 버튼 */}
-                      <button
-                        onClick={async () => {
-                          if (confirm('이 연결을 삭제하시겠습니까?')) {
-                            try {
-                              const res = await fetch(`/api/memories/link?memoryId1=${localMemory.id}&memoryId2=${relatedId}`, {
-                                method: 'DELETE',
-                              });
-                              if (res.ok) {
-                                const data = await res.json();
-                                // 로컬 상태 즉시 업데이트 (페이지 리로드 없이)
-                                if (data.memory1 && data.memory2) {
-                                  setLocalMemory(data.memory1);
-                                  // 상위 컴포넌트에 알림
-                                  if (onLinkDeleted) {
-                                    onLinkDeleted(data.memory1, data.memory2);
-                                  }
-                                }
-                              } else {
-                                alert('링크 삭제 실패');
-                              }
-                            } catch (error) {
-                              console.error('Failed to delete link:', error);
-                              alert('링크 삭제 중 오류 발생');
+                      {isEditing && (
+                        <button
+                          onClick={() => {
+                            if (onRequestDeleteLink) {
+                              onRequestDeleteLink(localMemory.id, relatedId);
                             }
-                          }
-                        }}
-                        className="absolute -top-1 -right-1 opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-red-600 transition-all"
-                        title="연결 끊기"
-                      >
-                        ×
-                      </button>
+                          }}
+                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-red-600 transition-all"
+                          title="연결 끊기"
+                        >
+                          ×
+                        </button>
+                      )}
                     </div>
                   );
                 })}
                 {localMemory.relatedMemoryIds.length > 3 && (
-                  <span className="text-xs text-gray-400 self-center">
+                  <span className="text-[10px] text-gray-400 self-center">
                     +{localMemory.relatedMemoryIds.length - 3}개 더
                   </span>
                 )}
               </div>
             ) : (
-              <p className="text-xs text-gray-400">아직 연결된 기록이 없습니다</p>
+              <p className="text-[10px] text-gray-400">아직 연결된 기록이 없습니다</p>
             )}
           </div>
         </div>

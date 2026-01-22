@@ -4,6 +4,7 @@ import { findRelatedMemories, summarizeAttachments } from '@/lib/ai';
 import { saveFile } from '@/lib/fileUpload';
 import { extractMentionIds, stripHtml } from '@/lib/text';
 import { getUserId } from '@/lib/auth';
+import OpenAI from 'openai';
 
 // POST: 새 기억 생성
 export async function POST(req: NextRequest) {
@@ -21,6 +22,17 @@ export async function POST(req: NextRequest) {
     const content = formData.get('content') as string;
     const files = formData.getAll('files') as File[];
     const relatedMemoryIdsRaw = formData.get('relatedMemoryIds') as string | null;
+    const locationRaw = formData.get('location') as string | null;
+    
+    // 위치 정보 파싱
+    let location = undefined;
+    if (locationRaw) {
+      try {
+        location = JSON.parse(locationRaw);
+      } catch (error) {
+        console.error('Failed to parse location:', error);
+      }
+    }
 
     if (!content || typeof content !== 'string') {
       return NextResponse.json(
@@ -80,6 +92,7 @@ export async function POST(req: NextRequest) {
       title: title,
       relatedMemoryIds: relatedIds,
       attachments: attachments.length > 0 ? attachments : undefined,
+      location: location,
     });
 
     // 양방향 링크 생성 - 관련 기록들에도 새 기록 ID 추가 (같은 사용자의 기록만)
@@ -96,14 +109,85 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    // 반복 감지 및 카운트 업데이트 제거 (자동 인덱싱 없음)
-    // 클러스터 업데이트 제거 (자동 인덱싱 없음)
-    // 조건부 제안 생성 제거 (자동 인덱싱 없음)
-    const suggestions = null;
+    // AI가 관련 기록 제안 (모든 기록 중에서)
+    const candidateMemories = existingMemories
+      .filter(m => m.id !== memory.id)
+      .slice(0, 30); // 최대 30개만 검토
+    
+    let connectionSuggestions: Array<{ id: string; content: string; reason: string }> = [];
+    
+    if (candidateMemories.length > 0) {
+      try {
+        const relatedIds = await findRelatedMemories(stripHtml(content), candidateMemories);
+        
+        if (relatedIds.length > 0) {
+          // 관련 기록들의 상세 정보 가져오기
+          const relatedMemories = relatedIds
+            .map(id => candidateMemories.find(m => m.id === id))
+            .filter(Boolean) as typeof candidateMemories;
+          
+          // AI에게 묶을 수 있는지 확인
+          const openaiClient = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
+          });
+          
+          const suggestionPrompt = `
+다음 새 기록과 관련 기록들이 함께 묶일 만한지 분석해주세요.
+
+[새 기록]
+"${stripHtml(content).substring(0, 300)}"
+
+[관련 기록 후보들]
+${relatedMemories.slice(0, 5).map((m, idx) => {
+  const plain = stripHtml(m.content);
+  return `${idx}. "${plain.substring(0, 150)}..."`;
+}).join('\n\n')}
+
+각 후보 기록이 새 기록과 함께 묶일 만큼 관련이 있는지 판단해주세요.
+- 관련이 있으면: reason에 왜 관련있는지 설명
+- 관련이 없으면: reason을 빈 문자열로
+
+JSON 형식:
+{
+  "suggestions": [
+    {"index": 0, "shouldLink": true, "reason": "두 기록 모두 ~에 관한 내용입니다"},
+    {"index": 1, "shouldLink": false, "reason": ""}
+  ]
+}
+`;
+
+          const suggestionResponse = await openaiClient.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: suggestionPrompt }],
+            temperature: 0.5,
+            response_format: { type: 'json_object' },
+          });
+
+          const suggestionResult = JSON.parse(suggestionResponse.choices[0].message.content || '{}');
+          const suggestions = suggestionResult.suggestions || [];
+          
+          connectionSuggestions = suggestions
+            .filter((s: any) => s.shouldLink === true)
+            .map((s: any) => {
+              const mem = relatedMemories[s.index];
+              if (!mem) return null;
+              return {
+                id: mem.id,
+                content: stripHtml(mem.content).substring(0, 100),
+                reason: s.reason || '관련된 기록입니다',
+              };
+            })
+            .filter(Boolean);
+        }
+      } catch (error) {
+        console.error('Failed to generate connection suggestions:', error);
+        // 에러가 나도 메모리는 저장됨
+      }
+    }
 
     return NextResponse.json({
       memory,
-      suggestions,
+      connectionSuggestions: connectionSuggestions.length > 0 ? connectionSuggestions : undefined,
     });
   } catch (error) {
     console.error('Memory creation error:', error);
@@ -203,7 +287,7 @@ export async function PUT(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
-    const { title, content } = await req.json();
+    const { title, content, location } = await req.json();
 
     if (!id) {
       return NextResponse.json(
@@ -235,6 +319,9 @@ export async function PUT(req: NextRequest) {
     const updates: any = { content, relatedMemoryIds: nextRelated };
     if (title !== undefined) {
       updates.title = title;
+    }
+    if (location !== undefined) {
+      updates.location = location;
     }
 
     memoryDb.update(id, updates);

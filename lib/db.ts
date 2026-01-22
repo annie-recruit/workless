@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { Memory, Cluster, Attachment, Group, Goal } from '@/types';
+import { Memory, Cluster, Attachment, Group, Goal, CanvasBlock } from '@/types';
 import { nanoid } from 'nanoid';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
@@ -101,6 +101,19 @@ db.exec(`
     PRIMARY KEY (userId, groupId, memoryId)
   );
 
+  CREATE TABLE IF NOT EXISTS board_blocks (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    type TEXT NOT NULL,
+    x REAL NOT NULL,
+    y REAL NOT NULL,
+    width REAL,
+    height REAL,
+    config TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS memory_links (
     userId TEXT NOT NULL,
     memoryId1 TEXT NOT NULL,
@@ -130,6 +143,13 @@ db.exec(`
     updatedAt INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS attachment_cache (
+    filepath TEXT PRIMARY KEY,
+    parsedContent TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_memories_clusterTag ON memories(clusterTag);
   CREATE INDEX IF NOT EXISTS idx_memories_topic ON memories(topic);
   CREATE INDEX IF NOT EXISTS idx_groups_isAIGenerated ON groups(isAIGenerated);
@@ -150,6 +170,18 @@ try {
   }
 } catch (error) {
   console.error('Migration error:', error);
+}
+
+// 마이그레이션: memories 테이블에 location 컬럼 추가 (없으면)
+try {
+  const columns = db.prepare("PRAGMA table_info(memories)").all() as any[];
+  const hasLocation = columns.some((col: any) => col.name === 'location');
+  if (!hasLocation) {
+    console.log('📊 Adding location column to memories table...');
+    db.exec('ALTER TABLE memories ADD COLUMN location TEXT');
+  }
+} catch (error) {
+  console.error('Failed to add location column:', error);
 }
 
 // 마이그레이션: 모든 테이블에 userId 컬럼 추가 (없으면)
@@ -261,8 +293,8 @@ export const memoryDb = {
     const stmt = db.prepare(`
       INSERT INTO memories (
         id, userId, title, content, createdAt, topic, nature, timeContext,
-        relatedMemoryIds, clusterTag, repeatCount, lastMentionedAt, attachments
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        relatedMemoryIds, clusterTag, repeatCount, lastMentionedAt, attachments, location
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -278,7 +310,8 @@ export const memoryDb = {
       memory.clusterTag || null,
       memory.repeatCount || 0,
       memory.lastMentionedAt || null,
-      memory.attachments ? JSON.stringify(memory.attachments) : null
+      memory.attachments ? JSON.stringify(memory.attachments) : null,
+      memory.location ? JSON.stringify(memory.location) : null
     );
 
     return memory;
@@ -331,6 +364,10 @@ export const memoryDb = {
       fields.push(`${key} = ?`);
       if (key === 'relatedMemoryIds' && Array.isArray(value)) {
         values.push(JSON.stringify(value));
+      } else if (key === 'location' && value) {
+        values.push(JSON.stringify(value));
+      } else if (key === 'attachments' && Array.isArray(value)) {
+        values.push(JSON.stringify(value));
       } else {
         values.push(value);
       }
@@ -354,6 +391,7 @@ export const memoryDb = {
       ...row,
       relatedMemoryIds: row.relatedMemoryIds ? JSON.parse(row.relatedMemoryIds) : undefined,
       attachments: row.attachments ? JSON.parse(row.attachments) : undefined,
+      location: row.location ? JSON.parse(row.location) : undefined,
     };
   },
 };
@@ -855,6 +893,139 @@ export const userDb = {
   getByEmail(email: string): { id: string; email: string; name: string | null; image: string | null; createdAt: number; updatedAt: number } | undefined {
     const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
     return stmt.get(email) as any;
+  },
+};
+
+// Attachment Cache CRUD
+export const attachmentCacheDb = {
+  // 조회
+  get(filepath: string): string | null {
+    const stmt = db.prepare('SELECT parsedContent FROM attachment_cache WHERE filepath = ?');
+    const row = stmt.get(filepath) as { parsedContent: string } | undefined;
+    return row ? row.parsedContent : null;
+  },
+
+  // 저장 또는 업데이트
+  set(filepath: string, parsedContent: string): void {
+    const now = Date.now();
+    const stmt = db.prepare(`
+      INSERT INTO attachment_cache (filepath, parsedContent, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(filepath) DO UPDATE SET
+        parsedContent = excluded.parsedContent,
+        updatedAt = excluded.updatedAt
+    `);
+    stmt.run(filepath, parsedContent, now, now);
+  },
+
+  // 삭제
+  delete(filepath: string): void {
+    const stmt = db.prepare('DELETE FROM attachment_cache WHERE filepath = ?');
+    stmt.run(filepath);
+  },
+};
+
+// Board Blocks CRUD
+export const boardBlocksDb = {
+  // 생성
+  create(userId: string, block: Omit<CanvasBlock, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): CanvasBlock {
+    const id = nanoid();
+    const now = Date.now();
+    const newBlock: CanvasBlock = {
+      id,
+      userId,
+      ...block,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const stmt = db.prepare(`
+      INSERT INTO board_blocks (id, userId, type, x, y, width, height, config, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(
+      id,
+      userId,
+      block.type,
+      block.x,
+      block.y,
+      block.width || null,
+      block.height || null,
+      JSON.stringify(block.config),
+      now,
+      now
+    );
+    return newBlock;
+  },
+
+  // 조회 (사용자별)
+  getAll(userId: string): CanvasBlock[] {
+    const stmt = db.prepare('SELECT * FROM board_blocks WHERE userId = ? ORDER BY createdAt ASC');
+    const rows = stmt.all(userId) as any[];
+    return rows.map(row => ({
+      id: row.id,
+      userId: row.userId,
+      type: row.type,
+      x: row.x,
+      y: row.y,
+      width: row.width,
+      height: row.height,
+      config: JSON.parse(row.config || '{}'),
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }));
+  },
+
+  // ID로 조회
+  getById(id: string, userId: string): CanvasBlock | null {
+    const stmt = db.prepare('SELECT * FROM board_blocks WHERE id = ? AND userId = ?');
+    const row = stmt.get(id, userId) as any;
+    if (!row) return null;
+    return {
+      id: row.id,
+      userId: row.userId,
+      type: row.type,
+      x: row.x,
+      y: row.y,
+      width: row.width,
+      height: row.height,
+      config: JSON.parse(row.config || '{}'),
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  },
+
+  // 업데이트
+  update(id: string, userId: string, updates: Partial<Omit<CanvasBlock, 'id' | 'userId' | 'createdAt'>>): void {
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (key !== 'id' && key !== 'userId' && key !== 'createdAt') {
+        if (key === 'config') {
+          fields.push(`${key} = ?`);
+          values.push(JSON.stringify(value));
+        } else {
+          fields.push(`${key} = ?`);
+          values.push(value);
+        }
+      }
+    });
+
+    if (fields.length === 0) return;
+
+    fields.push('updatedAt = ?');
+    values.push(Date.now());
+    values.push(id, userId);
+
+    const stmt = db.prepare(`UPDATE board_blocks SET ${fields.join(', ')} WHERE id = ? AND userId = ?`);
+    stmt.run(...values);
+  },
+
+  // 삭제
+  delete(id: string, userId: string): void {
+    const stmt = db.prepare('DELETE FROM board_blocks WHERE id = ? AND userId = ?');
+    stmt.run(id, userId);
   },
 };
 

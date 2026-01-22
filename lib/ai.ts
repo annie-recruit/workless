@@ -4,6 +4,7 @@ import { readFileSync } from 'fs';
 import { join, extname } from 'path';
 import { stripHtml, extractUrls } from './text';
 import { parsePDFWithAdobe } from './ai-pdf';
+import { attachmentCacheDb } from './db';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -555,60 +556,88 @@ export async function summarizeAttachments(attachments: Attachment[], content?: 
     console.log(`   - 파일 경로: ${attachment.filepath}`);
     console.log(`   - 파일 크기: ${attachment.size} bytes`);
     
+    // 캐시 확인
+    const cachedContent = attachmentCacheDb.get(attachment.filepath);
+    if (cachedContent) {
+      console.log(`💾 [파일 ${i + 1}] 캐시에서 발견! 파싱 건너뛰기`);
+      descriptions.push(cachedContent);
+      continue;
+    }
+    
     const mimetype = attachment.mimetype;
+    let parsedContent = '';
     
     if (mimetype.startsWith('image/')) {
       // 이미지는 base64로 읽어서 Vision API로 분석
       console.log(`🖼️ [파일 ${i + 1}] → 이미지로 판단, Vision API 분석 시작`);
       const imageDesc = await analyzeImageFromPath(attachment.filepath);
       console.log(`✅ [파일 ${i + 1}] 이미지 분석 완료`);
-      descriptions.push(`[이미지: ${attachment.filename}] ${imageDesc}`);
+      parsedContent = `[이미지: ${attachment.filename}] ${imageDesc}`;
       
     } else if (mimetype === 'application/pdf') {
       // PDF 파일 파싱
       console.log(`📄 [파일 ${i + 1}] → PDF로 판단, 파싱 시작`);
       const pdfText = await parsePDF(attachment.filepath);
       console.log(`✅ [파일 ${i + 1}] PDF 파싱 완료, 텍스트 길이: ${pdfText.length}`);
-      descriptions.push(`[PDF 문서: ${attachment.filename}]\n내용: ${pdfText}`);
+      parsedContent = `[PDF 문서: ${attachment.filename}]\n내용: ${pdfText}`;
       
     } else if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || attachment.filename.endsWith('.docx')) {
       // Word 파일 파싱
       console.log(`📄 [파일 ${i + 1}] → Word(.docx)로 판단, 파싱 시작`);
       const wordText = await parseWordFile(attachment.filepath);
       console.log(`✅ [파일 ${i + 1}] Word 파싱 완료, 텍스트 길이: ${wordText.length}`);
-      descriptions.push(`[Word 문서: ${attachment.filename}]\n내용: ${wordText}`);
+      parsedContent = `[Word 문서: ${attachment.filename}]\n내용: ${wordText}`;
       
     } else if (mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' || attachment.filename.endsWith('.pptx')) {
       // PowerPoint 파일 파싱
       console.log(`📊 [파일 ${i + 1}] → PowerPoint(.pptx)로 판단, 파싱 시작`);
       const pptText = await parsePowerPointFile(attachment.filepath);
       console.log(`✅ [파일 ${i + 1}] PPT 파싱 완료, 텍스트 길이: ${pptText.length}`);
-      descriptions.push(`[PowerPoint 문서: ${attachment.filename}]\n내용: ${pptText}`);
+      parsedContent = `[PowerPoint 문서: ${attachment.filename}]\n내용: ${pptText}`;
       
     } else if (mimetype === 'text/plain' || mimetype === 'text/markdown' || attachment.filename.endsWith('.txt') || attachment.filename.endsWith('.md')) {
       // 텍스트 파일 읽기
       console.log(`📝 [파일 ${i + 1}] → 텍스트 파일로 판단, 읽기 시작`);
       const textContent = await readTextFile(attachment.filepath);
       console.log(`✅ [파일 ${i + 1}] 텍스트 읽기 완료, 텍스트 길이: ${textContent.length}`);
-      descriptions.push(`[텍스트 파일: ${attachment.filename}]\n내용: ${textContent}`);
+      parsedContent = `[텍스트 파일: ${attachment.filename}]\n내용: ${textContent}`;
       
     } else {
       // 기타 파일은 파일명과 타입만
       console.log(`📎 [파일 ${i + 1}] → 기타 파일 (분석 불가)`);
-      descriptions.push(`[파일: ${attachment.filename}] (내용 분석 불가)`);
+      parsedContent = `[파일: ${attachment.filename}] (내용 분석 불가)`;
+    }
+    
+    // 파싱된 내용을 캐시에 저장
+    if (parsedContent) {
+      attachmentCacheDb.set(attachment.filepath, parsedContent);
+      console.log(`💾 [파일 ${i + 1}] 캐시에 저장 완료`);
+      descriptions.push(parsedContent);
     }
   }
 
-  // 내용에서 URL 추출 및 요약
+  // 내용에서 URL 추출 및 요약 (캐시 확인)
   if (content) {
     const urls = extractUrls(content);
     if (urls.length > 0) {
       console.log('🌐 [URL] 기록 내용에서 URL 발견:', urls.length, '개');
       for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
+        // URL도 캐시 확인 (filepath 대신 URL 사용)
+        const cachedUrlContent = attachmentCacheDb.get(url);
+        if (cachedUrlContent) {
+          console.log(`💾 [URL ${i + 1}] 캐시에서 발견! 요약 건너뛰기`);
+          descriptions.push(cachedUrlContent);
+          continue;
+        }
+        
         console.log(`🌐 [URL ${i + 1}/${urls.length}] 요약 시작:`, url);
         const summary = await fetchAndSummarizeUrl(url);
-        descriptions.push(`[링크: ${url}]\n요약: ${summary}`);
+        const urlDescription = `[링크: ${url}]\n요약: ${summary}`;
+        // URL 요약도 캐시에 저장
+        attachmentCacheDb.set(url, urlDescription);
+        console.log(`💾 [URL ${i + 1}] 캐시에 저장 완료`);
+        descriptions.push(urlDescription);
       }
     }
   }
@@ -1056,8 +1085,8 @@ export async function generateLayout(params: {
     return {};
   }
 
-  // 카드 크기에 따른 간격 설정
-  const cardSpacing = cardSize === 's' ? 280 : cardSize === 'l' ? 400 : 340;
+  // 카드 크기에 따른 간격 설정 (연결선이 보이도록 간격 증가)
+  const cardSpacing = cardSize === 's' ? 350 : cardSize === 'l' ? 500 : 420;
   const minDistance = cardSpacing;
   const groupSpacing = cardSpacing * 2.5;
 
@@ -1107,10 +1136,11 @@ ${groups.map((group, idx) => `그룹 ${idx + 1}: ${group.join(', ')}`).join('\n'
 
 요구사항:
 1. 연결된 기록들은 가까이 배치하되, 내용이 잘 보이도록 너무 겹치지 않게
-2. 연결선이 잘 보이도록 적절한 간격 유지 (최소 ${minDistance}px)
+2. 연결선이 잘 보이도록 충분한 간격 유지 (최소 ${minDistance}px 이상, 카드가 너무 붙어있지 않게)
 3. 관련 있는 그룹들은 모여있도록 배치
 4. 각 그룹 내에서는 연결 관계를 고려한 배치
 5. 화면을 효율적으로 사용하되, 여백도 적절히
+6. 카드 간 최소 거리는 ${minDistance}px 이상으로 유지하여 연결선이 명확하게 보이도록
 
 각 기록의 x, y 좌표를 반환해주세요. 좌표는 0부터 시작합니다.
 

@@ -30,6 +30,14 @@ export interface Memory {
   
   // 첨부 파일
   attachments?: Attachment[];
+  
+  // 위치 정보
+  location?: {
+    latitude: number;      // 위도
+    longitude: number;    // 경도
+    address?: string;      // 주소 (선택, 역지오코딩 결과)
+    accuracy?: number;     // 정확도 (미터)
+  };
 }
 
 // 맥락 묶음
@@ -97,4 +105,50 @@ export interface Persona {
   context?: string;         // AI 컨텍스트 (이 페르소나의 관심사/역할)
   createdAt: number;
   updatedAt: number;
+}
+
+// 캔버스 블록 타입
+export type BlockType = 'calendar' | 'photo' | 'automation' | 'insight' | 'minimap' | 'viewer';
+
+// 캔버스 블록
+export interface CanvasBlock {
+  id: string;
+  userId: string;
+  type: BlockType;
+  x: number;                // 캔버스 상의 x 좌표
+  y: number;                // 캔버스 상의 y 좌표
+  width?: number;           // 블록 너비 (선택)
+  height?: number;          // 블록 높이 (선택)
+  config: Record<string, any>; // 블록별 설정 (JSON)
+  createdAt: number;
+  updatedAt: number;
+}
+
+// 캘린더 블록 설정
+export interface CalendarBlockConfig {
+  view: 'month' | 'week' | 'day';  // 뷰 모드
+  selectedDate?: number;            // 선택된 날짜 (timestamp)
+  linkedMemoryIds?: string[];       // 연결된 메모리 ID들
+  todos?: Array<{                  // 일정(투두) 목록
+    id: string;
+    text: string;
+    completed: boolean;
+    date: number;                  // 날짜 (timestamp)
+    time?: string;                 // 시간 (HH:mm 형식, 선택)
+    linkedMemoryIds?: string[];   // 태그된 기록 ID들
+    createdAt: number;
+  }>;
+}
+
+// Viewer 소스 타입
+export type ViewerSource =
+  | { kind: 'file'; url: string; fileName: string; mimeType?: string }
+  | { kind: 'url'; url: string; title?: string };
+
+// Viewer 블록 설정
+export interface ViewerBlockConfig {
+  currentSource?: ViewerSource;  // 현재 표시 중인 소스
+  history?: ViewerSource[];       // 히스토리
+  historyIndex?: number;           // 현재 히스토리 인덱스
+  pinned?: boolean;                // Pin 상태
 }

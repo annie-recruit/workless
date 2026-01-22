@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { groupDb } from '@/lib/db';
+import { groupDb, memoryDb } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
+import { stripHtml } from '@/lib/text';
+import OpenAI from 'openai';
 
 // GET: 그룹 조회
 export async function GET(req: NextRequest) {

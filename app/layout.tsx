@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import SessionProvider from "@/components/SessionProvider";
+import { ViewerProvider } from "@/components/ViewerContext";
 
 export const metadata: Metadata = {
   title: "Workless - 개인 비서",
@@ -47,13 +48,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
       <head>
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <link rel="stylesheet" as="style" crossOrigin="" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
       </head>
       <body className="font-pretendard">
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          <ViewerProvider>{children}</ViewerProvider>
+        </SessionProvider>
       </body>
     </html>
   );

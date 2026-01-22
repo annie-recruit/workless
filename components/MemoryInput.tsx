@@ -23,6 +23,13 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
   const [mentionSearch, setMentionSearch] = useState('');
   const [editorHeight, setEditorHeight] = useState(120);
   const [isResizing, setIsResizing] = useState(false);
+  const [location, setLocation] = useState<{ latitude: number; longitude: number; address?: string; accuracy?: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [connectionSuggestions, setConnectionSuggestions] = useState<Array<{ id: string; content: string; reason: string }>>([]);
+  const [selectedConnectionIds, setSelectedConnectionIds] = useState<Set<string>>(new Set());
+  const [showConnectionModal, setShowConnectionModal] = useState(false);
+  const [newMemoryId, setNewMemoryId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | null; message?: string }>({ type: null });
   const voiceRecorderRef = useRef<{ start: () => void; stop: () => void } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -84,6 +91,51 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
     fetchMemories();
   }, []);
 
+  // 위치 정보 가져오기
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          
+          // 역지오코딩으로 주소 가져오기 (선택)
+          try {
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
+            );
+            const data = await response.json();
+            const address = data.display_name || `${data.address?.road || ''} ${data.address?.city || data.address?.town || ''}`.trim();
+            
+            setLocation({
+              latitude,
+              longitude,
+              address: address || undefined,
+              accuracy,
+            });
+          } catch (error) {
+            // 역지오코딩 실패해도 위치 정보는 저장
+            setLocation({
+              latitude,
+              longitude,
+              accuracy,
+            });
+          }
+        },
+        (error) => {
+          console.error('위치 정보 가져오기 실패:', error);
+          setLocationError('위치 정보를 가져올 수 없습니다');
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    } else {
+      setLocationError('이 브라우저는 위치 정보를 지원하지 않습니다');
+    }
+  }, []);
+
   // 리사이즈 핸들러
   useEffect(() => {
     if (!isResizing) return;
@@ -113,7 +165,14 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
   const getEditorHtml = () => editorRef.current?.innerHTML || '';
   const getEditorText = () => (editorRef.current?.innerText || '').trim();
 
-  const stripHtmlClient = (html: string) => html.replace(/<[^>]*>/g, '').trim();
+  const stripHtmlClient = (html: string) => {
+    if (!html) return '';
+    // HTML 엔티티 디코딩
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    let decoded = tempDiv.textContent || tempDiv.innerText || '';
+    return decoded.replace(/<[^>]*>/g, '').trim();
+  };
 
   const updateEditorHtml = (html: string) => {
     if (editorRef.current) {
@@ -349,16 +408,20 @@ ${summary}`;
   const insertMention = (memory: Memory) => {
     if (!editorRef.current) return;
     const selection = window.getSelection();
-    const range = mentionRangeRef.current || selection?.getRangeAt(0);
+    // mentionRangeRef가 있으면 사용, 없으면 selection에서 가져오되 rangeCount 체크
+    let range = mentionRangeRef.current;
+    if (!range && selection && selection.rangeCount > 0) {
+      range = selection.getRangeAt(0);
+    }
     if (!range) return;
     range.deleteContents();
 
     const plainTitle = memory.title || stripHtmlClient(memory.content || '').slice(0, 24) || '기억';
     const mentionEl = document.createElement('a');
-    mentionEl.textContent = `@${plainTitle}`;
+    mentionEl.textContent = `@${plainTitle}`; // @ 포함하여 텍스트로 표시
     mentionEl.setAttribute('data-memory-id', memory.id);
     mentionEl.setAttribute('href', `#memory-${memory.id}`);
-    mentionEl.className = 'mention inline-flex items-center px-1 py-0.5 rounded bg-blue-50 text-blue-700';
+    mentionEl.className = 'mention';
 
     const space = document.createTextNode(' ');
     range.insertNode(mentionEl);
@@ -403,6 +466,11 @@ ${summary}`;
       formData.append('content', htmlContent);
       formData.append('relatedMemoryIds', JSON.stringify(extractMentionIds(htmlContent)));
       
+      // 위치 정보 추가
+      if (location) {
+        formData.append('location', JSON.stringify(location));
+      }
+      
       // 파일 추가
       files.forEach(file => {
         formData.append('files', file);
@@ -418,11 +486,21 @@ ${summary}`;
         setTitle('');
         updateEditorHtml('');
         setFiles([]);
-        onMemoryCreated();
-
-        // 조건부 제안 표시
-        if (data.suggestions && data.suggestions.length > 0) {
-          setSuggestions(data.suggestions);
+        
+        // 연결 제안이 있으면 토스트 표시
+        if (data.connectionSuggestions && data.connectionSuggestions.length > 0) {
+          setConnectionSuggestions(data.connectionSuggestions);
+          setSelectedConnectionIds(new Set(data.connectionSuggestions.map((s: any) => s.id)));
+          setNewMemoryId(data.memory.id);
+          setShowConnectionModal(true);
+        } else {
+          // 성공 토스트 표시
+          setToast({ type: 'success', message: '기억이 저장되었습니다!' });
+          onMemoryCreated();
+          // 2초 후 토스트 닫기
+          setTimeout(() => {
+            setToast({ type: null });
+          }, 2000);
         }
       }
     } catch (error) {
@@ -717,6 +795,150 @@ ${summary}`;
         </div>
       )}
 
+      {/* 연결 제안 토스트 */}
+      {showConnectionModal && connectionSuggestions.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
+          <div className="bg-white rounded-xl shadow-2xl p-5 min-w-[400px] max-w-[500px] border border-gray-200">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="text-2xl">🔗</div>
+              <div className="flex-1">
+                <h3 className="text-base font-bold text-gray-800 mb-1">
+                  이 기록들을 함께 연결할까요?
+                </h3>
+                <p className="text-sm text-gray-600 mb-3">
+                  AI가 찾은 관련 기록들입니다. 원하는 것만 선택하세요.
+                </p>
+                
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 mb-4 max-h-64 overflow-y-auto">
+                  <div className="space-y-2">
+                    {connectionSuggestions.map((suggestion) => (
+                      <label
+                        key={suggestion.id}
+                        className="flex items-start gap-2 p-2 border border-gray-200 rounded-lg hover:bg-white/60 cursor-pointer bg-white/40"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedConnectionIds.has(suggestion.id)}
+                          onChange={(e) => {
+                            const newSet = new Set(selectedConnectionIds);
+                            if (e.target.checked) {
+                              newSet.add(suggestion.id);
+                            } else {
+                              newSet.delete(suggestion.id);
+                            }
+                            setSelectedConnectionIds(newSet);
+                          }}
+                          className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-800 mb-0.5 line-clamp-1">
+                            {suggestion.content}...
+                          </p>
+                          <p className="text-[11px] text-gray-500">
+                            {suggestion.reason}
+                          </p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setShowConnectionModal(false);
+                      setConnectionSuggestions([]);
+                      onMemoryCreated();
+                    }}
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    건너뛰기
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (selectedConnectionIds.size === 0 || !newMemoryId) {
+                        setShowConnectionModal(false);
+                        setConnectionSuggestions([]);
+                        onMemoryCreated();
+                        return;
+                      }
+
+                      try {
+                        // 선택된 기록들과 링크만 생성
+                        const selectedIds = Array.from(selectedConnectionIds);
+                        
+                        // 각 선택된 기록과 링크 생성
+                        for (const relatedId of selectedIds) {
+                          const linkRes = await fetch('/api/memories/link', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              memoryId1: newMemoryId,
+                              memoryId2: relatedId,
+                            }),
+                          });
+
+                          if (!linkRes.ok) {
+                            console.error(`링크 생성 실패: ${relatedId}`);
+                          }
+                        }
+
+                        setShowConnectionModal(false);
+                        setConnectionSuggestions([]);
+                        setSelectedConnectionIds(new Set());
+                        onMemoryCreated();
+                      } catch (error) {
+                        console.error('Failed to create connections:', error);
+                        alert('연결 생성에 실패했습니다');
+                        setShowConnectionModal(false);
+                        setConnectionSuggestions([]);
+                        onMemoryCreated();
+                      }
+                    }}
+                    className="flex-1 px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  >
+                    연결하기 ({selectedConnectionIds.size}개)
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowConnectionModal(false);
+                  setConnectionSuggestions([]);
+                  onMemoryCreated();
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 성공 토스트 */}
+      {toast.type === 'success' && (
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
+          <div className="bg-green-500 text-white rounded-xl shadow-2xl p-4 min-w-[300px] border border-green-600">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">✅</div>
+              <div>
+                <p className="text-sm font-semibold">{toast.message || '완료되었습니다!'}</p>
+              </div>
+              <button
+                onClick={() => setToast({ type: null })}
+                className="text-white/80 hover:text-white transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
