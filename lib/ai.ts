@@ -390,7 +390,7 @@ async function fetchWithPuppeteer(url: string): Promise<string> {
         
         // 메인 콘텐츠 영역 찾기
         const mainContent = document.querySelector('main, article, [role="main"], .content, #content') || document.body;
-        return mainContent.innerText || document.body.innerText;
+        return (mainContent as HTMLElement).innerText || document.body.innerText;
       });
 
       await browser.close();

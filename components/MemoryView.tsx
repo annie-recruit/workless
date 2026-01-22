@@ -109,6 +109,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [localMemories, setLocalMemories] = useState<Memory[]>(memories);
   const [positions, setPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [previousPositions, setPreviousPositions] = useState<Record<string, { x: number; y: number }> | null>(null);
+  const [positionsLoaded, setPositionsLoaded] = useState(false); // 위치 로드 완료 플래그
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isAutoArranging, setIsAutoArranging] = useState(false);
@@ -292,11 +293,15 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           const data = await positionsRes.json();
           const next: Record<string, { x: number; y: number }> = {};
           (data.positions || []).forEach((row: any) => {
-            next[row.memoryId] = { x: row.x, y: row.y };
+            if (row.memoryId && row.x !== null && row.y !== null) {
+              next[row.memoryId] = { x: row.x, y: row.y };
+            }
           });
           setPositions(next);
+          setPositionsLoaded(true); // 위치 로드 완료 표시
         } else {
           setPositions({});
+          setPositionsLoaded(true); // 실패해도 로드 완료로 표시
         }
 
         if (settingsRes.ok) {
@@ -323,6 +328,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       } catch (error) {
         console.error('Failed to fetch board state:', error);
         setPositions({});
+        setPositionsLoaded(true); // 에러 발생해도 로드 완료로 표시
       }
     };
     fetchBoardState();
@@ -341,12 +347,15 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   }, [localMemories, selectedGroupId, groups]);
 
   useEffect(() => {
-    if (!boardRef.current || filteredMemories.length === 0) return;
+    // 위치가 로드되기 전에는 기본 위치 설정 안 함
+    if (!positionsLoaded || !boardRef.current || filteredMemories.length === 0) return;
+    
     setPositions(prev => {
       const next = { ...prev };
       const spacingX = 260;
       const spacingY = 220;
       filteredMemories.forEach((memory, idx) => {
+        // 저장된 위치가 없을 때만 기본 위치 설정
         if (!next[memory.id]) {
           const col = idx % 3;
           const row = Math.floor(idx / 3);
@@ -358,7 +367,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       });
       return next;
     });
-  }, [filteredMemories]);
+  }, [filteredMemories, positionsLoaded]);
 
   useEffect(() => {
     const { width: cardWidth, height: cardHeight } = CARD_DIMENSIONS[cardSize];
