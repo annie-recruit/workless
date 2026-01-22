@@ -187,12 +187,11 @@ export default function Home() {
           <div className="mb-6 flex items-center justify-between border-b border-gray-200 pb-2">
             {/* 왼쪽: 페르소나 선택기와 그룹 관리 */}
             <div className="flex items-center gap-3">
-              <div data-tutorial-target="persona-selector">
-                <PersonaSelector
-                  selectedPersonaId={selectedPersonaId}
-                  onPersonaChange={setSelectedPersonaId}
-                />
-              </div>
+              <PersonaSelector
+                selectedPersonaId={selectedPersonaId}
+                onPersonaChange={setSelectedPersonaId}
+                data-tutorial-target="persona-selector"
+              />
               <button
                 onClick={() => setShowModal('groups')}
                 className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
@@ -255,7 +254,7 @@ export default function Home() {
           </div>
 
           {/* 기록하기 영역 */}
-          <div className="mb-8" data-tutorial-target="memory-input">
+          <div className="mb-8">
             <MemoryInput onMemoryCreated={handleMemoryCreated} />
           </div>
 

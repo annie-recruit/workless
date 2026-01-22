@@ -43,7 +43,7 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
         if (element) {
           setTargetElement(element);
           
-          // Calculate tooltip position
+          // Calculate tooltip position with better alignment
           const rect = element.getBoundingClientRect();
           const scrollY = window.scrollY;
           const scrollX = window.scrollX;
@@ -51,34 +51,56 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
           let top = 0;
           let left = 0;
           
+          // 툴팁 크기 고려 (대략 300px 너비, 200px 높이)
+          const tooltipWidth = 300;
+          const tooltipHeight = 200;
+          const spacing = 20; // 요소와 툴팁 사이 간격
+          
           switch (step.position) {
             case 'top':
-              top = rect.top + scrollY - 10;
+              top = rect.top + scrollY - spacing;
               left = rect.left + scrollX + rect.width / 2;
               break;
             case 'bottom':
-              top = rect.bottom + scrollY + 10;
+              top = rect.bottom + scrollY + spacing;
               left = rect.left + scrollX + rect.width / 2;
               break;
             case 'left':
               top = rect.top + scrollY + rect.height / 2;
-              left = rect.left + scrollX - 10;
+              left = rect.left + scrollX - spacing;
               break;
             case 'right':
               top = rect.top + scrollY + rect.height / 2;
-              left = rect.right + scrollX + 10;
+              left = rect.right + scrollX + spacing;
               break;
             case 'center':
             default:
+              // 중앙 정렬 시 요소의 실제 위치 기준
               top = rect.top + scrollY + rect.height / 2;
               left = rect.left + scrollX + rect.width / 2;
               break;
           }
           
+          // 화면 밖으로 나가지 않도록 조정
+          const viewportWidth = window.innerWidth;
+          const viewportHeight = window.innerHeight;
+          
+          if (left < tooltipWidth / 2) {
+            left = tooltipWidth / 2 + 20;
+          } else if (left > viewportWidth - tooltipWidth / 2) {
+            left = viewportWidth - tooltipWidth / 2 - 20;
+          }
+          
+          if (top < tooltipHeight / 2) {
+            top = tooltipHeight / 2 + 20;
+          } else if (top > viewportHeight + scrollY - tooltipHeight / 2) {
+            top = viewportHeight + scrollY - tooltipHeight / 2 - 20;
+          }
+          
           setTooltipPosition({ top, left });
           
-          // Scroll element into view
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Scroll element into view with better positioning
+          element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
         } else {
           // Element not found, retry after a short delay
           console.log('튜토리얼 타겟 요소를 찾지 못함:', step.targetSelector);
@@ -222,15 +244,23 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
             <button
               onClick={handlePrevious}
               disabled={isFirst}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
             >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
               이전
             </button>
             <button
               onClick={handleNext}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium flex items-center gap-1"
             >
               {isLast ? '완료' : '다음'}
+              {!isLast && (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              )}
             </button>
           </div>
         </div>

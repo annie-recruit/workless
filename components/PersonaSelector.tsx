@@ -15,7 +15,7 @@ const DEFAULT_PERSONAS = [
   { icon: '📚', name: '학생', description: '공부, 학습, 교육' },
 ];
 
-export default function PersonaSelector({ selectedPersonaId, onPersonaChange }: PersonaSelectorProps) {
+export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ...props }: PersonaSelectorProps & React.HTMLAttributes<HTMLDivElement>) {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -74,7 +74,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange }: 
   const selectedPersona = personas.find(p => p.id === selectedPersonaId);
 
   return (
-    <div className="relative">
+    <div className="relative" {...props}>
       {/* 선택된 페르소나 또는 기본 아이콘 */}
       <button
         onClick={() => setIsOpen(!isOpen)}
