@@ -358,21 +358,21 @@ export default function Home() {
               title: '보드 뷰',
               description: '기억들을 보드에서 드래그해서 자유롭게 배치할 수 있습니다. 연결된 기억들은 선으로 표시됩니다.',
               targetSelector: '[data-tutorial-target="board-view"]',
-              position: 'top',
+              position: 'bottom',
             },
             {
               id: 'link-memories',
               title: '기억 연결하기',
               description: '기억들을 연결해서 관계를 만들 수 있습니다. 각 카드에서 연결 버튼을 눌러 관련된 기억들을 묶어보세요.',
               targetSelector: '[data-tutorial-target="link-memories"]',
-              position: 'top',
+              position: 'center',
             },
             {
               id: 'ai-features',
               title: 'AI 기능',
               description: 'AI가 기억을 요약하고, 제안을 해주며, 인사이트를 제공합니다. 각 카드에서 "요약" 또는 "제안받기" 버튼을 눌러보세요.',
               targetSelector: '[data-tutorial-target="ai-features"]',
-              position: 'top',
+              position: 'center',
             },
           ]}
           onComplete={() => {

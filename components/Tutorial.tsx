@@ -48,30 +48,50 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
           const scrollY = window.scrollY;
           const scrollX = window.scrollX;
           
+          // 툴팁 크기 고려 (실제 크기 측정)
+          const tooltipWidth = 384; // max-w-sm = 384px
+          const tooltipHeight = 280; // 대략적인 높이
+          const spacing = 20; // 요소와 툴팁 사이 간격
+          const padding = 20; // 화면 가장자리 여백
+          
+          const viewportWidth = window.innerWidth;
+          const viewportHeight = window.innerHeight;
+          
           let top = 0;
           let left = 0;
-          
-          // 툴팁 크기 고려 (대략 300px 너비, 200px 높이)
-          const tooltipWidth = 300;
-          const tooltipHeight = 200;
-          const spacing = 20; // 요소와 툴팁 사이 간격
           
           switch (step.position) {
             case 'top':
               top = rect.top + scrollY - spacing;
               left = rect.left + scrollX + rect.width / 2;
+              // 위쪽에 공간이 없으면 아래쪽에 표시
+              if (top - scrollY < tooltipHeight + padding) {
+                top = rect.bottom + scrollY + spacing;
+              }
               break;
             case 'bottom':
               top = rect.bottom + scrollY + spacing;
               left = rect.left + scrollX + rect.width / 2;
+              // 아래쪽에 공간이 없으면 위쪽에 표시
+              if (top - scrollY + tooltipHeight > viewportHeight - padding) {
+                top = rect.top + scrollY - spacing - tooltipHeight;
+              }
               break;
             case 'left':
               top = rect.top + scrollY + rect.height / 2;
               left = rect.left + scrollX - spacing;
+              // 왼쪽에 공간이 없으면 오른쪽에 표시
+              if (left - scrollX < tooltipWidth + padding) {
+                left = rect.right + scrollX + spacing;
+              }
               break;
             case 'right':
               top = rect.top + scrollY + rect.height / 2;
               left = rect.right + scrollX + spacing;
+              // 오른쪽에 공간이 없으면 왼쪽에 표시
+              if (left - scrollX + tooltipWidth > viewportWidth - padding) {
+                left = rect.left + scrollX - spacing - tooltipWidth;
+              }
               break;
             case 'center':
             default:
@@ -81,20 +101,19 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
               break;
           }
           
-          // 화면 밖으로 나가지 않도록 조정
-          const viewportWidth = window.innerWidth;
-          const viewportHeight = window.innerHeight;
-          
-          if (left < tooltipWidth / 2) {
-            left = tooltipWidth / 2 + 20;
-          } else if (left > viewportWidth - tooltipWidth / 2) {
-            left = viewportWidth - tooltipWidth / 2 - 20;
+          // 화면 밖으로 나가지 않도록 엄격하게 조정
+          // 가로 위치 조정
+          if (left - scrollX < tooltipWidth / 2 + padding) {
+            left = scrollX + tooltipWidth / 2 + padding;
+          } else if (left - scrollX > viewportWidth - tooltipWidth / 2 - padding) {
+            left = scrollX + viewportWidth - tooltipWidth / 2 - padding;
           }
           
-          if (top < tooltipHeight / 2) {
-            top = tooltipHeight / 2 + 20;
-          } else if (top > viewportHeight + scrollY - tooltipHeight / 2) {
-            top = viewportHeight + scrollY - tooltipHeight / 2 - 20;
+          // 세로 위치 조정
+          if (top - scrollY < tooltipHeight / 2 + padding) {
+            top = scrollY + tooltipHeight / 2 + padding;
+          } else if (top - scrollY > viewportHeight - tooltipHeight / 2 - padding) {
+            top = scrollY + viewportHeight - tooltipHeight / 2 - padding;
           }
           
           setTooltipPosition({ top, left });
@@ -199,7 +218,7 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
             : 'translate(-50%, -50%)',
         }}
       >
-        <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm pointer-events-auto border-2 border-blue-500">
+        <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm pointer-events-auto border-2 border-blue-500" style={{ maxHeight: 'calc(100vh - 40px)', overflowY: 'auto' }}>
           {/* Header */}
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
