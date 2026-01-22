@@ -763,27 +763,6 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
               </button>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">색상</span>
-            <div className="flex items-center gap-1">
-              {([
-                { id: 'amber', class: 'bg-amber-200' },
-                { id: 'blue', class: 'bg-blue-200' },
-                { id: 'green', class: 'bg-green-200' },
-                { id: 'pink', class: 'bg-pink-200' },
-                { id: 'purple', class: 'bg-purple-200' },
-              ] as const).map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setCardColor(item.id)}
-                  className={`w-6 h-6 rounded-full border ${item.class} ${
-                    cardColor === item.id ? 'ring-2 ring-offset-1 ring-gray-900' : 'border-gray-200'
-                  }`}
-                  title={item.id}
-                />
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
