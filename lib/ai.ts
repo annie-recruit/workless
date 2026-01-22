@@ -291,69 +291,150 @@ export async function analyzeImage(imageUrl: string): Promise<string> {
   }
 }
 
-// 웹페이지 내용 가져오기 및 요약
+// 웹페이지 내용 가져오기 및 요약 (JavaScript 기반 사이트 지원)
 export async function fetchAndSummarizeUrl(url: string): Promise<string> {
   try {
-    console.log('🌐 [URL 1/3] 웹페이지 가져오기 시작:', url);
+    console.log('🌐 [URL 1/4] 웹페이지 가져오기 시작:', url);
     
-    // 웹페이지 가져오기
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      },
-      // 타임아웃 설정 (10초)
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!response.ok) {
-      console.warn('⚠️ 웹페이지 가져오기 실패:', response.status);
-      return `(웹페이지를 가져올 수 없습니다: ${response.status})`;
-    }
-
-    const html = await response.text();
-    console.log('🌐 [URL 2/3] 웹페이지 가져오기 완료, 크기:', html.length, 'bytes');
-
-    // HTML에서 텍스트 추출
-    const { stripHtml } = await import('./text');
-    let text = stripHtml(html);
-    
-    // 너무 길면 앞부분만 (5000자)
-    if (text.length > 5000) {
-      text = text.substring(0, 5000) + '... (내용이 길어서 일부만 표시)';
-    }
-
-    if (!text.trim()) {
-      console.warn('⚠️ 웹페이지에서 텍스트를 추출하지 못했습니다');
-      return '(웹페이지 텍스트 추출 실패)';
-    }
-
-    console.log('🌐 [URL 3/3] AI 요약 시작...');
-    
-    // AI로 요약
-    const summaryResponse = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: '너는 웹페이지 내용을 간결하게 요약하는 전문가야. 핵심 내용만 2-3문장으로 요약해줘.',
+    // 먼저 단순 fetch로 시도
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         },
-        {
-          role: 'user',
-          content: `다음 웹페이지 내용을 요약해줘:\n\n${text}`,
-        },
-      ],
-      max_tokens: 300,
-      temperature: 0.3,
-    });
+        signal: AbortSignal.timeout(10000),
+      });
 
-    const summary = summaryResponse.choices[0]?.message?.content || '(요약 생성 실패)';
-    console.log('✅ URL 요약 완료');
+      if (response.ok) {
+        const html = await response.text();
+        console.log('🌐 [URL 2/4] 웹페이지 가져오기 완료, 크기:', html.length, 'bytes');
+
+        // HTML에서 텍스트 추출
+        const { stripHtml } = await import('./text');
+        let text = stripHtml(html);
+        
+        // JavaScript 기반 사이트 체크 (Notion 등)
+        const isJavaScriptSite = html.includes('JavaScript') && 
+                                 (html.includes('활성화') || html.includes('enable') || 
+                                  html.includes('notion') || html.includes('react') ||
+                                  text.length < 200);
+        
+        if (isJavaScriptSite || text.length < 200) {
+          console.log('🌐 [URL 2/4] JavaScript 기반 사이트 감지, Puppeteer 사용');
+          // Puppeteer로 재시도
+          return await fetchWithPuppeteer(url);
+        }
+        
+        // 너무 길면 앞부분만 (5000자)
+        if (text.length > 5000) {
+          text = text.substring(0, 5000) + '... (내용이 길어서 일부만 표시)';
+        }
+
+        if (text.trim()) {
+          console.log('🌐 [URL 3/4] AI 요약 시작...');
+          const summary = await summarizeWebContent(text);
+          console.log('✅ URL 요약 완료');
+          return summary;
+        }
+      }
+    } catch (fetchError) {
+      console.log('🌐 [URL 2/4] 단순 fetch 실패, Puppeteer로 재시도:', fetchError);
+    }
     
-    return summary;
+    // Puppeteer로 재시도
+    return await fetchWithPuppeteer(url);
   } catch (error) {
     console.error('❌ URL 요약 실패:', error instanceof Error ? error.message : String(error));
     return '(웹페이지 요약 실패)';
   }
+}
+
+// Puppeteer를 사용한 웹페이지 가져오기
+async function fetchWithPuppeteer(url: string): Promise<string> {
+  try {
+    // Puppeteer 동적 import (필요할 때만 로드)
+    const puppeteer = await import('puppeteer').catch(() => null);
+    
+    if (!puppeteer) {
+      console.warn('⚠️ Puppeteer가 설치되지 않았습니다. 단순 HTML만 사용합니다.');
+      return '(JavaScript 기반 사이트는 Puppeteer가 필요합니다)';
+    }
+
+    console.log('🌐 [Puppeteer 1/3] 브라우저 시작...');
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+      ],
+    });
+
+    try {
+      const page = await browser.newPage();
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+      
+      console.log('🌐 [Puppeteer 2/3] 페이지 로드 중...');
+      await page.goto(url, { 
+        waitUntil: 'networkidle2',
+        timeout: 30000,
+      });
+
+      // 페이지 내용 가져오기
+      const text = await page.evaluate(() => {
+        // script, style 태그 제거
+        const scripts = document.querySelectorAll('script, style, noscript');
+        scripts.forEach(el => el.remove());
+        
+        // 메인 콘텐츠 영역 찾기
+        const mainContent = document.querySelector('main, article, [role="main"], .content, #content') || document.body;
+        return mainContent.innerText || document.body.innerText;
+      });
+
+      await browser.close();
+      console.log('🌐 [Puppeteer 3/3] 텍스트 추출 완료, 길이:', text.length);
+
+      if (!text.trim() || text.length < 50) {
+        return '(웹페이지 내용을 추출하지 못했습니다)';
+      }
+
+      // 너무 길면 앞부분만 (5000자)
+      const truncatedText = text.length > 5000 ? text.substring(0, 5000) + '... (내용이 길어서 일부만 표시)' : text;
+      
+      console.log('🌐 [URL 3/4] AI 요약 시작...');
+      const summary = await summarizeWebContent(truncatedText);
+      console.log('✅ URL 요약 완료 (Puppeteer)');
+      return summary;
+    } finally {
+      await browser.close();
+    }
+  } catch (error) {
+    console.error('❌ Puppeteer 실패:', error instanceof Error ? error.message : String(error));
+    return '(웹페이지 요약 실패 - JavaScript 기반 사이트는 처리할 수 없습니다)';
+  }
+}
+
+// 웹 콘텐츠 요약 (공통 함수)
+async function summarizeWebContent(text: string): Promise<string> {
+  const summaryResponse = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'system',
+        content: '너는 웹페이지 내용을 간결하게 요약하는 전문가야. 핵심 내용만 2-3문장으로 요약해줘.',
+      },
+      {
+        role: 'user',
+        content: `다음 웹페이지 내용을 요약해줘:\n\n${text}`,
+      },
+    ],
+    max_tokens: 300,
+    temperature: 0.3,
+  });
+
+  return summaryResponse.choices[0]?.message?.content || '(요약 생성 실패)';
 }
 
 // 첨부 파일 내용 요약
