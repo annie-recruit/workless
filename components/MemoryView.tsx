@@ -638,10 +638,13 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     ? 'bg-purple-50 border-purple-200'
     : 'bg-amber-50 border-amber-200';
 
-  const connectionPairs = useMemo(() => {
+  // 연결 그룹을 찾아서 색상 할당
+  const connectionPairsWithColor = useMemo(() => {
     const set = new Set<string>();
     const pairs: Array<{ from: string; to: string }> = [];
     const visibleIds = new Set(filteredMemories.map(m => m.id));
+    
+    // 연결 쌍 수집
     filteredMemories.forEach(memory => {
       const related = memory.relatedMemoryIds || [];
       related.forEach(relatedId => {
@@ -652,11 +655,84 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         pairs.push({ from: memory.id, to: relatedId });
       });
     });
-    // 디버깅용 로그
-    if (pairs.length > 0) {
-      console.log('🔗 연결선 개수:', pairs.length, pairs);
+
+    // 연결 그룹 찾기 (같은 네트워크에 속한 연결들은 같은 색상)
+    const connectionGroups: Array<Set<string>> = [];
+    const nodeToGroup = new Map<string, number>();
+    
+    pairs.forEach(pair => {
+      const fromGroup = nodeToGroup.get(pair.from);
+      const toGroup = nodeToGroup.get(pair.to);
+      
+      if (fromGroup === undefined && toGroup === undefined) {
+        // 새 그룹 생성
+        const newGroup = new Set<string>([pair.from, pair.to]);
+        connectionGroups.push(newGroup);
+        const groupIndex = connectionGroups.length - 1;
+        nodeToGroup.set(pair.from, groupIndex);
+        nodeToGroup.set(pair.to, groupIndex);
+      } else if (fromGroup !== undefined && toGroup === undefined) {
+        // from 그룹에 to 추가
+        connectionGroups[fromGroup].add(pair.to);
+        nodeToGroup.set(pair.to, fromGroup);
+      } else if (fromGroup === undefined && toGroup !== undefined) {
+        // to 그룹에 from 추가
+        connectionGroups[toGroup].add(pair.from);
+        nodeToGroup.set(pair.from, toGroup);
+      } else if (fromGroup !== toGroup) {
+        // 두 그룹 병합
+        const merged = new Set([...connectionGroups[fromGroup], ...connectionGroups[toGroup]]);
+        connectionGroups[fromGroup] = merged;
+        connectionGroups[toGroup].forEach(node => nodeToGroup.set(node, fromGroup));
+        connectionGroups[toGroup] = new Set(); // 빈 그룹으로 표시
+      }
+    });
+
+    // 색상 팔레트
+    const colors = [
+      '#6366F1', // indigo (기본)
+      '#10B981', // green
+      '#F59E0B', // amber
+      '#EF4444', // red
+      '#8B5CF6', // purple
+      '#06B6D4', // cyan
+      '#EC4899', // pink
+      '#14B8A6', // teal
+    ];
+
+    // 각 연결 쌍에 색상 할당
+    const pairsWithColor = pairs.map(pair => {
+      const fromGroup = nodeToGroup.get(pair.from);
+      const colorIndex = fromGroup !== undefined ? fromGroup % colors.length : 0;
+      return {
+        ...pair,
+        color: colors[colorIndex],
+        groupIndex: fromGroup !== undefined ? fromGroup : -1,
+      };
+    });
+
+    // 각 카드에서 나가는 연결 개수 계산 (여러 줄 표시용)
+    const outgoingCount = new Map<string, number>();
+    pairsWithColor.forEach(pair => {
+      outgoingCount.set(pair.from, (outgoingCount.get(pair.from) || 0) + 1);
+    });
+
+    // 각 연결에 오프셋 인덱스 할당
+    const connectionIndex = new Map<string, number>();
+    pairsWithColor.forEach(pair => {
+      const key = `${pair.from}-${pair.to}`;
+      const count = outgoingCount.get(pair.from) || 1;
+      const currentIndex = connectionIndex.get(pair.from) || 0;
+      connectionIndex.set(pair.from, currentIndex + 1);
+      (pair as any).offsetIndex = currentIndex;
+      (pair as any).totalOutgoing = count;
+    });
+
+    if (pairsWithColor.length > 0) {
+      console.log('🔗 연결선 개수:', pairsWithColor.length, '그룹 수:', connectionGroups.filter(g => g.size > 0).length);
     }
-    return pairs;
+    
+    return pairsWithColor;
   }, [filteredMemories]);
 
   return (
