@@ -139,14 +139,14 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
           // Element not found, retry after a short delay
           console.log('튜토리얼 타겟 요소를 찾지 못함:', step.targetSelector);
           setTargetElement(null);
-          // 재시도 (최대 3번)
+          // 재시도 (최대 5번, 더 많이 재시도)
           const retryCount = (window as any).__tutorialRetryCount || 0;
-          if (retryCount < 3) {
+          if (retryCount < 5) {
             (window as any).__tutorialRetryCount = retryCount + 1;
             setTimeout(findAndPositionElement, 500);
           } else {
             (window as any).__tutorialRetryCount = 0;
-            // 타겟이 없어도 중앙에 표시
+            // 타겟이 없어도 중앙에 표시 (말풍선은 유지)
             setTargetElement(null);
             setTooltipPosition({
               top: window.innerHeight / 2 + window.scrollY,
