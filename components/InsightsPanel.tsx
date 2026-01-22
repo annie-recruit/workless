@@ -15,14 +15,13 @@ interface InsightsPanelProps {
   personaId: string | null;
 }
 
-export default function InsightsPanel({ personaId, onLoadingChange }: InsightsPanelProps) {
+export default function InsightsPanel({ personaId }: InsightsPanelProps) {
   const [insights, setInsights] = useState<Insights | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchInsights = async () => {
     setLoading(true);
-    if (onLoadingChange) onLoadingChange(true);
     setError(null);
     try {
       const url = personaId 
