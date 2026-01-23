@@ -134,22 +134,19 @@ export default function Home() {
       {/* 메인 콘텐츠 영역 */}
       <div className="flex-1 overflow-y-auto">
         {/* 헤더 배너 - 전체 폭 */}
-        <header className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50">
+        <header className="relative overflow-hidden bg-indigo-600 border-b-2 border-indigo-500">
           <div className="container mx-auto px-4 py-12">
             <div className="relative z-10">
               <h1 className="text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', letterSpacing: '-0.05em' }}>
-                Workless
+                Workless - 나의 생각 지도
               </h1>
               <div className="flex items-center gap-3">
-                <div className="h-px w-12 bg-gradient-to-r from-blue-400 to-purple-400"></div>
-                <p className="text-slate-300 text-base font-light">
-                  알아서 정리해주는 개인 비서
+                <div className="h-0.5 w-12 bg-white"></div>
+                <p className="text-white/90 text-base font-light">
+                  사고의 흐름을 보는 비정형 워크스페이스
                 </p>
               </div>
             </div>
-            {/* 미니멀 장식 요소 */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-blue-500/10 to-transparent rounded-full blur-3xl"></div>
-            <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-purple-500/10 to-transparent rounded-full blur-3xl"></div>
           </div>
         </header>
 

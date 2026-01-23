@@ -83,7 +83,7 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
   return (
     <div className="h-full overflow-y-auto">
       {/* 상단 배너 - 메인 헤더와 단차 맞추기 */}
-      <div className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 px-6 py-12 text-white">
+      <div className="bg-gradient-to-br from-orange-500 via-orange-400 to-indigo-600 px-6 py-12 text-white">
         <div className="mb-3">
           <div className="text-sm opacity-90 mb-1">
             {new Date().toLocaleDateString('ko-KR', { 
@@ -157,11 +157,11 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
 
         {/* 제안 */}
         {insights.suggestions.length > 0 && (
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 border-2 border-green-300">
-            <h3 className="text-sm font-semibold text-green-900 mb-3">💡 제안</h3>
+          <div className="bg-gray-50 p-4 border-2 border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">💡 제안</h3>
             <ul className="space-y-2">
               {insights.suggestions.map((suggestion, idx) => (
-                <li key={idx} className="text-sm text-green-800 flex items-start gap-2">
+                <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
                   <span className="mt-0.5">✓</span>
                   <span>{suggestion}</span>
                 </li>
