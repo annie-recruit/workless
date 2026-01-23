@@ -42,3 +42,5 @@ OPENAI_API_KEY=your_api_key_here
 ```
 
 Railway 배포 시에는 Railway 대시보드에서 환경 변수 설정!
+
+[여기서](https://workless-production.up.railway.app/auth/signin) 구글 로그인 후 체험해 보세요. :) 
