@@ -451,7 +451,14 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
       <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
         <div className="flex items-center gap-2">
           <button
-            onClick={onBack}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onBack();
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+            }}
             className="p-1 hover:bg-gray-100 rounded"
             title="월 뷰로 돌아가기"
           >

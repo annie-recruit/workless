@@ -166,6 +166,13 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [selectionBox, setSelectionBox] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null); // 드래그 선택 박스
   const [isSelecting, setIsSelecting] = useState(false); // 선택 모드인지
   const [isAutoArranging, setIsAutoArranging] = useState(false);
+  const [hoveredBlobId, setHoveredBlobId] = useState<string | null>(null);
+  const [hoveredMemoryId, setHoveredMemoryId] = useState<string | null>(null);
+  // 블롭 애니메이션 상태 관리 (선→면 전환 애니메이션)
+  const [animatedBlobIds, setAnimatedBlobIds] = useState<Set<string>>(new Set());
+  const [blobAnimationStates, setBlobAnimationStates] = useState<Record<string, 'entering' | 'idle'>>({});
+  // 블롭 위치 반응성 (카드 이동 시 살짝 늦게 따라오기)
+  const [blobPositions, setBlobPositions] = useState<Record<string, { minX: number; minY: number; maxX: number; maxY: number }>>({});
   const [cardSize, setCardSize] = useState<'s' | 'm' | 'l'>('m');
   const [cardColor, setCardColor] = useState<'green' | 'pink' | 'purple'>('green');
   const [cardColorMap, setCardColorMap] = useState<Record<string, 'green' | 'pink' | 'purple'>>({});
@@ -1481,7 +1488,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       setPreviousPositions({ ...positions });
       
       // 연결 정보 준비
-      const connections = connectionPairsWithColor.map(pair => ({
+      const connections = connectionPairsArray.map(pair => ({
         from: pair.from,
         to: pair.to,
       }));
@@ -1815,12 +1822,176 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       }
     });
 
+    const validGroups = connectionGroups.filter(g => g.size > 0);
     if (pairsWithColor.length > 0) {
-      console.log('🔗 연결선 개수:', pairsWithColor.length, '그룹 수:', connectionGroups.filter(g => g.size > 0).length);
+      console.log('🔗 연결선 개수:', pairsWithColor.length, '그룹 수:', validGroups.length);
     }
     
-    return pairsWithColor;
+    return {
+      pairsWithColor,
+      connectionGroups: validGroups,
+      nodeToGroup,
+    };
   }, [filteredMemories]);
+
+  // 간단한 시드 기반 랜덤 함수 (groupId 기반 고정 랜덤)
+  const seededRandom = useCallback((seed: number) => {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  }, []);
+
+  // Blob Area 생성 (연결 그룹에서 자동 생성)
+  const blobAreas = useMemo(() => {
+    const { connectionGroups, pairsWithColor } = connectionPairsWithColor;
+    const blobs: Array<{
+      id: string;
+      memoryIds: string[];
+      color: string;
+      bounds: { minX: number; minY: number; maxX: number; maxY: number };
+      seed: number;
+      center: { x: number; y: number };
+      radius: { x: number; y: number };
+    }> = [];
+
+    connectionGroups.forEach((group, groupIndex) => {
+      const memoryIds = Array.from(group);
+      
+      // Blob 생성 조건 확인
+      // 연결된 컴포넌트(connected component)면 블롭 생성
+      // 최소 조건: 그룹 내 카드 수 >= 3 (2개는 선과 겹쳐서 애매함)
+      if (memoryIds.length < 3) return;
+
+      // 연결선 개수 체크는 제거 - 연결된 컴포넌트면 무조건 블롭 생성
+      // (트리/스타 형태도 포함)
+
+      // 카드 위치 기반 bounding box 계산
+      const cardPositions = memoryIds
+        .map(id => {
+          const pos = positions[id];
+          if (!pos) return null;
+          const cardData = CARD_DIMENSIONS[cardSize];
+          return {
+            x: pos.x,
+            y: pos.y,
+            width: cardData.width,
+            height: cardData.height,
+          };
+        })
+        .filter((p): p is NonNullable<typeof p> => p !== null);
+
+      if (cardPositions.length === 0) return;
+
+      // Bounding box 계산 (padding에 랜덤 지터 적용)
+      const basePadding = 40;
+      const seed = groupIndex * 1000 + memoryIds.length; // 그룹별 고정 시드
+      const paddingX = basePadding + (seededRandom(seed) - 0.5) * 20; // ±10px
+      const paddingY = basePadding + (seededRandom(seed + 1) - 0.5) * 20; // ±10px
+      
+      const minX = Math.min(...cardPositions.map(p => p.x)) - paddingX;
+      const minY = Math.min(...cardPositions.map(p => p.y)) - paddingY;
+      const maxX = Math.max(...cardPositions.map(p => p.x + p.width)) + paddingX;
+      const maxY = Math.max(...cardPositions.map(p => p.y + p.height)) + paddingY;
+
+      // 파스텔 색상 팔레트
+      const pastelColors = [
+        '#E0E7FF', // indigo
+        '#D1FAE5', // green
+        '#FEF3C7', // amber
+        '#FEE2E2', // red
+        '#EDE9FE', // purple
+        '#CFFAFE', // cyan
+        '#FCE7F3', // pink
+        '#CCFBF1', // teal
+      ];
+
+      // 원/타원 기반 Blob을 위한 중심점과 반지름 계산
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      const rx = (maxX - minX) / 2;
+      const ry = (maxY - minY) / 2;
+
+      blobs.push({
+        id: `blob-${groupIndex}`,
+        memoryIds,
+        color: pastelColors[groupIndex % pastelColors.length],
+        bounds: { minX, minY, maxX, maxY },
+        seed,
+        center: { x: cx, y: cy },
+        radius: { x: rx, y: ry },
+      });
+    });
+
+    // 디버깅 로그 추가
+    console.log('🎨 blobAreas 생성:', blobs.length, '개', blobs.map(b => ({ id: b.id, memoryCount: b.memoryIds.length })));
+
+    return blobs;
+  }, [connectionPairsWithColor, positions, cardSize, seededRandom]);
+
+  // connectionPairsWithColor를 배열로 변환 (기존 코드 호환성)
+  const connectionPairsArray = useMemo(() => {
+    return connectionPairsWithColor.pairsWithColor;
+  }, [connectionPairsWithColor]);
+
+  // 새로 생성된 blob 감지 및 애니메이션 트리거
+  useEffect(() => {
+    const currentBlobIds = new Set(blobAreas.map(b => b.id));
+    const newBlobIds = Array.from(currentBlobIds).filter(id => !animatedBlobIds.has(id));
+    
+    if (newBlobIds.length > 0) {
+      // 새로 생성된 blob들에 애니메이션 적용
+      setAnimatedBlobIds(prev => {
+        const updated = new Set(prev);
+        newBlobIds.forEach(id => updated.add(id));
+        return updated;
+      });
+      
+      // 애니메이션 상태 설정
+      const newStates: Record<string, 'entering' | 'idle'> = {};
+      newBlobIds.forEach(id => {
+        newStates[id] = 'entering';
+      });
+      setBlobAnimationStates(prev => ({ ...prev, ...newStates }));
+      
+      // 애니메이션 완료 후 idle로 전환
+      setTimeout(() => {
+        setBlobAnimationStates(prev => {
+          const updated = { ...prev };
+          newBlobIds.forEach(id => {
+            updated[id] = 'idle';
+          });
+          return updated;
+        });
+      }, 400); // 400ms 애니메이션
+    }
+  }, [blobAreas, animatedBlobIds]);
+
+  // 블롭 위치 반응성 (카드 이동 시 살짝 늦게 따라오기)
+  useEffect(() => {
+    const newPositions: Record<string, { minX: number; minY: number; maxX: number; maxY: number }> = {};
+    blobAreas.forEach(blob => {
+      const currentPos = blobPositions[blob.id];
+      if (currentPos) {
+        // 기존 위치가 있으면 transition으로 부드럽게 이동
+        newPositions[blob.id] = currentPos;
+      } else {
+        // 처음 생성된 경우 즉시 설정
+        newPositions[blob.id] = blob.bounds;
+      }
+    });
+    
+    // 200ms 지연 후 새 위치로 업데이트 (center와 radius는 bounds에서 계산)
+    const timer = setTimeout(() => {
+      setBlobPositions(prev => {
+        const updated = { ...prev };
+        blobAreas.forEach(blob => {
+          updated[blob.id] = blob.bounds;
+        });
+        return updated;
+      });
+    }, 200);
+    
+    return () => clearTimeout(timer);
+  }, [blobAreas, blobPositions]);
 
   return (
     <div className="w-full mx-auto space-y-6">
@@ -1962,12 +2133,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
             해당 그룹에 기억이 없습니다
           </div>
         ) : (
-          <div
-            ref={boardContainerRef}
-            className="relative w-full bg-white border border-gray-200 rounded-2xl shadow-sm overflow-auto"
-            onScroll={updateViewportBounds}
-          >
-            <div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500">
+          <div className="w-full bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+            {/* 컨트롤 바 - 엑셀 틀고정처럼 항상 고정 */}
+            <div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500 bg-white border-b border-gray-200">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-gray-700">화이트보드</span>
                 <span className="text-[11px] text-gray-400">
@@ -2041,10 +2209,17 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
               </div>
             </div>
 
+            {/* 스크롤 가능한 보드 영역 - 엑셀 틀고정처럼 컨트롤 바는 고정, 이 영역만 스크롤 */}
             <div
-              className="relative"
-              style={{ minWidth: boardSize.width, minHeight: boardSize.height }}
+              ref={boardContainerRef}
+              className="relative w-full overflow-auto"
+              style={{ height: 'calc(100vh - 400px)', minHeight: '600px' }}
+              onScroll={updateViewportBounds}
             >
+              <div
+                className="relative"
+                style={{ minWidth: boardSize.width, minHeight: boardSize.height }}
+              >
               
               <div
                 className="relative"
@@ -2338,7 +2513,148 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 })}
 
                 {/* 연결선 SVG - 카드 뒤에 렌더링 */}
-                {connectionPairsWithColor.length > 0 && (
+                {/* Blob Areas 렌더링 (연결선 아래) */}
+                {blobAreas.length > 0 && (
+                  <svg
+                    className="absolute inset-0"
+                    width={boardSize.width}
+                    height={boardSize.height}
+                    style={{ zIndex: 0 }}
+                  >
+                    {blobAreas.map(blob => {
+                      // 반응성: blobPositions에서 위치 가져오기 (카드 이동 시 살짝 늦게 따라오기)
+                      const currentBounds = blobPositions[blob.id] || blob.bounds;
+                      
+                      // bounds에서 center와 radius 계산 (항상 일관되게)
+                      const cx = (currentBounds.minX + currentBounds.maxX) / 2;
+                      const cy = (currentBounds.minY + currentBounds.maxY) / 2;
+                      const rx = (currentBounds.maxX - currentBounds.minX) / 2;
+                      const ry = (currentBounds.maxY - currentBounds.minY) / 2;
+                      
+                      // 원/타원 기반 유기적 Blob path 생성 (24개 포인트 샘플링으로 더 부드러운 곡선)
+                      const seed = blob.seed;
+                      const numPoints = 24; // 20 → 24로 증가 (20% 증가, 더 매끈한 경계)
+                      const pathPoints: Array<{ x: number; y: number; radius: number }> = [];
+                      
+                      // 이전 반지름 추적 (인접 포인트 간 급격한 변화 방지)
+                      let prevRadiusX = rx;
+                      let prevRadiusY = ry;
+                      
+                      for (let i = 0; i < numPoints; i++) {
+                        const angle = (i / numPoints) * Math.PI * 2;
+                        // seed 기반으로 반지름에 ±3~6px 노이즈 추가 (스파이크 방지, 진폭 25% 감소)
+                        const noiseSeed = seed * 100 + i;
+                        const radiusNoise = (seededRandom(noiseSeed) - 0.5) * 12; // ±8px → ±6px (25% 감소)
+                        const angleNoise = (seededRandom(noiseSeed + 1000) - 0.5) * 0.08; // ±0.1 → ±0.08 rad (20% 감소)
+                        
+                        const adjustedAngle = angle + angleNoise;
+                        
+                        // 반지름에 노이즈 적용 + 인접 포인트 간 변화량 clamp (스파이크 방지)
+                        const targetRx = rx + radiusNoise * 0.35; // 0.4 → 0.35 (약간 감소)
+                        const targetRy = ry + radiusNoise * 0.35;
+                        
+                        // 인접 포인트 간 최대 변화량 제한 (±6px → ±4px, 더 강하게)
+                        const maxChange = 4; // 6 → 4로 감소 (급격한 튐 더 강하게 제거)
+                        const clampedRx = Math.max(
+                          Math.min(targetRx, prevRadiusX + maxChange),
+                          prevRadiusX - maxChange
+                        );
+                        const clampedRy = Math.max(
+                          Math.min(targetRy, prevRadiusY + maxChange),
+                          prevRadiusY - maxChange
+                        );
+                        
+                        // 최소값 보장
+                        const adjustedRx = Math.max(30, clampedRx);
+                        const adjustedRy = Math.max(30, clampedRy);
+                        
+                        prevRadiusX = adjustedRx;
+                        prevRadiusY = adjustedRy;
+                        
+                        const x = cx + Math.cos(adjustedAngle) * adjustedRx;
+                        const y = cy + Math.sin(adjustedAngle) * adjustedRy;
+                        pathPoints.push({ x, y, radius: (adjustedRx + adjustedRy) / 2 });
+                      }
+                      
+                      // SVG path 생성 (부드러운 곡선 - Catmull-Rom 스플라인 스타일)
+                      const path = pathPoints.map((point, i) => {
+                        if (i === 0) {
+                          return `M ${point.x} ${point.y}`;
+                        }
+                        
+                        const prev = pathPoints[i - 1];
+                        const next = pathPoints[(i + 1) % numPoints];
+                        const nextNext = pathPoints[(i + 2) % numPoints];
+                        
+                        // 더 부드러운 곡선을 위한 제어점 계산 (Catmull-Rom 스플라인 기반)
+                        const t = 0.5; // 곡선 강도
+                        
+                        // 이전 포인트에서 현재 포인트로의 방향
+                        const dx1 = point.x - prev.x;
+                        const dy1 = point.y - prev.y;
+                        
+                        // 현재 포인트에서 다음 포인트로의 방향
+                        const dx2 = next.x - point.x;
+                        const dy2 = next.y - point.y;
+                        
+                        // 제어점: 현재 포인트에서 약간 떨어진 위치 (부드러운 곡선)
+                        const cp1x = prev.x + dx1 * t;
+                        const cp1y = prev.y + dy1 * t;
+                        const cp2x = point.x - dx2 * t;
+                        const cp2y = point.y - dy2 * t;
+                        
+                        return `C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${point.x} ${point.y}`;
+                      }).join(' ') + ' Z';
+                      
+                      const isHovered = hoveredBlobId === blob.id || 
+                        (hoveredMemoryId && blob.memoryIds.includes(hoveredMemoryId));
+                      
+                      // 애니메이션 상태
+                      const animState = blobAnimationStates[blob.id] || 'idle';
+                      const isEntering = animState === 'entering';
+                      
+                      // 가시성 튜닝: 맥북에서도 확실히 보이도록
+                      // 색감 미세 조정: "잘 보이되, 한 발짝 물러난 필드" 느낌
+                      const baseOpacity = 0.22; // 0.24 → 0.22 (약 8% 감소, 더 살짝 연하게)
+                      const hoverOpacity = 0.30; // 0.32 → 0.30 (hover도 비례하여 조정)
+                      const currentOpacity = isHovered ? hoverOpacity : baseOpacity;
+                      
+                      // 애니메이션: entering 시 scale과 opacity 애니메이션
+                      const animOpacity = isEntering ? 0 : currentOpacity;
+                      const animScale = isEntering ? 0.98 : 1.0;
+                      // blur: 기본 4px (흐릿하지만 존재감 확보), hover 2px, entering 6px
+                      const animBlur = isEntering ? 6 : (isHovered ? 2 : 4);
+                      
+                      return (
+                        <g key={blob.id}>
+                          <path
+                            d={path}
+                            fill={blob.color}
+                            stroke={blob.color}
+                            strokeWidth={isHovered ? 1.5 : 0.8}
+                            strokeOpacity={isHovered ? 0.3 : 0.12}
+                            opacity={animOpacity}
+                            style={{
+                              filter: `blur(${animBlur}px) drop-shadow(0 8px 20px rgba(0,0,0,0.08))`,
+                              mixBlendMode: 'normal', // multiply 대신 normal로 변경 (더 확실히 보이게)
+                              transform: `scale(${animScale})`,
+                              transformOrigin: `${cx}px ${cy}px`,
+                              transition: isEntering 
+                                ? 'opacity 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.4s ease-out, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), strokeOpacity 0.4s ease-out'
+                                : 'opacity 0.25s ease-out, filter 0.25s ease-out, strokeOpacity 0.25s ease-out, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                              cursor: 'pointer',
+                              pointerEvents: 'auto',
+                            }}
+                            onMouseEnter={() => setHoveredBlobId(blob.id)}
+                            onMouseLeave={() => setHoveredBlobId(null)}
+                          />
+                        </g>
+                      );
+                    })}
+                  </svg>
+                )}
+
+                {connectionPairsArray.length > 0 && (
                   <svg
                     className="absolute inset-0 pointer-events-none"
                     width={boardSize.width}
@@ -2347,7 +2663,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   >
                     <defs>
                       {/* 각 색상별 화살표 마커 생성 (색상별로 하나만) */}
-                      {Array.from(new Set(connectionPairsWithColor.map(pair => pair.color))).map((color) => {
+                      {Array.from(new Set(connectionPairsArray.map(pair => pair.color))).map((color) => {
                         const markerId = `arrowhead-${color.replace('#', '')}`;
                         return (
                           <marker
@@ -2365,13 +2681,18 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         );
                       })}
                     </defs>
-                    {connectionPairsWithColor.map(pair => {
+                    {connectionPairsArray.map(pair => {
                       const from = positions[pair.from];
                       const to = positions[pair.to];
                       if (!from || !to) {
                         console.log('⚠️ 연결선 위치 없음:', pair, { from, to });
                         return null;
                       }
+                      
+                      // 면이 생긴 그룹 내부의 선인지 확인 (면이 주인공, 선은 힌트)
+                      const isInBlobGroup = blobAreas.some(blob => 
+                        blob.memoryIds.includes(pair.from) && blob.memoryIds.includes(pair.to)
+                      );
                       
                       // 같은 두 카드 사이의 여러 연결선을 병렬로 표시하기 위한 오프셋 계산
                       const offsetIndex = (pair as any).offsetIndex || 0;
@@ -2405,15 +2726,28 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       const note = linkNotes[getLinkKey(pair.from, pair.to)];
                       const markerId = `arrowhead-${pair.color.replace('#', '')}`;
                       
+                      // 면이 생긴 그룹의 선은 더 약하게 (면이 주인공, 선은 힌트)
+                      // hover 시에만 선을 다시 진하게 보이게
+                      const isLineHovered = hoveredBlobId && blobAreas.some(blob => 
+                        blob.id === hoveredBlobId && blob.memoryIds.includes(pair.from) && blob.memoryIds.includes(pair.to)
+                      );
+                      const lineOpacity = isInBlobGroup 
+                        ? (isLineHovered ? 0.5 : 0.2) // 기본 0.2, hover 시 0.5
+                        : 0.9;
+                      const lineWidth = isInBlobGroup ? 2 : 3;
+                      
                       return (
                         <g key={`${pair.from}-${pair.to}-${offsetIndex}`}>
                           <path
                             d={`M ${adjustedFromX} ${adjustedFromY} Q ${cx} ${cy} ${adjustedToX} ${adjustedToY}`}
                             stroke={pair.color}
-                            strokeWidth="3"
+                            strokeWidth={lineWidth}
                             fill="none"
-                            markerEnd={`url(#${markerId})`}
-                            opacity="0.9"
+                            markerEnd={isInBlobGroup ? undefined : `url(#${markerId})`}
+                            opacity={lineOpacity}
+                            style={{
+                              transition: 'opacity 0.3s ease-out, stroke-width 0.3s ease-out',
+                            }}
                           />
                           {note && (
                             <text
@@ -2673,10 +3007,17 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   const isSelected = selectedMemoryIds.has(memory.id);
                   const isDragging = draggingId === memory.id || (isSelected && draggingId && selectedMemoryIds.has(draggingId));
                   
+                  // 이 카드가 속한 Blob Area 찾기
+                  const containingBlob = blobAreas.find(blob => blob.memoryIds.includes(memory.id));
+                  const isBlobHovered = hoveredBlobId && containingBlob?.id === hoveredBlobId;
+                  const isCardHovered = hoveredMemoryId === memory.id;
+                  
                   return (
                     <div
                 key={memory.id}
                       data-memory-card={memory.id}
+                      onMouseEnter={() => setHoveredMemoryId(memory.id)}
+                      onMouseLeave={() => setHoveredMemoryId(null)}
                       onPointerDown={(event) => {
                         // 편집 모드 체크: MemoryCard 내부의 data-editing 속성 확인
                         const cardElement = (event.currentTarget as HTMLElement).querySelector(`[data-editing="true"]`);
@@ -2719,7 +3060,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       }}
                       className={`absolute ${cardSizeClass} select-none touch-none cursor-grab active:cursor-grabbing ${
                         isDragging ? 'cursor-grabbing shadow-2xl' : ''
-                      } ${isSelected ? 'ring-2 ring-blue-300/50 ring-offset-1' : ''}`}
+                      } ${isSelected ? 'ring-2 ring-blue-300/50 ring-offset-1' : ''} ${
+                        isBlobHovered ? 'ring-2 ring-blue-200/60 ring-offset-1' : ''
+                      }`}
                     >
                       <MemoryCard
                         key={memory.id} 
@@ -2785,6 +3128,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     </div>
                   );
                 })}
+                </div>
               </div>
             </div>
           </div>

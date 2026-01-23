@@ -2,16 +2,35 @@ import NextAuth, { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import { userDb } from '@/lib/db';
 
+// 개발 환경에서 NEXTAUTH_URL 자동 감지
+const getBaseUrl = () => {
+  if (process.env.NEXTAUTH_URL) {
+    return process.env.NEXTAUTH_URL;
+  }
+  // 개발 환경에서 자동 감지
+  if (process.env.NODE_ENV === 'development') {
+    return process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3000';
+  }
+  // 프로덕션 환경에서는 필수
+  throw new Error('NEXTAUTH_URL 환경 변수가 설정되지 않았습니다.');
+};
+
+const baseUrl = getBaseUrl();
+
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   console.warn('⚠️ Google OAuth 환경 변수가 설정되지 않았습니다. GOOGLE_CLIENT_ID와 GOOGLE_CLIENT_SECRET을 설정해주세요.');
 }
 
 // 디버깅: NEXTAUTH_URL 확인
-if (process.env.NEXTAUTH_URL) {
-  console.log('📌 NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
-  console.log('📌 예상 리디렉션 URI:', `${process.env.NEXTAUTH_URL}/api/auth/callback/google`);
-} else {
-  console.warn('⚠️ NEXTAUTH_URL이 설정되지 않았습니다. 리디렉션 URI 오류가 발생할 수 있습니다.');
+console.log('📌 NEXTAUTH_URL:', baseUrl);
+console.log('📌 예상 리디렉션 URI:', `${baseUrl}/api/auth/callback/google`);
+
+// NEXTAUTH_SECRET 확인
+if (!process.env.NEXTAUTH_SECRET) {
+  console.warn('⚠️ NEXTAUTH_SECRET이 설정되지 않았습니다. 개발 환경에서는 기본값을 사용합니다.');
+  console.warn('⚠️ 프로덕션 환경에서는 반드시 NEXTAUTH_SECRET을 설정해주세요.');
 }
 
 const authOptions: NextAuthOptions = {
@@ -69,7 +88,7 @@ const authOptions: NextAuthOptions = {
   pages: {
     signIn: '/auth/signin',
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || (process.env.NODE_ENV === 'development' ? 'development-secret-key-change-in-production' : undefined),
   // 세션 쿠키 설정
   session: {
     strategy: 'jwt',

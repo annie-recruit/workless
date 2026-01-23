@@ -1,5 +1,10 @@
 const withPWA = require('next-pwa');
 
+// 개발 환경에서 NEXTAUTH_URL 자동 설정
+if (process.env.NODE_ENV === 'development' && !process.env.NEXTAUTH_URL) {
+  process.env.NEXTAUTH_URL = 'http://localhost:3000';
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   /* config options here */
@@ -14,6 +19,10 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  // 환경 변수 설정
+  env: {
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : undefined),
   },
 };
 
