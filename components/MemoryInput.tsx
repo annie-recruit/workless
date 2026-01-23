@@ -121,9 +121,35 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
             });
           }
         },
-        (error) => {
-          console.error('위치 정보 가져오기 실패:', error);
-          setLocationError('위치 정보를 가져올 수 없습니다');
+        (error: GeolocationPositionError) => {
+          // GeolocationPositionError의 code와 message를 사용하여 더 자세한 에러 정보 제공
+          let errorMessage = '위치 정보를 가져올 수 없습니다';
+          
+          if (error) {
+            switch (error.code) {
+              case error.PERMISSION_DENIED:
+                errorMessage = '위치 정보 접근이 거부되었습니다';
+                break;
+              case error.POSITION_UNAVAILABLE:
+                errorMessage = '위치 정보를 사용할 수 없습니다';
+                break;
+              case error.TIMEOUT:
+                errorMessage = '위치 정보 요청 시간이 초과되었습니다';
+                break;
+              default:
+                errorMessage = error.message || '위치 정보를 가져올 수 없습니다';
+                break;
+            }
+            console.error('위치 정보 가져오기 실패:', {
+              code: error.code,
+              message: error.message,
+              error,
+            });
+          } else {
+            console.error('위치 정보 가져오기 실패: 알 수 없는 에러');
+          }
+          
+          setLocationError(errorMessage);
         },
         {
           enableHighAccuracy: true,

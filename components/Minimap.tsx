@@ -1,7 +1,21 @@
 'use client';
 
-import { useMemo, useCallback, useState, useRef } from 'react';
+import { useEffect, useMemo, useCallback, useState, useRef, useLayoutEffect } from 'react';
 import { Memory, CanvasBlock } from '@/types';
+
+interface BlobArea {
+  id: string;
+  bounds: { minX: number; minY: number; maxX: number; maxY: number };
+  color?: string;
+  points?: Array<{ x: number; y: number }>;
+}
+
+interface ConnectionPair {
+  from: string;
+  to: string;
+  points?: Array<{ x: number; y: number }>;
+  color?: string;
+}
 
 interface MinimapProps {
   boardSize: { width: number; height: number };
@@ -14,6 +28,9 @@ interface MinimapProps {
   cardSize: 's' | 'm' | 'l';
   cardColorMap: Record<string, 'green' | 'pink' | 'purple'>;
   cardColor: 'green' | 'pink' | 'purple';
+  blobAreas?: BlobArea[];
+  connectionPairs?: ConnectionPair[];
+  headerHeight?: number;
 }
 
 const CARD_DIMENSIONS = {
@@ -22,7 +39,6 @@ const CARD_DIMENSIONS = {
   l: { width: 280, height: 200 },
 } as const;
 
-// 위젯 타입별 이모지 매핑
 const WIDGET_EMOJI_MAP: Record<string, string> = {
   viewer: '📺',
   calendar: '📅',
@@ -31,10 +47,12 @@ const WIDGET_EMOJI_MAP: Record<string, string> = {
   default: '📌',
 };
 
-// 이모지 크기 제한
 const MIN_EMOJI_SIZE = 10;
-const MAX_EMOJI_SIZE = 20;
-const EMOJI_SIZE_RATIO = 0.4; // 미니맵에서 위젯 크기 대비 이모지 크기 비율 (40%)
+const MAX_EMOJI_SIZE = 18;
+const EMOJI_SIZE_RATIO = 0.45;
+
+// 화면에서 아이콘 간격을 조금 압축(더 근접하게 보이도록)
+const DISPLAY_COMPRESSION = 0.78;
 
 interface SymbolItem {
   id: string;
@@ -49,6 +67,14 @@ interface SymbolItem {
   originalHeight: number;
 }
 
+function parseHexColor(hex = '#DDEBF7') {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2) || 'DD', 16);
+  const g = parseInt(h.slice(2, 4) || 'EB', 16);
+  const b = parseInt(h.slice(4, 6) || 'F7', 16);
+  return { r, g, b };
+}
+
 export default function Minimap({
   boardSize,
   positions,
@@ -60,321 +86,538 @@ export default function Minimap({
   cardSize,
   cardColorMap,
   cardColor,
+  blobAreas = [],
+  connectionPairs = [],
+  headerHeight: propHeaderHeight,
 }: MinimapProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const minimapWidth = 240;
-  const minimapHeight = 160;
-  const headerHeight = 40; // 헤더 높이 (px-3 py-2)
-  const availableHeight = minimapHeight - headerHeight; // 헤더를 제외한 사용 가능한 높이
-  const padding = 8;
+  const maxContainerWidth = 720;
+  const maxContainerHeight = 560;
+  const contentPadding = 10;
+  const localHeaderHeight = propHeaderHeight ?? 36;
 
-  // 캔버스 bounds 계산 (모든 아이템 포함)
+  // 부모(블록 / modal) 실제 사용 가능한 영역 측정 — 이걸로 스케일과 컨테이너 크기 결정
+  const [measured, setMeasured] = useState({ w: maxContainerWidth, h: maxContainerHeight });
+  const [parentIsPositioned, setParentIsPositioned] = useState(true);
+  useLayoutEffect(() => {
+    const el = containerRef.current?.parentElement ?? containerRef.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      setMeasured({ w: Math.max(220, Math.floor(r.width)), h: Math.max(140, Math.floor(r.height)) });
+      const style = typeof window !== 'undefined' ? window.getComputedStyle(el) : null;
+      setParentIsPositioned(!!style && style.position !== 'static');
+    };
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    measure();
+    return () => ro.disconnect();
+  }, []);
+
+  // 1) content bounds in board coordinates (memories, blocks, blobs)
   const canvasBounds = useMemo(() => {
-    let minX = 0;
-    let minY = 0;
-    let maxX = boardSize.width;
-    let maxY = boardSize.height;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-    // 메모리 카드 bounds
     memories.forEach(memory => {
       const pos = positions[memory.id];
       if (pos) {
-        const cardDims = CARD_DIMENSIONS[cardSize];
+        const dims = CARD_DIMENSIONS[cardSize];
         minX = Math.min(minX, pos.x);
         minY = Math.min(minY, pos.y);
-        maxX = Math.max(maxX, pos.x + cardDims.width);
-        maxY = Math.max(maxY, pos.y + cardDims.height);
+        maxX = Math.max(maxX, pos.x + dims.width);
+        maxY = Math.max(maxY, pos.y + dims.height);
       }
     });
 
-    // 블록 bounds
     blocks.forEach(block => {
-      const w = block.width || 350;
-      const h = block.height || 200;
-      minX = Math.min(minX, block.x);
-      minY = Math.min(minY, block.y);
-      maxX = Math.max(maxX, block.x + w);
-      maxY = Math.max(maxY, block.y + h);
+      if (typeof block.x === 'number' && typeof block.y === 'number') {
+        const w = block.width ?? 350;
+        const h = block.height ?? 200;
+        minX = Math.min(minX, block.x);
+        minY = Math.min(minY, block.y);
+        maxX = Math.max(maxX, block.x + w);
+        maxY = Math.max(maxY, block.y + h);
+      }
     });
 
-    // 최소 크기 보장
-    const width = Math.max(maxX - minX, boardSize.width);
-    const height = Math.max(maxY - minY, boardSize.height);
+    if (Array.isArray(blobAreas)) {
+      blobAreas.forEach(blob => {
+        if (!blob?.bounds) return;
+        minX = Math.min(minX, blob.bounds.minX);
+        minY = Math.min(minY, blob.bounds.minY);
+        maxX = Math.max(maxX, blob.bounds.maxX);
+        maxY = Math.max(maxY, blob.bounds.maxY);
+      });
+    }
 
-    return { minX, minY, width, height };
-  }, [boardSize, positions, blocks, memories, cardSize]);
+    if (minX === Infinity || minY === Infinity || maxX === -Infinity || maxY === -Infinity) {
+      return { minX: 0, minY: 0, width: boardSize.width, height: boardSize.height };
+    }
 
-  // 스케일 계산 (헤더 높이를 제외한 영역 사용)
-  const scale = useMemo(() => {
-    if (canvasBounds.width <= 0 || canvasBounds.height <= 0) return 0;
-    return Math.min(
-      (minimapWidth - padding * 2) / canvasBounds.width,
-      (availableHeight - padding * 2) / canvasBounds.height
-    );
-  }, [canvasBounds, minimapWidth, availableHeight, padding]);
-
-  // 좌표 변환: 캔버스 좌표 → 미니맵 좌표
-  const transformToMinimap = useCallback((x: number, y: number) => {
-    const offsetX = (minimapWidth - canvasBounds.width * scale) / 2;
-    const offsetY = (availableHeight - canvasBounds.height * scale) / 2;
+    const width = maxX - minX;
+    const height = maxY - minY;
     return {
-      x: offsetX + (x - canvasBounds.minX) * scale,
-      y: offsetY + (y - canvasBounds.minY) * scale,
+      minX: minX - contentPadding,
+      minY: minY - contentPadding,
+      width: width + contentPadding * 2,
+      height: height + contentPadding * 2,
     };
-  }, [minimapWidth, availableHeight, canvasBounds, scale]);
+  }, [memories, positions, blocks, blobAreas, boardSize, cardSize]);
 
-  // 심볼 아이템 생성
+  // 2) compute scale to fit content into measured parent area
+  const baseScale = useMemo(() => {
+    if (canvasBounds.width <= 0 || canvasBounds.height <= 0) return 0;
+    // available space inside parent (reserve small frame)
+    const availW = Math.max(120, Math.min(measured.w - 24, maxContainerWidth));
+    const availH = Math.max(100, Math.min(measured.h - localHeaderHeight - 24, maxContainerHeight));
+    return Math.min(availW / canvasBounds.width, availH / canvasBounds.height);
+  }, [canvasBounds, measured, localHeaderHeight]);
+
+  if (baseScale <= 0) return null;
+
+  // displayScale compresses distances slightly to make icons closer (cute)
+  const displayScale = baseScale * DISPLAY_COMPRESSION;
+
+  // 3) board pixel dims (visual)
+  const boardPixelWidth = canvasBounds.width * displayScale;
+  const boardPixelHeight = canvasBounds.height * displayScale;
+
+  // container dims: ensure it fits inside measured parent and global max.
+  const framePaddingHorizontal = 16; // small frame so content doesn't touch edges
+  const framePaddingVertical = 16;
+  let containerWidth = Math.min(Math.ceil(boardPixelWidth + framePaddingHorizontal), measured.w - 12, maxContainerWidth);
+  let containerHeight = Math.min(Math.ceil(localHeaderHeight + boardPixelHeight + framePaddingVertical), measured.h - 12, maxContainerHeight);
+
+  // Center the board area inside container (gives small frame margin)
+  const offsetX = Math.round(Math.max(8, (containerWidth - boardPixelWidth) / 2));
+  const offsetY = Math.round(localHeaderHeight + Math.max(6, (containerHeight - localHeaderHeight - boardPixelHeight) / 2));
+
+  // transforms
+  const transformToMinimap = useCallback(
+    (x: number, y: number) => ({
+      x: offsetX + (x - canvasBounds.minX) * displayScale,
+      y: offsetY + (y - canvasBounds.minY) * displayScale,
+    }),
+    [offsetX, offsetY, canvasBounds.minX, displayScale]
+  );
+
+  const transformFromMinimap = useCallback(
+    (mx: number, my: number) => ({
+      x: (mx - offsetX) / displayScale + canvasBounds.minX,
+      y: (my - offsetY) / displayScale + canvasBounds.minY,
+    }),
+    [offsetX, offsetY, canvasBounds.minX, displayScale]
+  );
+
+  // 4) symbol items
   const symbolItems = useMemo(() => {
     const items: SymbolItem[] = [];
 
-    // 메모리 카드 심볼
     memories.forEach(memory => {
-      const position = positions[memory.id];
-      if (!position) return;
-
-      const cardDims = CARD_DIMENSIONS[cardSize];
-      // 미니맵에서 위젯의 실제 크기 (스케일 적용)
-      const scaledWidth = cardDims.width * scale;
-      const scaledHeight = cardDims.height * scale;
-      // 이모지 크기는 위젯의 미니맵 크기에 비례 (더 작은 쪽 기준)
-      const widgetSize = Math.min(scaledWidth, scaledHeight);
-      const size = Math.max(
-        MIN_EMOJI_SIZE,
-        Math.min(MAX_EMOJI_SIZE, widgetSize * EMOJI_SIZE_RATIO)
-      );
-
-      const { x, y } = transformToMinimap(position.x, position.y);
+      const pos = positions[memory.id];
+      if (!pos) return;
+      const dims = CARD_DIMENSIONS[cardSize];
+      const scaledW = dims.width * displayScale;
+      const scaledH = dims.height * displayScale;
+      const widgetSize = Math.min(scaledW, scaledH);
+      const size = Math.max(MIN_EMOJI_SIZE, Math.min(MAX_EMOJI_SIZE, widgetSize * EMOJI_SIZE_RATIO));
+      const { x, y } = transformToMinimap(pos.x, pos.y);
 
       items.push({
         id: `memory-${memory.id}`,
         type: 'memory',
         emoji: WIDGET_EMOJI_MAP.memory,
-        x: x + scaledWidth / 2 - size / 2, // 중앙 정렬
-        y: y + scaledHeight / 2 - size / 2,
+        x: x + scaledW / 2 - size / 2,
+        y: y + scaledH / 2 - size / 2,
         size,
-        originalX: position.x,
-        originalY: position.y,
-        originalWidth: cardDims.width,
-        originalHeight: cardDims.height,
+        originalX: pos.x,
+        originalY: pos.y,
+        originalWidth: dims.width,
+        originalHeight: dims.height,
       });
     });
 
-    // 블록 심볼
     blocks.forEach(block => {
-      if (block.type === 'minimap') return; // 미니맵 자체는 제외
-
-      const width = block.width || 350;
-      const height = block.height || 200;
-      // 미니맵에서 위젯의 실제 크기 (스케일 적용)
-      const scaledWidth = width * scale;
-      const scaledHeight = height * scale;
-      // 이모지 크기는 위젯의 미니맵 크기에 비례 (더 작은 쪽 기준)
-      const widgetSize = Math.min(scaledWidth, scaledHeight);
-      const size = Math.max(
-        MIN_EMOJI_SIZE,
-        Math.min(MAX_EMOJI_SIZE, widgetSize * EMOJI_SIZE_RATIO)
-      );
-
+      if (block.type === 'minimap') return;
+      if (typeof block.x !== 'number' || typeof block.y !== 'number') return;
+      const w = block.width ?? 350;
+      const h = block.height ?? 200;
+      const scaledW = w * displayScale;
+      const scaledH = h * displayScale;
+      const widgetSize = Math.min(scaledW, scaledH);
+      const size = Math.max(MIN_EMOJI_SIZE, Math.min(MAX_EMOJI_SIZE, widgetSize * EMOJI_SIZE_RATIO));
       const { x, y } = transformToMinimap(block.x, block.y);
 
       items.push({
         id: `block-${block.id}`,
         type: 'block',
         emoji: WIDGET_EMOJI_MAP[block.type] || WIDGET_EMOJI_MAP.default,
-        x: x + scaledWidth / 2 - size / 2, // 중앙 정렬
-        y: y + scaledHeight / 2 - size / 2,
+        x: x + scaledW / 2 - size / 2,
+        y: y + scaledH / 2 - size / 2,
         size,
         originalX: block.x,
         originalY: block.y,
-        originalWidth: width,
-        originalHeight: height,
+        originalWidth: w,
+        originalHeight: h,
       });
     });
 
     return items;
-  }, [memories, positions, blocks, cardSize, scale, transformToMinimap]);
+  }, [memories, positions, blocks, cardSize, displayScale, transformToMinimap]);
 
-  // 뷰포트 영역 계산
+  // 5) viewport rect
   const viewportRect = useMemo(() => {
-    if (viewportBounds.width <= 0 || viewportBounds.height <= 0) return null;
-
+    if (!viewportBounds || viewportBounds.width <= 0 || viewportBounds.height <= 0) return null;
     const { x, y } = transformToMinimap(viewportBounds.left, viewportBounds.top);
-    const w = viewportBounds.width * scale;
-    const h = viewportBounds.height * scale;
+    return { x, y, width: viewportBounds.width * displayScale, height: viewportBounds.height * displayScale };
+  }, [viewportBounds, displayScale, transformToMinimap]);
 
-    return { x, y, width: w, height: h };
-  }, [viewportBounds, scale, transformToMinimap]);
+  // helper
+  const findSymbolByRef = useCallback(
+    (ref?: string) => {
+      if (!ref) return undefined;
+      let found = symbolItems.find(it => it.id === ref);
+      if (found) return found;
+      const raw = ref.replace(/^memory-/, '').replace(/^block-/, '');
+      found = symbolItems.find(it => it.id === `memory-${raw}`) || symbolItems.find(it => it.id === `block-${raw}`);
+      return found;
+    },
+    [symbolItems]
+  );
 
-  // 심볼 클릭 핸들러
-  const handleSymbolClick = useCallback((item: SymbolItem) => {
-    if (!boardContainerRef.current) return;
+  // 6) draw on canvas (blobs then connections). Increased center intensity and halo.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || displayScale <= 0) return;
 
-    // 원본 캔버스 위치로 이동
-    const targetX = item.originalX + item.originalWidth / 2;
-    const targetY = item.originalY + item.originalHeight / 2;
+    const cssW = Math.max(1, Math.ceil(boardPixelWidth));
+    const cssH = Math.max(1, Math.ceil(boardPixelHeight));
+    canvas.style.width = `${cssW}px`;
+    canvas.style.height = `${cssH}px`;
+    canvas.width = Math.round(cssW * (window.devicePixelRatio || 1));
+    canvas.height = Math.round(cssH * (window.devicePixelRatio || 1));
+    const dpr = window.devicePixelRatio || 1;
 
-    const targetScrollLeft = Math.max(0, Math.min(
-      targetX * zoom - boardContainerRef.current.clientWidth / 2,
-      boardSize.width * zoom - boardContainerRef.current.clientWidth
-    ));
-    const targetScrollTop = Math.max(0, Math.min(
-      targetY * zoom - boardContainerRef.current.clientHeight / 2,
-      boardSize.height * zoom - boardContainerRef.current.clientHeight
-    ));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
 
-    boardContainerRef.current.scrollTo({
-      left: targetScrollLeft,
-      top: targetScrollTop,
-      behavior: 'smooth',
-    });
-  }, [boardContainerRef, zoom, boardSize]);
+    // blobs
+    if (Array.isArray(blobAreas) && blobAreas.length > 0) {
+      blobAreas.forEach(blob => {
+        if (!blob?.bounds) return;
 
-  // 배경 클릭 핸들러 (뷰포트 드래그)
-  const handleBackgroundPointerDown = useCallback((e: React.PointerEvent) => {
-    if (!viewportRect) return;
+        const minMapped = transformToMinimap(blob.bounds.minX, blob.bounds.minY);
+        const maxMapped = transformToMinimap(blob.bounds.maxX, blob.bounds.maxY);
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+        const x = minMapped.x - offsetX;
+        const y = minMapped.y - offsetY;
+        const width = Math.max(12, maxMapped.x - minMapped.x);
+        const height = Math.max(12, maxMapped.y - minMapped.y);
+        const cx = x + width / 2;
+        const cy = y + height / 2;
+        const rx = Math.max(8, width / 2);
+        const ry = Math.max(8, height / 2);
 
-    // 뷰포트 영역 내 클릭인지 확인
-    const isInViewport =
-      mouseX >= viewportRect.x &&
-      mouseX <= viewportRect.x + viewportRect.width &&
-      mouseY >= viewportRect.y &&
-      mouseY <= viewportRect.y + viewportRect.height;
+        const color = blob.color || '#DDEBF7';
+        const { r, g, b } = parseHexColor(color);
 
-    if (isInViewport && boardContainerRef.current) {
-      setIsDragging(true);
-      dragStartRef.current = { x: mouseX, y: mouseY };
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } else {
-      // 배경 클릭 → 해당 위치로 이동
-      const offsetX = (minimapWidth - canvasBounds.width * scale) / 2;
-      const offsetY = (minimapHeight - canvasBounds.height * scale) / 2;
-      const boardX = (mouseX - offsetX) / scale + canvasBounds.minX;
-      const boardY = (mouseY - offsetY) / scale + canvasBounds.minY;
+        // halo (soft blurred larger ellipse)
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx * 1.5, ry * 1.5, 0, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.16)`;
+        // soft blur using shadow trick + globalAlpha fallback
+        ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.20)`;
+        ctx.shadowBlur = Math.max(8, Math.round(18 * (1 / DISPLAY_COMPRESSION)));
+        ctx.fill();
+        ctx.restore();
 
-      if (boardContainerRef.current) {
-        const targetScrollLeft = Math.max(0, Math.min(
-          boardX * zoom - boardContainerRef.current.clientWidth / 2,
-          boardSize.width * zoom - boardContainerRef.current.clientWidth
-        ));
-        const targetScrollTop = Math.max(0, Math.min(
-          boardY * zoom - boardContainerRef.current.clientHeight / 2,
-          boardSize.height * zoom - boardContainerRef.current.clientHeight
-        ));
+        // main radial gradient (stronger center)
+        const grad = ctx.createRadialGradient(cx, cy, Math.min(rx, ry) * 0.05, cx, cy, Math.max(rx, ry));
+        grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.92)`);
+        grad.addColorStop(0.45, `rgba(${r}, ${g}, ${b}, 0.46)`);
+        grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.12)`);
 
-        boardContainerRef.current.scrollTo({
-          left: targetScrollLeft,
-          top: targetScrollTop,
-          behavior: 'smooth',
-        });
-      }
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      });
     }
-  }, [viewportRect, boardContainerRef, minimapWidth, minimapHeight, canvasBounds, scale, zoom, boardSize]);
 
-  const handleBackgroundPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isDragging || !dragStartRef.current || !boardContainerRef.current || !viewportRect) return;
+    // connections (over blobs)
+    if (Array.isArray(connectionPairs) && connectionPairs.length > 0) {
+      ctx.save();
+      ctx.lineCap = 'round';
+      connectionPairs.forEach(pair => {
+        let strokeColor = 'rgba(99,102,241,0.5)';
+        if ((pair as any).color) strokeColor = (pair as any).color;
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+        if (pair.points && pair.points.length >= 2) {
+          const mapped = pair.points.map(p => {
+            const m = transformToMinimap(p.x, p.y);
+            return { x: m.x - offsetX, y: m.y - offsetY };
+          });
+          ctx.beginPath();
+          ctx.moveTo(mapped[0].x, mapped[0].y);
+          for (let i = 1; i < mapped.length; i++) ctx.lineTo(mapped[i].x, mapped[i].y);
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = Math.max(1, 1.2 * displayScale);
+          ctx.globalAlpha = 0.9;
+          ctx.stroke();
+          return;
+        }
 
-    const deltaX = (mouseX - dragStartRef.current.x) / scale;
-    const deltaY = (mouseY - dragStartRef.current.y) / scale;
+        const fromSym = findSymbolByRef(pair.from);
+        const toSym = findSymbolByRef(pair.to);
+        if (!fromSym || !toSym) return;
 
-    const currentScrollLeft = boardContainerRef.current.scrollLeft;
-    const currentScrollTop = boardContainerRef.current.scrollTop;
+        const fx = fromSym.x + fromSym.size / 2 - offsetX;
+        const fy = fromSym.y + fromSym.size / 2 - offsetY;
+        const tx = toSym.x + toSym.size / 2 - offsetX;
+        const ty = toSym.y + toSym.size / 2 - offsetY;
 
-    const newScrollLeft = Math.max(0, Math.min(
-      currentScrollLeft + deltaX * zoom,
-      boardSize.width * zoom - boardContainerRef.current.clientWidth
-    ));
-    const newScrollTop = Math.max(0, Math.min(
-      currentScrollTop + deltaY * zoom,
-      boardSize.height * zoom - boardContainerRef.current.clientHeight
-    ));
+        const dx = tx - fx;
+        const dy = ty - fy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 2) return;
 
-    boardContainerRef.current.scrollTo({
-      left: newScrollLeft,
-      top: newScrollTop,
-      behavior: 'auto',
-    });
+        // cute curve: control point offset perpendicular to the line,
+        // scaled by distance and a small easing factor so short lines curve less.
+        const normX = dx / dist;
+        const normY = dy / dist;
+        const perpX = -normY;
+        const perpY = normX;
+        const offsetFactor = Math.min(0.36, 0.18 + Math.min(1, dist / 200) * 0.24); // adapt to distance
+        const curvature = dist * offsetFactor;
+        const midX = (fx + tx) / 2 + perpX * curvature;
+        const midY = (fy + ty) / 2 + perpY * curvature * 0.85;
 
-    dragStartRef.current = { x: mouseX, y: mouseY };
-  }, [isDragging, scale, zoom, boardSize, viewportRect, boardContainerRef]);
+        ctx.beginPath();
+        ctx.moveTo(fx, fy);
+        // use quadratic curve for smoothness
+        ctx.quadraticCurveTo(midX, midY, tx, ty);
+
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = Math.max(1, 1.4 * displayScale);
+        ctx.globalAlpha = 0.95;
+        ctx.stroke();
+
+        // small subtle dot at midpoint (cute)
+        ctx.beginPath();
+        ctx.fillStyle = strokeColor;
+        ctx.globalAlpha = 0.85;
+        ctx.arc(midX, midY, Math.max(0.8, 1.6 * displayScale), 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
+  }, [
+    canvasRef,
+    blobAreas,
+    connectionPairs,
+    transformToMinimap,
+    findSymbolByRef,
+    offsetX,
+    offsetY,
+    boardPixelWidth,
+    boardPixelHeight,
+    displayScale,
+  ]);
+
+  // handlers (pan-to / drag)
+  const handleBackgroundPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      if (mouseY < localHeaderHeight) return;
+      if (viewportRect) {
+        const isInViewport = mouseX >= viewportRect.x && mouseX <= viewportRect.x + viewportRect.width && mouseY >= viewportRect.y && mouseY <= viewportRect.y + viewportRect.height;
+        if (isInViewport && boardContainerRef.current) {
+          setIsDragging(true);
+          dragStartRef.current = { x: mouseX, y: mouseY };
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+          return;
+        }
+      }
+      const boardCoord = transformFromMinimap(mouseX, mouseY);
+      if (!boardContainerRef.current) return;
+      const left = Math.max(0, Math.min(boardCoord.x * zoom - boardContainerRef.current.clientWidth / 2, boardSize.width * zoom - boardContainerRef.current.clientWidth));
+      const top = Math.max(0, Math.min(boardCoord.y * zoom - boardContainerRef.current.clientHeight / 2, boardSize.height * zoom - boardContainerRef.current.clientHeight));
+      boardContainerRef.current.scrollTo({ left, top, behavior: 'smooth' });
+    },
+    [viewportRect, boardContainerRef, transformFromMinimap, zoom, boardSize, localHeaderHeight]
+  );
+
+  const handleBackgroundPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!isDragging || !dragStartRef.current || !boardContainerRef.current || !viewportRect) return;
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      const deltaX = (mouseX - dragStartRef.current.x) / displayScale;
+      const deltaY = (mouseY - dragStartRef.current.y) / displayScale;
+      const curLeft = boardContainerRef.current.scrollLeft;
+      const curTop = boardContainerRef.current.scrollTop;
+      const newLeft = Math.max(0, Math.min(curLeft + deltaX * zoom, boardSize.width * zoom - boardContainerRef.current.clientWidth));
+      const newTop = Math.max(0, Math.min(curTop + deltaY * zoom, boardSize.height * zoom - boardContainerRef.current.clientHeight));
+      boardContainerRef.current.scrollTo({ left: newLeft, top: newTop, behavior: 'auto' });
+      dragStartRef.current = { x: mouseX, y: mouseY };
+    },
+    [isDragging, displayScale, zoom, boardSize, viewportRect, boardContainerRef]
+  );
 
   const handleBackgroundPointerUp = useCallback(() => {
     setIsDragging(false);
     dragStartRef.current = null;
   }, []);
 
-  // 보드 크기가 없으면 렌더링하지 않음
-  if (boardSize.width <= 0 || boardSize.height <= 0 || scale <= 0) {
-    return null;
-  }
+  const handleSymbolClick = useCallback(
+    (item: SymbolItem) => {
+      if (!boardContainerRef.current) return;
+      const targetX = item.originalX + item.originalWidth / 2;
+      const targetY = item.originalY + item.originalHeight / 2;
+      const left = Math.max(0, Math.min(targetX * zoom - boardContainerRef.current.clientWidth / 2, boardSize.width * zoom - boardContainerRef.current.clientWidth));
+      const top = Math.max(0, Math.min(targetY * zoom - boardContainerRef.current.clientHeight / 2, boardSize.height * zoom - boardContainerRef.current.clientHeight));
+      boardContainerRef.current.scrollTo({ left, top, behavior: 'smooth' });
+    },
+    [boardContainerRef, zoom, boardSize]
+  );
+
+  if (boardSize.width <= 0 || boardSize.height <= 0 || displayScale <= 0) return null;
+
+  const containerAbsoluteStyle: React.CSSProperties = {
+    position: 'absolute',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    top: `${Math.max(8, 12)}px`,
+    width: `${containerWidth}px`,
+    height: `${containerHeight}px`,
+    zIndex: 999,
+    cursor: isDragging ? 'grabbing' : 'pointer',
+  };
+
+  const containerBlockStyle: React.CSSProperties = {
+    width: `${containerWidth}px`,
+    height: `${containerHeight}px`,
+    margin: '12px auto',
+    cursor: isDragging ? 'grabbing' : 'pointer',
+  };
 
   return (
     <div
-      className="relative w-full h-full bg-gray-50 rounded-lg overflow-hidden"
+      ref={containerRef}
+      className="relative bg-gray-50 rounded-lg overflow-hidden shadow-sm"
       onPointerDown={handleBackgroundPointerDown}
       onPointerMove={handleBackgroundPointerMove}
       onPointerUp={handleBackgroundPointerUp}
       onPointerCancel={handleBackgroundPointerUp}
-      style={{ cursor: isDragging ? 'grabbing' : 'pointer' }}
+      style={parentIsPositioned ? containerAbsoluteStyle : containerBlockStyle}
     >
-      {/* 보드 영역 배경 */}
+      {/* header spacer (title handled outside) */}
+      <div style={{ height: `${localHeaderHeight}px` }} />
+
+      {/* board background */}
       <div
         className="absolute bg-white border border-gray-200 rounded"
         style={{
-          left: `${(minimapWidth - canvasBounds.width * scale) / 2}px`,
-          top: `${(availableHeight - canvasBounds.height * scale) / 2}px`,
-          width: `${canvasBounds.width * scale}px`,
-          height: `${canvasBounds.height * scale}px`,
+          left: `${offsetX}px`,
+          top: `${offsetY}px`,
+          width: `${Math.ceil(boardPixelWidth)}px`,
+          height: `${Math.ceil(boardPixelHeight)}px`,
+          boxSizing: 'border-box',
+          zIndex: 1,
         }}
       />
 
-      {/* 심볼 아이템들 */}
-      {symbolItems.map(item => (
-        <div
-          key={item.id}
-          className="absolute flex items-center justify-center transition-all duration-150 select-none"
-          style={{
-            left: `${item.x}px`,
-            top: `${item.y}px`,
-            width: `${item.size}px`,
-            height: `${item.size}px`,
-            fontSize: `${item.size}px`,
-            lineHeight: `${item.size}px`,
-            transform: hoveredItem === item.id ? 'scale(1.3)' : 'scale(1)',
-            zIndex: hoveredItem === item.id ? 10 : 1,
-            cursor: 'pointer',
-          }}
-          onMouseEnter={() => setHoveredItem(item.id)}
-          onMouseLeave={() => setHoveredItem(null)}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleSymbolClick(item);
-          }}
-          title={`${item.type === 'memory' ? 'Memory' : 'Block'}: ${item.id}`}
-        >
-          {item.emoji}
-        </div>
-      ))}
+      {/* canvas draws blobs + connections */}
+      <canvas
+        ref={canvasRef}
+        className="absolute pointer-events-none"
+        style={{
+          left: `${offsetX}px`,
+          top: `${offsetY}px`,
+          width: `${Math.ceil(boardPixelWidth)}px`,
+          height: `${Math.ceil(boardPixelHeight)}px`,
+          zIndex: 5,
+        }}
+      />
 
-      {/* 뷰포트 영역 */}
+      {/* symbols (emojis) with subtle 3D / embossed appearance */}
+      {symbolItems.map(item => {
+        // emoji background subtle radial, text-shadow layers for depth
+        const bgSize = Math.max(18, item.size + 6);
+        const bgGrad = `radial-gradient(circle at 35% 30%, rgba(255,255,255,0.85), rgba(255,255,255,0.5) 20%, rgba(0,0,0,0.02) 80%)`;
+        const shadow = `${item.size * 0.05}px ${item.size * 0.08}px ${Math.max(2, item.size * 0.25)}px rgba(0,0,0,0.12)`;
+        return (
+          <div
+            key={item.id}
+            className="absolute flex items-center justify-center select-none"
+            style={{
+              left: `${item.x}px`,
+              top: `${item.y}px`,
+              width: `${bgSize}px`,
+              height: `${bgSize}px`,
+              fontSize: `${item.size}px`,
+              lineHeight: `${item.size}px`,
+              transform: hoveredItem === item.id ? 'scale(1.28)' : 'scale(1)',
+              zIndex: hoveredItem === item.id ? 30 : 20,
+              cursor: 'pointer',
+              transition: 'transform 140ms',
+              borderRadius: '999px',
+              background: bgGrad,
+              boxShadow: shadow,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              // small inner uplift to make it feel '3D'
+              transformOrigin: 'center center',
+            }}
+            onMouseEnter={() => setHoveredItem(item.id)}
+            onMouseLeave={() => setHoveredItem(null)}
+            onClick={e => {
+              e.stopPropagation();
+              handleSymbolClick(item);
+            }}
+            title={`${item.type === 'memory' ? 'Memory' : 'Block'}: ${item.id}`}
+          >
+            <span
+              style={{
+                display: 'inline-block',
+                transform: 'translateY(-2%)',
+                // multi-layer text shadows for embossed look
+                textShadow: `0 0 0 rgba(0,0,0,0), 0 1px 0 rgba(255,255,255,0.6), 0 3px 6px rgba(0,0,0,0.12)`,
+                filter: 'drop-shadow(0 1px 0 rgba(255,255,255,0.6))',
+                lineHeight: 1,
+              }}
+            >
+              {item.emoji}
+            </span>
+          </div>
+        );
+      })}
+
+      {/* viewport overlay */}
       {viewportRect && (
         <div
-          className="absolute border-2 border-indigo-400 bg-indigo-50/30 rounded pointer-events-none"
+          className="absolute pointer-events-none"
           style={{
             left: `${viewportRect.x}px`,
             top: `${viewportRect.y}px`,
             width: `${viewportRect.width}px`,
             height: `${viewportRect.height}px`,
+            border: '2px solid rgba(37,99,235,0.7)',
+            background: 'rgba(59,130,246,0.06)',
+            borderRadius: '8px',
+            zIndex: 40,
           }}
         />
       )}

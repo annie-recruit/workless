@@ -14,6 +14,7 @@ export interface Memory {
   title?: string;           // 제목 (선택)
   content: string;          // 사용자 입력 원문
   createdAt: number;        // timestamp
+  derivedFromCardId?: string; // 요약 파생 출처 카드 ID
   
   // AI 자동 분류
   topic?: string;           // 아이디어/업무/커리어/감정/기록
@@ -108,7 +109,7 @@ export interface Persona {
 }
 
 // 캔버스 블록 타입
-export type BlockType = 'calendar' | 'photo' | 'automation' | 'insight' | 'minimap' | 'viewer';
+export type BlockType = 'calendar' | 'photo' | 'automation' | 'insight' | 'minimap' | 'viewer' | 'meeting-recorder';
 
 // 캔버스 블록
 export interface CanvasBlock {
@@ -151,4 +152,14 @@ export interface ViewerBlockConfig {
   history?: ViewerSource[];       // 히스토리
   historyIndex?: number;           // 현재 히스토리 인덱스
   pinned?: boolean;                // Pin 상태
+}
+
+// Meeting Recorder 블록 설정
+export interface MeetingRecorderBlockConfig {
+  script?: string;                 // 전체 스크립트
+  summary?: string;                // AI 요약
+  isRecording?: boolean;          // 녹음 중 여부
+  isPaused?: boolean;             // 일시정지 여부
+  recordingTime?: number;         // 녹음 시간 (초)
+  createdAt?: number;             // 생성 시간
 }

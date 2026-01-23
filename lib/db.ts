@@ -27,6 +27,7 @@ db.exec(`
     title TEXT,
     content TEXT NOT NULL,
     createdAt INTEGER NOT NULL,
+    derivedFromCardId TEXT,
     topic TEXT,
     nature TEXT,
     timeContext TEXT,
@@ -168,6 +169,11 @@ try {
     console.log('📊 Adding title column to memories table...');
     db.exec('ALTER TABLE memories ADD COLUMN title TEXT');
   }
+  const hasDerivedFrom = columns.some((col: any) => col.name === 'derivedFromCardId');
+  if (!hasDerivedFrom) {
+    console.log('📊 Adding derivedFromCardId column to memories table...');
+    db.exec('ALTER TABLE memories ADD COLUMN derivedFromCardId TEXT');
+  }
 } catch (error) {
   console.error('Migration error:', error);
 }
@@ -292,9 +298,9 @@ export const memoryDb = {
 
     const stmt = db.prepare(`
       INSERT INTO memories (
-        id, userId, title, content, createdAt, topic, nature, timeContext,
+        id, userId, title, content, createdAt, derivedFromCardId, topic, nature, timeContext,
         relatedMemoryIds, clusterTag, repeatCount, lastMentionedAt, attachments, location
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     stmt.run(
@@ -303,6 +309,7 @@ export const memoryDb = {
       memory.title || null,
       memory.content,
       memory.createdAt,
+      memory.derivedFromCardId || null,
       memory.topic || null,
       memory.nature || null,
       memory.timeContext || null,

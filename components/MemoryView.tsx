@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
-import { Memory, Group, CanvasBlock, CalendarBlockConfig, ViewerBlockConfig } from '@/types';
+import { Memory, Group, CanvasBlock, CalendarBlockConfig, ViewerBlockConfig, MeetingRecorderBlockConfig } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import LinkManager from './LinkManager';
@@ -21,6 +21,12 @@ const Minimap = dynamic(() => import('./Minimap'), {
 
 // ViewerBlock을 dynamic import로 로드 (PDF.js가 서버 사이드에서 실행되지 않도록)
 const ViewerBlock = dynamic(() => import('./ViewerBlock'), {
+  ssr: false,
+  loading: () => null,
+});
+
+// MeetingRecorderBlock을 dynamic import로 로드
+const MeetingRecorderBlock = dynamic(() => import('./MeetingRecorderBlock'), {
   ssr: false,
   loading: () => null,
 });
@@ -427,6 +433,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const lastPointerPosRef = useRef<{ x: number; y: number } | null>(null);
   const positionsRef = useRef<Record<string, { x: number; y: number }>>({});
   const dragStartPositionsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const selectedMemoryIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     fetchGroups();
@@ -519,8 +526,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           type: 'minimap',
           x: 20,
           y: 20,
-          width: 240,
-          height: 160,
+          width: 420,
+          height: 300,
           config: {},
         }),
       });
@@ -559,6 +566,36 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       }
     } catch (error) {
       console.error('Failed to create viewer block:', error);
+    }
+  };
+
+  // Meeting Recorder 블록 생성
+  const handleCreateMeetingRecorderBlock = async () => {
+    try {
+      const res = await fetch('/api/board/blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'meeting-recorder',
+          x: 100,
+          y: 100,
+          width: 600,
+          height: 400,
+          config: {
+            script: '',
+            summary: '',
+            isRecording: false,
+            isPaused: false,
+            recordingTime: 0,
+          },
+        }),
+      });
+
+      if (res.ok) {
+        await fetchBlocks();
+      }
+    } catch (error) {
+      console.error('Failed to create meeting recorder block:', error);
     }
   };
 
@@ -1142,7 +1179,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         const boxTop = Math.min(selectionBox.startY, endY);
         const boxBottom = Math.max(selectionBox.startY, endY);
         
-        const selected: Set<string> = event.ctrlKey || event.metaKey ? new Set(selectedMemoryIds) : new Set();
+        const currentSelectedIds = selectedMemoryIdsRef.current;
+        const selected: Set<string> = event.ctrlKey || event.metaKey ? new Set(currentSelectedIds) : new Set();
         const currentPositions = positionsRef.current;
         
         // localMemories를 사용하여 모든 메모리 확인 (필터링된 것만이 아닌)
@@ -1205,7 +1243,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
             });
           } else {
             // 메모리 카드 드래그: transform 기반
-            if (selectedMemoryIds.has(draggingEntity.id) && selectedMemoryIds.size > 1) {
+            const currentSelectedIds = selectedMemoryIdsRef.current;
+            if (currentSelectedIds.has(draggingEntity.id) && currentSelectedIds.size > 1) {
               // 다중 선택
               const currentPositions = positionsRef.current;
               const currentDragStartPositions = dragStartPositionsRef.current;
@@ -1216,7 +1255,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
               setPositions(prev => {
                 const next = { ...prev };
                 let hasChanges = false;
-                selectedMemoryIds.forEach(id => {
+                currentSelectedIds.forEach(id => {
                   const startPosForCard = currentDragStartPositions[id] || prev[id] || { x: 0, y: 0 };
                   const finalX = Math.max(0, startPosForCard.x + deltaX);
                   const finalY = Math.max(0, startPosForCard.y + deltaY);
@@ -1384,7 +1423,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         dragRafIdRef.current = null;
       }
     };
-  }, [draggingEntity, dragOffset, selectedMemoryIds, isSelecting, selectionBox, filteredMemories, cardSize, blocks]);
+  }, [draggingEntity, dragOffset, isSelecting, selectionBox, filteredMemories, cardSize, blocks, localMemories]);
 
   useEffect(() => {
     if (!positions || Object.keys(positions).length === 0) return;
@@ -1561,6 +1600,82 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       });
     }
   };
+
+  const getSummaryTitle = (summaryText: string) => {
+    const lines = summaryText
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean);
+    const firstLine = lines[0] || '';
+    const cleaned = firstLine.replace(/^[-•*\\d+.\\s]+/, '').trim();
+    const fallback = '요약 기록';
+    if (!cleaned) return fallback;
+    return cleaned.length > 60 ? `${cleaned.slice(0, 60)}...` : cleaned;
+  };
+
+  const formatSummaryContent = (summaryText: string) => {
+    return summaryText.replace(/\n/g, '<br/>');
+  };
+
+  const handleCreateSummaryCard = useCallback(async (sourceMemory: Memory, summaryText: string) => {
+    if (!summaryText.trim()) return;
+
+    try {
+      const title = getSummaryTitle(summaryText);
+      const formData = new FormData();
+      if (title) {
+        formData.append('title', title);
+      }
+      formData.append('content', formatSummaryContent(summaryText));
+      formData.append('derivedFromCardId', sourceMemory.id);
+      formData.append('relatedMemoryIds', JSON.stringify([sourceMemory.id]));
+
+      const res = await fetch('/api/memories', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to create derived memory');
+      }
+
+      const data = await res.json();
+      const newMemory = data.memory as Memory;
+      const sourcePosition = positions[sourceMemory.id] || { x: 24, y: 24 };
+      const nextPosition = {
+        x: Math.max(0, sourcePosition.x + 220),
+        y: Math.max(0, sourcePosition.y + 20),
+      };
+
+      setLocalMemories(prev => {
+        const updated = [...prev, newMemory];
+        const sourceIndex = updated.findIndex(m => m.id === sourceMemory.id);
+        if (sourceIndex !== -1) {
+          const existingRelated = updated[sourceIndex].relatedMemoryIds || [];
+          if (!existingRelated.includes(newMemory.id)) {
+            updated[sourceIndex] = {
+              ...updated[sourceIndex],
+              relatedMemoryIds: [...existingRelated, newMemory.id],
+            };
+          }
+        }
+        return updated;
+      });
+
+      setPositions(prev => ({
+        ...prev,
+        [newMemory.id]: nextPosition,
+      }));
+
+      setToast({ type: 'success', data: { message: '요약으로 새 기록을 만들었어요.' } });
+      setTimeout(() => {
+        setToast({ type: null });
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to create summary-derived memory:', error);
+      setToast({ type: 'error', data: { message: '요약 기반 기록 생성 실패' } });
+    }
+  }, [positions]);
 
   // Bring to front 공통 함수들
   const bringToFrontMemory = useCallback((memoryId: string) => {
@@ -2161,10 +2276,10 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 <button
                   onClick={handleCreateCalendarBlock}
                   className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-1"
-                  title="캘린더 블록 추가"
+                  title="캘린더 블록"
                 >
                   <span>📅</span>
-                  <span>캘린더 추가</span>
+                  <span>캘린더</span>
                 </button>
                 <button
                   onClick={handleCreateMinimapBlock}
@@ -2178,10 +2293,18 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 <button
                   onClick={handleCreateViewerBlock}
                   className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-1"
-                  title="Viewer 위젯 추가"
+                  title="Viewer 위젯"
                 >
                   <span>📺</span>
-                  <span>Viewer 추가</span>
+                  <span>Viewer</span>
+                </button>
+                <button
+                  onClick={handleCreateMeetingRecorderBlock}
+                  className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-1"
+                  title="미팅 레코더"
+                >
+                  <span>🎙️</span>
+                  <span>미팅 레코더</span>
                 </button>
               </div>
               <div className="flex items-center gap-1">
@@ -2382,8 +2505,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         className="absolute bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden"
                         style={{
                           transform: `translate3d(${block.x}px, ${block.y}px, 0)`,
-                          width: `${block.width || 240}px`,
-                          height: `${block.height || 160}px`,
+                          width: `${block.width || 420}px`,
+                          height: `${block.height || 300}px`,
                           zIndex: draggingBlockId === block.id ? 10000 : (lastClickedItem?.type === 'block' && lastClickedItem.id === block.id ? 5000 : (clickedBlockId === block.id ? 100 + blockIndex : 10 + blockIndex)),
                           opacity: draggingBlockId === block.id ? 0.85 : 1,
                           transition: 'none',
@@ -2446,12 +2569,15 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                               positions={positions}
                               blocks={blocks.filter(b => b.type !== 'minimap')}
                               memories={filteredMemories}
+                              blobAreas={blobAreas}
+                              connectionPairs={connectionPairsWithColor.pairsWithColor}
                               viewportBounds={viewportBounds}
                               zoom={zoom}
                               boardContainerRef={boardContainerRef}
                               cardSize={cardSize}
                               cardColorMap={cardColorMap}
                               cardColor={cardColor}
+                              headerHeight={0}
                             />
                           </div>
                         )}
@@ -2504,6 +2630,52 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                             const [clickedBlock] = newBlocks.splice(index, 1);
                             newBlocks.push(clickedBlock);
                             return newBlocks;
+                          });
+                        }}
+                      />
+                    );
+                  }
+                  if (block.type === 'meeting-recorder') {
+                    const meetingConfig = block.config as MeetingRecorderBlockConfig;
+                    return (
+                      <MeetingRecorderBlock
+                        key={block.id}
+                        blockId={block.id}
+                        x={block.x}
+                        y={block.y}
+                        width={block.width}
+                        height={block.height}
+                        config={meetingConfig}
+                        onUpdate={handleBlockUpdate}
+                        onDelete={handleBlockDelete}
+                        isDragging={draggingBlockId === block.id}
+                        isClicked={clickedBlockId === block.id}
+                        zIndex={draggingBlockId === block.id ? 10000 : (lastClickedItem?.type === 'block' && lastClickedItem.id === block.id ? 5000 : (clickedBlockId === block.id ? 100 + blockIndex : 10 + blockIndex))}
+                        onPointerDown={(e) => {
+                          const target = e.target as HTMLElement;
+                          const isInteractiveElement = target.closest('button') || 
+                                                       target.closest('input') ||
+                                                       target.closest('textarea');
+                          
+                          if (!isInteractiveElement) {
+                            bringToFrontBlock(block.id);
+                            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                          }
+                          
+                          if (isInteractiveElement) {
+                            return;
+                          }
+                          
+                          if (!boardRef.current) return;
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const rect = boardRef.current.getBoundingClientRect();
+                          const scale = zoomRef.current;
+                          
+                          setDraggingEntity({ type: 'block', id: block.id });
+                          setDragOffset({
+                            x: (e.clientX - rect.left) / scale - block.x,
+                            y: (e.clientY - rect.top) / scale - block.y,
                           });
                         }}
                       />
@@ -3124,6 +3296,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                             data: { memoryId } 
                           });
                         }}
+                        onCreateSummaryCard={handleCreateSummaryCard}
                       />
                     </div>
                   );
@@ -3443,6 +3616,7 @@ const MemoryCard = memo(function MemoryCard({
   onRequestDeleteLocation,
   onMentionClick,
   onCardFocus,
+  onCreateSummaryCard,
 }: { 
   memory: Memory; 
   onDelete?: () => void; 
@@ -3462,6 +3636,7 @@ const MemoryCard = memo(function MemoryCard({
   onRequestDeleteLocation?: (memoryId: string) => void;
   onMentionClick?: (mentionedMemoryId: string) => void;
   onCardFocus?: (memoryId: string) => void;
+  onCreateSummaryCard?: (sourceMemory: Memory, summaryText: string) => Promise<void>;
 }) {
   const { viewerExists, openInViewer } = useViewer();
   // 로컬 memory 상태 관리 (수정 후 즉시 반영)
@@ -3483,6 +3658,7 @@ const MemoryCard = memo(function MemoryCard({
   const [showSummary, setShowSummary] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [isCreatingSummaryCard, setIsCreatingSummaryCard] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<any>(null);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);

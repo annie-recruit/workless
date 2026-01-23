@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const title = (formData.get('title') as string) || undefined;
     const content = formData.get('content') as string;
+    const derivedFromCardId = (formData.get('derivedFromCardId') as string) || undefined;
     const files = formData.getAll('files') as File[];
     const relatedMemoryIdsRaw = formData.get('relatedMemoryIds') as string | null;
     const locationRaw = formData.get('location') as string | null;
@@ -90,6 +91,7 @@ export async function POST(req: NextRequest) {
     const memory = memoryDb.create(content, userId, {
       // topic, nature, timeContext, clusterTag 제거 - 자동 분류 안 함
       title: title,
+      derivedFromCardId: derivedFromCardId,
       relatedMemoryIds: relatedIds,
       attachments: attachments.length > 0 ? attachments : undefined,
       location: location,
@@ -348,4 +350,3 @@ export async function PUT(req: NextRequest) {
     );
   }
 }
-
