@@ -1870,9 +1870,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const cardSizeCenter = { x: cardSizeData.centerX, y: cardSizeData.centerY };
 
   const cardColorClass = cardColor === 'green'
-    ? 'bg-green-50 border-2 border-green-300'
+    ? 'bg-orange-50 border-2 border-orange-300'
     : cardColor === 'pink'
-    ? 'bg-pink-50 border-2 border-pink-300'
+    ? 'bg-indigo-50 border-2 border-indigo-300'
     : 'bg-indigo-50 border-2 border-indigo-300';
 
   // 연결 그룹을 찾아서 색상 할당
@@ -2181,11 +2181,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         {/* 그룹 폴더들 */}
         {groups.map(group => {
           const colorMap: Record<string, string> = {
-            blue: selectedGroupId === group.id ? '#3B82F6' : '#93C5FD',
-            purple: selectedGroupId === group.id ? '#A855F7' : '#D8B4FE',
-            green: selectedGroupId === group.id ? '#10B981' : '#86EFAC',
+            blue: selectedGroupId === group.id ? '#6366F1' : '#C7D2FE',
+            purple: selectedGroupId === group.id ? '#6366F1' : '#C7D2FE',
+            green: selectedGroupId === group.id ? '#FB923C' : '#FED7AA',
             orange: selectedGroupId === group.id ? '#F97316' : '#FDBA74',
-            pink: selectedGroupId === group.id ? '#EC4899' : '#F9A8D4',
+            pink: selectedGroupId === group.id ? '#6366F1' : '#C7D2FE',
             red: selectedGroupId === group.id ? '#EF4444' : '#FCA5A5',
             yellow: selectedGroupId === group.id ? '#EAB308' : '#FDE047',
           };
@@ -2202,7 +2202,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 selectedGroupId === group.id
                   ? 'bg-gray-900 shadow-lg scale-105'
                   : dropTargetGroupId === group.id
-                  ? 'bg-blue-50 scale-105'
+                  ? 'bg-indigo-50 border-2 border-indigo-300 scale-105'
                   : 'hover:bg-gray-50'
               }`}
             >
@@ -3096,7 +3096,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       return (
                         <div
                           key={toast.id}
-                          className="absolute bg-white rounded-lg shadow-2xl border-2 border-blue-400 z-50 p-3 min-w-[280px] max-w-[320px] max-h-[500px] overflow-y-auto cursor-pointer"
+                          className="absolute bg-white border-2 border-indigo-400 z-50 p-3 min-w-[280px] max-w-[320px] max-h-[500px] overflow-y-auto cursor-pointer"
                           style={{
                             left: `${toast.x}px`,
                             top: `${toast.y}px`,
@@ -3277,10 +3277,10 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   const position = positions[memory.id] || { x: 0, y: 0 };
                   const memoryColor = cardColorMap[memory.id] || cardColor;
                   const memoryColorClass = memoryColor === 'green'
-                    ? 'bg-green-50 border-green-200'
+                    ? 'bg-orange-50 border-2 border-orange-300'
                     : memoryColor === 'pink'
-                    ? 'bg-pink-50 border-pink-200'
-                    : 'bg-purple-50 border-purple-200';
+                    ? 'bg-indigo-50 border-2 border-indigo-300'
+                    : 'bg-indigo-50 border-2 border-indigo-300';
                   const isSelected = selectedMemoryIds.has(memory.id);
                   const isDragging = draggingId === memory.id || (isSelected && draggingId && selectedMemoryIds.has(draggingId));
                   
@@ -3482,14 +3482,14 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   />
                 </div>
                 
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 mb-4 max-h-64 overflow-y-auto">
+                <div className="bg-gradient-to-br from-orange-50 to-indigo-50 border-2 border-indigo-300 p-3 mb-4 max-h-64 overflow-y-auto">
                   <p className="text-xs font-semibold text-gray-700 mb-2">
                     묶일 기록들 ({(editableRelatedMemories?.length || 0) + 1}개):
                   </p>
                   <ul className="space-y-1.5">
                     {/* 현재 기록 */}
                     <li className="text-xs text-gray-700 flex items-center gap-2 p-1.5 bg-white/60 rounded">
-                      <span className="text-blue-500">📄</span>
+                      <span className="text-indigo-500">📄</span>
                       <span className="flex-1 line-clamp-1">{groupModalMemory ? stripHtmlClient(groupModalMemory.content) : ''}</span>
                     </li>
                     {/* 관련 기록들 */}
@@ -3497,7 +3497,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       const relatedMemory = localMemories.find(mem => mem.id === m.id);
                       return (
                         <li key={m.id || idx} className="text-xs text-gray-700 flex items-center gap-2 p-1.5 bg-white/60 rounded group">
-                          <span className="text-blue-500">📄</span>
+                          <span className="text-indigo-500">📄</span>
                           <span className="flex-1 line-clamp-1">{relatedMemory ? stripHtmlClient(relatedMemory.content) : (m.content ? stripHtmlClient(m.content) : '')}</span>
                           <button
                             onClick={() => {
@@ -4005,10 +4005,10 @@ const MemoryCard = memo(function MemoryCard({
         {/* AI 자동 묶기 버튼 */}
         <button
           onClick={handleAutoGroup}
-          className="p-1.5 hover:bg-purple-50 rounded-lg transition-colors"
+          className="p-1.5 hover:bg-indigo-50 transition-colors"
           title="AI로 자동 묶기"
         >
-          <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
           </svg>
         </button>
@@ -4016,15 +4016,15 @@ const MemoryCard = memo(function MemoryCard({
         {/* 수정 버튼 */}
         <button
           onClick={handleEdit}
-          className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors"
+          className="p-1.5 hover:bg-indigo-50 transition-colors"
           title={isEditing ? '저장' : '수정'}
         >
           {isEditing ? (
-            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           ) : (
-            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
           )}
@@ -4055,9 +4055,9 @@ const MemoryCard = memo(function MemoryCard({
             onPointerDown={(e) => e.stopPropagation()}
             onDragStart={(e) => e.preventDefault()}
             placeholder="제목 (선택)"
-            className="w-full px-2 py-1 mb-1.5 text-xs font-semibold border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-2 py-1 mb-1.5 text-xs font-semibold border-2 border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
-          <div className="flex items-center gap-1 px-2 py-1 border border-blue-200 rounded-t-lg bg-blue-50/60">
+          <div className="flex items-center gap-1 px-2 py-1 border-2 border-indigo-300 bg-indigo-50/60">
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
@@ -4104,7 +4104,7 @@ const MemoryCard = memo(function MemoryCard({
             onMouseDown={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
             onDragStart={(e) => e.preventDefault()}
-            className="w-full p-2 border border-blue-300 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-[11px] whitespace-pre-wrap"
+            className="w-full p-2 border-2 border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[11px] whitespace-pre-wrap"
             onInput={() => setEditContent(editRef.current?.innerHTML || '')}
             suppressContentEditableWarning
           />
@@ -4126,7 +4126,7 @@ const MemoryCard = memo(function MemoryCard({
           {isLong && !isExpanded && (
             <button
               onClick={() => setIsExpanded(true)}
-              className="mt-1 text-blue-500 hover:text-blue-600 text-[11px] font-medium"
+              className="mt-1 text-indigo-500 hover:text-indigo-600 text-[11px] font-medium"
             >
               더보기
             </button>
@@ -4147,7 +4147,7 @@ const MemoryCard = memo(function MemoryCard({
         <button
           onClick={handleToggleSummary}
           disabled={isLoadingSummary}
-          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -4158,7 +4158,7 @@ const MemoryCard = memo(function MemoryCard({
         <button
           onClick={handleToggleSuggestions}
           disabled={isLoadingSuggestions}
-          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -4170,15 +4170,15 @@ const MemoryCard = memo(function MemoryCard({
             <span className="ml-auto" />
             <div className="flex items-center gap-1" data-tutorial-target="ai-features">
               {([
-                { id: 'green', class: 'bg-green-200' },
-                { id: 'pink', class: 'bg-pink-200' },
-                { id: 'purple', class: 'bg-purple-200' },
+                { id: 'green', class: 'bg-orange-300' },
+                { id: 'pink', class: 'bg-indigo-300' },
+                { id: 'purple', class: 'bg-indigo-400' },
               ] as const).map((item) => (
                 <button
                   key={item.id}
                   onClick={() => onCardColorChange?.(item.id)}
-                  className={`w-4 h-4 rounded-full border ${item.class} border-white shadow`}
-                  title={`${item.id === 'green' ? '연두' : item.id === 'pink' ? '핑크' : '보라'} 카드`}
+                  className={`w-4 h-4 border-2 ${item.class} border-white`}
+                  title={`${item.id === 'green' ? '주황' : item.id === 'pink' ? '인디고' : '인디고'} 카드`}
                 />
               ))}
             </div>
@@ -4188,13 +4188,13 @@ const MemoryCard = memo(function MemoryCard({
 
       {/* AI 요약 표시 */}
       {showSummary && summary && (
-        <div className="mb-1.5 p-1.5 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded">
+        <div className="mb-1.5 p-1.5 bg-gradient-to-r from-orange-50 to-indigo-50 border-2 border-indigo-300">
           <div className="flex items-start gap-1">
-            <svg className="w-2.5 h-2.5 text-purple-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-2.5 h-2.5 text-indigo-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
             <div className="flex-1">
-              <div className="text-[10px] font-semibold text-purple-700 mb-0.5">AI 요약</div>
+              <div className="text-[10px] font-semibold text-indigo-700 mb-0.5">AI 요약</div>
               <p className="text-[10px] text-gray-700 leading-relaxed">{summary}</p>
             </div>
           </div>
@@ -4203,20 +4203,20 @@ const MemoryCard = memo(function MemoryCard({
 
       {/* AI 제안 표시 */}
       {showSuggestions && suggestions && (
-        <div className="mb-1.5 p-2 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg space-y-2">
+        <div className="mb-1.5 p-2 bg-gradient-to-br from-orange-50 to-indigo-50 border-2 border-indigo-300 space-y-2">
           {/* 다음 단계 */}
           {suggestions.nextSteps && suggestions.nextSteps.length > 0 && (
             <div>
               <div className="flex items-center gap-1 mb-1">
-                <svg className="w-2.5 h-2.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-2.5 h-2.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
-                <h4 className="text-[10px] font-bold text-blue-700">다음 단계</h4>
+                <h4 className="text-[10px] font-bold text-indigo-700">다음 단계</h4>
               </div>
               <ul className="space-y-0.5 ml-2">
                 {suggestions.nextSteps.map((step: string, idx: number) => (
                   <li key={idx} className="text-[10px] text-gray-700 flex items-start gap-1">
-                    <span className="text-blue-500 font-bold">•</span>
+                    <span className="text-indigo-500 font-bold">•</span>
                     <span>{step}</span>
                   </li>
                 ))}
@@ -4228,10 +4228,10 @@ const MemoryCard = memo(function MemoryCard({
           {suggestions.resources && suggestions.resources.length > 0 && (
             <div>
               <div className="flex items-center gap-1 mb-1">
-                <svg className="w-2.5 h-2.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-2.5 h-2.5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
-                <h4 className="text-[10px] font-bold text-green-700">관련 자료</h4>
+                <h4 className="text-[10px] font-bold text-orange-700">관련 자료</h4>
               </div>
               <ul className="space-y-0.5 ml-2">
                 {suggestions.resources.map((resource: any, idx: number) => (
@@ -4241,12 +4241,12 @@ const MemoryCard = memo(function MemoryCard({
                         href={resource.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="font-medium text-green-700 hover:underline cursor-pointer"
+                        className="font-medium text-orange-700 hover:underline cursor-pointer"
                       >
                         {resource.name}
                       </a>
                     ) : (
-                      <span className="font-medium text-green-700">{resource.name}</span>
+                      <span className="font-medium text-orange-700">{resource.name}</span>
                     )}
                     {resource.type && <span className="text-gray-500 ml-1">({resource.type})</span>}
                     {resource.description && <p className="text-gray-600 ml-2">{resource.description}</p>}
@@ -4366,7 +4366,7 @@ const MemoryCard = memo(function MemoryCard({
                     {!viewerExists || !isSupported ? (
                                     <span className="text-indigo-500 text-[10px]">열기</span>
                     ) : (
-                      <span className="text-blue-500 text-[10px]">Viewer에서 보기</span>
+                      <span className="text-indigo-500 text-[10px]">Viewer에서 보기</span>
                     )}
                   </a>
                   {viewerExists && (
@@ -4393,13 +4393,13 @@ const MemoryCard = memo(function MemoryCard({
         <span>{timeAgo}</span>
         
         {localMemory.topic && (
-          <span className="px-1 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px]">
+          <span className="px-1 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] border border-indigo-200">
             {localMemory.topic}
           </span>
         )}
         
         {localMemory.nature && (
-          <span className="px-1 py-0.5 bg-purple-50 text-purple-600 rounded text-[10px]">
+          <span className="px-1 py-0.5 bg-orange-50 text-orange-600 text-[10px] border border-orange-200">
             {localMemory.nature}
           </span>
         )}
@@ -4454,7 +4454,7 @@ const MemoryCard = memo(function MemoryCard({
               <span>연결된 기록</span>
               <button
                 onClick={() => onOpenLinkManager?.(localMemory)}
-                className="text-[10px] text-blue-500 hover:text-blue-600"
+                className="text-[10px] text-indigo-500 hover:text-indigo-600"
               >
                 + 추가
               </button>
@@ -4479,7 +4479,7 @@ const MemoryCard = memo(function MemoryCard({
                             onMentionClick(relatedId);
                           }
                         }}
-                        className="text-[10px] px-1.5 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors border border-blue-200 hover:border-blue-300 line-clamp-1 max-w-[150px] text-left"
+                        className="text-[10px] px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors border border-indigo-200 hover:border-indigo-300 line-clamp-1 max-w-[150px] text-left"
                         title={relatedMemory.title || stripHtmlClient(relatedMemory.content)}
                       >
                         {relatedMemory.title || stripHtmlClient(relatedMemory.content).substring(0, 20)}...
