@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react';
-import { Memory, Group, CanvasBlock, CalendarBlockConfig, ViewerBlockConfig, MeetingRecorderBlockConfig } from '@/types';
+import { Memory, Group, CanvasBlock, CalendarBlockConfig, ViewerBlockConfig, MeetingRecorderBlockConfig, DatabaseBlockConfig } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import LinkManager from './LinkManager';
@@ -27,6 +27,11 @@ const ViewerBlock = dynamic(() => import('./ViewerBlock'), {
 
 // MeetingRecorderBlock을 dynamic import로 로드
 const MeetingRecorderBlock = dynamic(() => import('./MeetingRecorderBlock'), {
+  ssr: false,
+  loading: () => null,
+});
+
+const DatabaseBlock = dynamic(() => import('./DatabaseBlock'), {
   ssr: false,
   loading: () => null,
 });
@@ -183,6 +188,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [cardColor, setCardColor] = useState<'green' | 'pink' | 'purple'>('green');
   const [cardColorMap, setCardColorMap] = useState<Record<string, 'green' | 'pink' | 'purple'>>({});
   const [linkNotes, setLinkNotes] = useState<Record<string, string>>({});
+  const [linkInfo, setLinkInfo] = useState<Record<string, { note?: string; isAIGenerated: boolean }>>({});
   // AI 묶기 모달 상태 (MemoryView 레벨로 이동)
   const [groupModalMemory, setGroupModalMemory] = useState<Memory | null>(null);
   const [groupResult, setGroupResult] = useState<any>(null);
@@ -596,6 +602,39 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       }
     } catch (error) {
       console.error('Failed to create meeting recorder block:', error);
+    }
+  };
+
+  // Database 블록 생성
+  const handleCreateDatabaseBlock = async () => {
+    try {
+      const res = await fetch('/api/board/blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'database',
+          x: 100,
+          y: 100,
+          width: 480,
+          height: 200,
+          config: {
+            name: '데이터베이스',
+            properties: [],
+            rows: [],
+            sortBy: undefined,
+            sortOrder: 'asc',
+            filters: [],
+            viewType: 'table',
+            linkedMemoryIds: [],
+          },
+        }),
+      });
+
+      if (res.ok) {
+        await fetchBlocks();
+      }
+    } catch (error) {
+      console.error('Failed to create database block:', error);
     }
   };
 
@@ -1124,13 +1163,20 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         });
         if (res.ok) {
           const data = await res.json();
-          const next: Record<string, string> = {};
+          const notes: Record<string, string> = {};
+          const info: Record<string, { note?: string; isAIGenerated: boolean }> = {};
           (data.links || []).forEach((link: any) => {
+            const key = getLinkKey(link.memoryId1, link.memoryId2);
             if (link.note) {
-              next[getLinkKey(link.memoryId1, link.memoryId2)] = link.note;
+              notes[key] = link.note;
             }
+            info[key] = {
+              note: link.note || undefined,
+              isAIGenerated: link.isAIGenerated === 1 || link.isAIGenerated === true,
+            };
           });
-          setLinkNotes(next);
+          setLinkNotes(notes);
+          setLinkInfo(info);
         }
       } catch (error) {
         console.error('Failed to fetch link notes:', error);
@@ -1824,10 +1870,10 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const cardSizeCenter = { x: cardSizeData.centerX, y: cardSizeData.centerY };
 
   const cardColorClass = cardColor === 'green'
-    ? 'bg-green-50 border-green-200'
+    ? 'bg-green-50 border-2 border-green-300'
     : cardColor === 'pink'
-    ? 'bg-pink-50 border-pink-200'
-    : 'bg-purple-50 border-purple-200';
+    ? 'bg-pink-50 border-2 border-pink-300'
+    : 'bg-indigo-50 border-2 border-indigo-300';
 
   // 연결 그룹을 찾아서 색상 할당
   const connectionPairsWithColor = useMemo(() => {
@@ -1947,7 +1993,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       connectionGroups: validGroups,
       nodeToGroup,
     };
-  }, [filteredMemories]);
+  }, [filteredMemories, linkInfo, getLinkKey]);
 
   // 간단한 시드 기반 랜덤 함수 (groupId 기반 고정 랜덤)
   const seededRandom = useCallback((seed: number) => {
@@ -2040,7 +2086,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     console.log('🎨 blobAreas 생성:', blobs.length, '개', blobs.map(b => ({ id: b.id, memoryCount: b.memoryIds.length })));
 
     return blobs;
-  }, [connectionPairsWithColor, positions, cardSize, seededRandom]);
+  }, [connectionPairsWithColor, positions, cardSize, seededRandom, linkInfo]);
 
   // connectionPairsWithColor를 배열로 변환 (기존 코드 호환성)
   const connectionPairsArray = useMemo(() => {
@@ -2116,15 +2162,13 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         {/* 전체 */}
         <button
           onClick={() => setSelectedGroupId(null)}
-          className={`flex flex-col items-center gap-1 p-3 rounded-xl transition-all ${
+          className={`flex flex-col items-center gap-1 p-3 border-2 transition-all ${
             selectedGroupId === null
-              ? 'bg-gray-900 shadow-lg scale-105'
-              : 'hover:bg-gray-50'
+              ? 'bg-gray-900 border-indigo-500 scale-105'
+              : 'hover:bg-gray-50 border-gray-200'
           }`}
         >
-          <svg viewBox="0 0 24 24" fill="none" className={`w-10 h-10 transition-all ${
-            selectedGroupId === null ? '' : 'drop-shadow-md hover:drop-shadow-lg'
-          }`}>
+          <svg viewBox="0 0 24 24" fill="none" className={`w-10 h-10 transition-all`}>
             <path d="M3 6C3 4.89543 3.89543 4 5 4H9L11 6H19C20.1046 6 21 6.89543 21 8V18C21 19.1046 20.1046 20 19 20H5C3.89543 20 3 19.1046 3 18V6Z" 
                   fill={selectedGroupId === null ? 'white' : '#6B7280'}
                   stroke="none"/>
@@ -2217,7 +2261,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
       {/* 그룹 설명 */}
       {selectedGroupId && (
-        <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
+        <div className="mb-4 p-4 bg-gradient-to-r from-orange-50 to-indigo-50 border-2 border-indigo-300">
           {isLoadingGroupDescription ? (
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <div className="animate-spin">✨</div>
@@ -2248,7 +2292,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
             해당 그룹에 기억이 없습니다
           </div>
         ) : (
-          <div className="w-full bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="w-full bg-white border-2 border-gray-300 overflow-hidden">
             {/* 컨트롤 바 - 엑셀 틀고정처럼 항상 고정 */}
             <div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500 bg-white border-b border-gray-200">
               <div className="flex items-center gap-2">
@@ -2305,6 +2349,14 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 >
                   <span>🎙️</span>
                   <span>미팅 레코더</span>
+                </button>
+                <button
+                  onClick={handleCreateDatabaseBlock}
+                  className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-1"
+                  title="데이터베이스"
+                >
+                  <span>📊</span>
+                  <span>데이터베이스</span>
                 </button>
               </div>
               <div className="flex items-center gap-1">
@@ -2387,7 +2439,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 {/* 드래그 선택 박스 */}
                 {selectionBox && (
                   <div
-                    className="absolute border-2 border-blue-500 bg-blue-200/20 pointer-events-none z-40"
+                    className="absolute border-2 border-indigo-500 bg-indigo-200/20 pointer-events-none z-40"
                     style={{
                       left: `${Math.min(selectionBox.startX, selectionBox.endX)}px`,
                       top: `${Math.min(selectionBox.startY, selectionBox.endY)}px`,
@@ -2399,7 +2451,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
                 {/* 다중 선택 안내 */}
                 {selectedMemoryIds.size > 0 && (
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 z-30">
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-indigo-500 text-white px-4 py-2 border-2 border-indigo-600 flex items-center gap-2 z-30">
                     <span className="text-sm font-medium">
                       {selectedMemoryIds.size}개 카드 선택됨 (드래그 또는 Ctrl/Cmd + 클릭으로 선택)
                     </span>
@@ -2502,7 +2554,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       <div
                         key={block.id}
                         data-minimap-block={block.id}
-                        className="absolute bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden"
+                        className="absolute bg-white border-2 border-gray-300 overflow-hidden"
                         style={{
                           transform: `translate3d(${block.x}px, ${block.y}px, 0)`,
                           width: `${block.width || 420}px`,
@@ -2656,6 +2708,53 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                           const isInteractiveElement = target.closest('button') || 
                                                        target.closest('input') ||
                                                        target.closest('textarea');
+                          
+                          if (!isInteractiveElement) {
+                            bringToFrontBlock(block.id);
+                            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                          }
+                          
+                          if (isInteractiveElement) {
+                            return;
+                          }
+                          
+                          if (!boardRef.current) return;
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const rect = boardRef.current.getBoundingClientRect();
+                          const scale = zoomRef.current;
+                          
+                          setDraggingEntity({ type: 'block', id: block.id });
+                          setDragOffset({
+                            x: (e.clientX - rect.left) / scale - block.x,
+                            y: (e.clientY - rect.top) / scale - block.y,
+                          });
+                        }}
+                      />
+                    );
+                  }
+                  if (block.type === 'database') {
+                    const databaseConfig = block.config as DatabaseBlockConfig;
+                    return (
+                      <DatabaseBlock
+                        key={block.id}
+                        blockId={block.id}
+                        x={block.x}
+                        y={block.y}
+                        width={block.width}
+                        height={block.height}
+                        config={databaseConfig}
+                        onUpdate={handleBlockUpdate}
+                        onDelete={handleBlockDelete}
+                        isDragging={draggingBlockId === block.id}
+                        isClicked={clickedBlockId === block.id}
+                        zIndex={draggingBlockId === block.id ? 10000 : (lastClickedItem?.type === 'block' && lastClickedItem.id === block.id ? 5000 : (clickedBlockId === block.id ? 100 + blockIndex : 10 + blockIndex))}
+                        onPointerDown={(e) => {
+                          const target = e.target as HTMLElement;
+                          const isInteractiveElement = target.closest('button') || 
+                                                       target.closest('input') ||
+                                                       target.closest('select') ||
+                                                       target.closest('table');
                           
                           if (!isInteractiveElement) {
                             bringToFrontBlock(block.id);
@@ -2895,7 +2994,12 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       const cx = midX - (dy / len) * offset;
                       const cy = midY + (dx / len) * offset;
                       
-                      const note = linkNotes[getLinkKey(pair.from, pair.to)];
+                      const linkKey = getLinkKey(pair.from, pair.to);
+                      const note = linkNotes[linkKey];
+                      // pair에 이미 isAIGenerated 정보가 있으면 사용, 없으면 linkInfo에서 가져오기
+                      const isAIGenerated = (pair as any).isAIGenerated !== undefined 
+                        ? (pair as any).isAIGenerated 
+                        : (linkInfo[linkKey]?.isAIGenerated || false);
                       const markerId = `arrowhead-${pair.color.replace('#', '')}`;
                       
                       // 면이 생긴 그룹의 선은 더 약하게 (면이 주인공, 선은 힌트)
@@ -2914,6 +3018,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                             d={`M ${adjustedFromX} ${adjustedFromY} Q ${cx} ${cy} ${adjustedToX} ${adjustedToY}`}
                             stroke={pair.color}
                             strokeWidth={lineWidth}
+                            strokeDasharray={isAIGenerated ? '5,5' : 'none'}  // AI 연결은 점선
                             fill="none"
                             markerEnd={isInBlobGroup ? undefined : `url(#${markerId})`}
                             opacity={lineOpacity}
@@ -2943,7 +3048,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 {/* 드래그 선택 박스 */}
                 {selectionBox && (
                   <div
-                    className="absolute border-2 border-blue-500 bg-blue-200/20 pointer-events-none z-40"
+                    className="absolute border-2 border-indigo-500 bg-indigo-200/20 pointer-events-none z-40"
                     style={{
                       left: `${Math.min(selectionBox.startX, selectionBox.endX)}px`,
                       top: `${Math.min(selectionBox.startY, selectionBox.endY)}px`,
@@ -2955,7 +3060,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
                 {/* 다중 선택 안내 */}
                 {selectedMemoryIds.size > 0 && (
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 z-30">
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-indigo-500 text-white px-4 py-2 border-2 border-indigo-600 flex items-center gap-2 z-30">
                     <span className="text-sm font-medium">
                       {selectedMemoryIds.size}개 카드 선택됨 (드래그 또는 Ctrl/Cmd + 클릭으로 선택)
                     </span>
@@ -3070,7 +3175,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                                         {(attachment.size / 1024).toFixed(1)} KB
                                       </p>
                                     </div>
-                                    <span className="text-blue-500 text-[10px]">열기</span>
+                                    <span className="text-indigo-500 text-[10px]">열기</span>
                                   </a>
                                 );
                               }
@@ -3129,7 +3234,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                                             relatedIds: [relatedId],
                                           }]);
                                         }}
-                                        className="text-[10px] px-1.5 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors border border-blue-200 hover:border-blue-300 line-clamp-1 max-w-[150px] text-left"
+                                        className="text-[10px] px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors border border-indigo-200 hover:border-indigo-300 line-clamp-1 max-w-[150px] text-left"
                                         title={relatedTitle}
                                       >
                                         {relatedTitle}...
@@ -3151,12 +3256,12 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         <div className="mt-2 pt-2 border-t border-gray-100">
                           <span className="text-[10px] text-gray-500">{timeAgo}</span>
                           {toastMemory.topic && (
-                            <span className="ml-2 px-1 py-0.5 bg-blue-50 text-blue-600 rounded text-[10px]">
+                            <span className="ml-2 px-1 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] border border-indigo-200">
                               {toastMemory.topic}
                             </span>
                           )}
                           {toastMemory.nature && (
-                            <span className="ml-1 px-1 py-0.5 bg-purple-50 text-purple-600 rounded text-[10px]">
+                            <span className="ml-1 px-1 py-0.5 bg-orange-50 text-orange-600 text-[10px] border border-orange-200">
                               {toastMemory.nature}
                             </span>
                           )}
@@ -3231,7 +3336,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         contain: 'layout style paint',
                       }}
                       className={`absolute ${cardSizeClass} select-none touch-none cursor-grab active:cursor-grabbing ${
-                        isDragging ? 'cursor-grabbing shadow-2xl' : ''
+                        isDragging ? 'cursor-grabbing border-2 border-indigo-500' : ''
                       } ${isSelected ? 'ring-2 ring-blue-300/50 ring-offset-1' : ''} ${
                         isBlobHovered ? 'ring-2 ring-blue-200/60 ring-offset-1' : ''
                       }`}
@@ -3346,7 +3451,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       {/* AI 자동 묶기 토스트 팝업 */}
       {toast.type === 'loading' && (
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-white rounded-xl shadow-2xl p-4 min-w-[300px] border border-gray-200">
+          <div className="bg-white border-2 border-gray-300 p-4 min-w-[300px]">
             <div className="flex items-center gap-3">
               <div className="text-2xl animate-spin">✨</div>
               <div>
@@ -3360,7 +3465,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
       {toast.type === 'confirm' && toast.data && (
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-white rounded-xl shadow-2xl p-5 min-w-[400px] max-w-[500px] border border-gray-200">
+          <div className="bg-white border-2 border-gray-300 p-5 min-w-[400px] max-w-[500px]">
             <div className="flex items-start gap-3 mb-4">
               <div className="text-2xl">📁</div>
               <div className="flex-1">
@@ -3420,7 +3525,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   </button>
                   <button
                     onClick={handleConfirmGroup}
-                    className="flex-1 px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    className="flex-1 px-3 py-2 text-sm bg-indigo-500 text-white border-2 border-indigo-600 hover:bg-indigo-600 transition-colors"
                   >
                     확인
                   </button>
@@ -3454,7 +3559,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
       {toast.type === 'delete-link' && (
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-white rounded-xl shadow-2xl p-5 min-w-[350px] max-w-[450px] border border-gray-200">
+          <div className="bg-white border-2 border-gray-300 p-5 min-w-[350px] max-w-[450px]">
             <div className="flex items-start gap-3 mb-4">
               <div className="text-2xl">🔗</div>
               <div className="flex-1">
@@ -3494,7 +3599,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
       {toast.type === 'delete-memory' && (
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-white rounded-xl shadow-2xl p-5 min-w-[350px] max-w-[450px] border border-gray-200">
+          <div className="bg-white border-2 border-gray-300 p-5 min-w-[350px] max-w-[450px]">
             <div className="flex items-start gap-3 mb-4">
               <div className="text-2xl">🗑️</div>
               <div className="flex-1">
@@ -3534,7 +3639,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
       {toast.type === 'delete-location' && (
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-white rounded-xl shadow-2xl p-5 min-w-[350px] max-w-[450px] border border-gray-200">
+          <div className="bg-white border-2 border-gray-300 p-5 min-w-[350px] max-w-[450px]">
             <div className="flex items-start gap-3 mb-4">
               <div className="text-2xl">📍</div>
               <div className="flex-1">
@@ -3859,8 +3964,8 @@ const MemoryCard = memo(function MemoryCard({
   }, [onMentionClick, safeHtml]);
 
   const cardClassName = variant === 'board'
-    ? `${colorClass || 'bg-green-50 border-green-200'} shadow-md hover:shadow-lg`
-    : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-md';
+    ? `${colorClass || 'bg-green-50 border-2 border-green-300'} border-2`
+    : 'bg-white border-2 border-gray-200 hover:border-gray-400';
 
   return (
     <div 
@@ -4259,7 +4364,7 @@ const MemoryCard = memo(function MemoryCard({
                       </p>
                     </div>
                     {!viewerExists || !isSupported ? (
-                      <span className="text-blue-500 text-[10px]">열기</span>
+                                    <span className="text-indigo-500 text-[10px]">열기</span>
                     ) : (
                       <span className="text-blue-500 text-[10px]">Viewer에서 보기</span>
                     )}

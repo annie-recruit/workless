@@ -109,7 +109,7 @@ export interface Persona {
 }
 
 // 캔버스 블록 타입
-export type BlockType = 'calendar' | 'photo' | 'automation' | 'insight' | 'minimap' | 'viewer' | 'meeting-recorder';
+export type BlockType = 'calendar' | 'photo' | 'automation' | 'insight' | 'minimap' | 'viewer' | 'meeting-recorder' | 'database';
 
 // 캔버스 블록
 export interface CanvasBlock {
@@ -162,4 +162,39 @@ export interface MeetingRecorderBlockConfig {
   isPaused?: boolean;             // 일시정지 여부
   recordingTime?: number;         // 녹음 시간 (초)
   createdAt?: number;             // 생성 시간
+}
+
+// 데이터베이스 속성 타입
+export type DatabasePropertyType = 'text' | 'number' | 'date' | 'checkbox' | 'select' | 'multi-select' | 'person' | 'file' | 'url' | 'email' | 'phone';
+
+// 데이터베이스 속성 (컬럼)
+export interface DatabaseProperty {
+  id: string;
+  name: string;
+  type: DatabasePropertyType;
+  options?: string[];             // select, multi-select용 옵션
+}
+
+// 데이터베이스 행 (레코드)
+export interface DatabaseRow {
+  id: string;
+  properties: Record<string, any>; // propertyId -> value
+  createdAt: number;
+  updatedAt: number;
+}
+
+// 데이터베이스 블록 설정
+export interface DatabaseBlockConfig {
+  name?: string;                  // 데이터베이스 이름
+  properties: DatabaseProperty[];  // 속성(컬럼) 목록
+  rows: DatabaseRow[];            // 행(레코드) 목록
+  sortBy?: string;                // 정렬 기준 propertyId
+  sortOrder?: 'asc' | 'desc';     // 정렬 방향
+  filters?: Array<{                // 필터 목록
+    propertyId: string;
+    type: 'equals' | 'contains' | 'greater' | 'less' | 'isChecked' | 'isNotChecked';
+    value: any;
+  }>;
+  viewType?: 'table' | 'board' | 'calendar'; // 뷰 타입 (일단 테이블만)
+  linkedMemoryIds?: string[];     // 연결된 메모리 ID들
 }

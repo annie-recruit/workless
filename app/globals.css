@@ -3,6 +3,13 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* 주황 + 인디고 키 컬러 */
+  --color-primary-orange: #fb923c;
+  --color-primary-orange-light: #fed7aa;
+  --color-primary-orange-dark: #ea580c;
+  --color-primary-indigo: #6366f1;
+  --color-primary-indigo-light: #c7d2fe;
+  --color-primary-indigo-dark: #4338ca;
 }
 
 @theme inline {
@@ -183,27 +190,28 @@ button:active, a:active {
   animation: slide-up 0.3s ease-out forwards;
 }
 
-/* @ 태그 스타일 - 연한 파란색 배경, 어두운 파란색 텍스트 */
+/* @ 태그 스타일 - 주황+인디고 컬러, 직선 느낌 */
 .mention {
   display: inline !important;
   padding: 2px 6px !important;
-  background: #dbeafe !important; /* 연한 파란색 배경 */
-  border-radius: 6px !important; /* 둥근 모서리 */
-  color: #1e40af !important; /* 어두운 파란색 텍스트 */
+  background: var(--color-primary-indigo-light) !important;
+  border-radius: 2px !important; /* 직선 느낌 */
+  color: var(--color-primary-indigo-dark) !important;
   text-decoration: none !important;
   cursor: pointer !important;
   font-size: inherit !important;
   font-weight: 400 !important;
   transition: background-color 0.2s ease !important;
   box-shadow: none !important;
-  border: none !important;
+  border: 1px solid var(--color-primary-indigo) !important;
 }
 
 .mention:hover {
-  background: #bfdbfe !important; /* 호버 시 조금 더 진한 파란색 배경 */
+  background: var(--color-primary-indigo) !important;
+  color: white !important;
 }
 
 .mention:active {
-  background: #93c5fd !important;
+  background: var(--color-primary-indigo-dark) !important;
 }
 

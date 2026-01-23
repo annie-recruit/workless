@@ -552,7 +552,7 @@ ${summary}`;
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="제목 (선택)"
-          className="w-full px-3 py-1.5 text-sm font-medium border-b border-gray-200 focus:outline-none focus:border-blue-400 transition-colors mb-2"
+          className="w-full px-3 py-1.5 text-sm font-medium border-b-2 border-gray-200 focus:outline-none focus:border-indigo-500 transition-colors mb-2"
         />
         
         <div 
@@ -564,15 +564,15 @@ ${summary}`;
           onDrop={handleDrop}
         >
           <div
-            className={`w-full border-2 rounded-xl transition-all flex flex-col ${
+            className={`w-full border-2 transition-all flex flex-col ${
               isDragging 
-                ? 'border-blue-500 bg-blue-50 border-dashed' 
-                : 'border-gray-200 focus-within:border-blue-400'
+                ? 'border-indigo-500 bg-indigo-50 border-dashed' 
+                : 'border-gray-200 focus-within:border-indigo-500'
             }`}
             style={{ minHeight: `${editorHeight}px` }}
           >
             {/* 툴바 */}
-            <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 bg-white/70 rounded-t-xl">
+            <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b-2 border-gray-200 bg-white/70">
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
@@ -714,7 +714,7 @@ ${summary}`;
                 e.preventDefault();
                 setIsResizing(true);
               }}
-              className="absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize hover:bg-blue-200/30 transition-colors rounded-b-xl flex items-center justify-center group"
+              className="absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize hover:bg-indigo-200/30 transition-colors flex items-center justify-center group"
               style={{ zIndex: 10 }}
             >
               <div className="w-12 h-1 bg-gray-300 rounded-full group-hover:bg-gray-400 transition-colors"></div>
@@ -723,7 +723,7 @@ ${summary}`;
 
           {/* 멘션 검색 패널 */}
           {isMentionPanelOpen && (
-            <div className="mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-sm">
+            <div className="mt-2 w-full bg-white border-2 border-gray-300">
               <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100">
                 <span className="text-sm text-gray-500">@</span>
                 <input
@@ -761,13 +761,13 @@ ${summary}`;
           
           {/* 드래그 오버레이 */}
           {isDragging && (
-            <div className="absolute inset-0 flex items-center justify-center bg-blue-50/90 border-2 border-blue-500 border-dashed rounded-2xl pointer-events-none">
+            <div className="absolute inset-0 flex items-center justify-center bg-indigo-50/90 border-2 border-indigo-500 border-dashed pointer-events-none">
               <div className="text-center">
                 <div className="text-4xl mb-2">📎</div>
-                <div className="text-lg font-semibold text-blue-600">
+                <div className="text-lg font-semibold text-indigo-600">
                   파일을 여기에 놓아주세요
                 </div>
-                <div className="text-sm text-blue-500 mt-1">
+                <div className="text-sm text-indigo-500 mt-1">
                   이미지, PDF, 문서 등
                 </div>
               </div>
@@ -801,7 +801,7 @@ ${summary}`;
 
       {/* 조건부 제안 */}
       {suggestions.length > 0 && (
-        <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+        <div className="mt-6 p-4 bg-orange-50 border-2 border-orange-300">
           <h3 className="text-sm font-semibold text-amber-900 mb-2">
             💡 이런 건 어때요?
           </h3>
@@ -835,7 +835,7 @@ ${summary}`;
                   AI가 찾은 관련 기록들입니다. 원하는 것만 선택하세요.
                 </p>
                 
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 mb-4 max-h-64 overflow-y-auto">
+                <div className="bg-gradient-to-br from-orange-50 to-indigo-50 border border-indigo-200 p-3 mb-4 max-h-64 overflow-y-auto">
                   <div className="space-y-2">
                     {connectionSuggestions.map((suggestion) => (
                       <label
@@ -854,7 +854,7 @@ ${summary}`;
                             }
                             setSelectedConnectionIds(newSet);
                           }}
-                          className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          className="mt-1 w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                         />
                         <div className="flex-1">
                           <p className="text-xs text-gray-800 mb-0.5 line-clamp-1">
@@ -876,7 +876,7 @@ ${summary}`;
                       setConnectionSuggestions([]);
                       onMemoryCreated();
                     }}
-                    className="flex-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-3 py-2 text-sm border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     건너뛰기
                   </button>
@@ -893,7 +893,7 @@ ${summary}`;
                         // 선택된 기록들과 링크만 생성
                         const selectedIds = Array.from(selectedConnectionIds);
                         
-                        // 각 선택된 기록과 링크 생성
+                        // 각 선택된 기록과 링크 생성 (AI 제안이므로 isAIGenerated=true)
                         for (const relatedId of selectedIds) {
                           const linkRes = await fetch('/api/memories/link', {
                             method: 'POST',
@@ -901,6 +901,7 @@ ${summary}`;
                             body: JSON.stringify({
                               memoryId1: newMemoryId,
                               memoryId2: relatedId,
+                              isAIGenerated: true,  // AI가 제안한 연결
                             }),
                           });
 
@@ -921,7 +922,7 @@ ${summary}`;
                         onMemoryCreated();
                       }
                     }}
-                    className="flex-1 px-3 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    className="flex-1 px-3 py-2 text-sm bg-indigo-500 text-white border-2 border-indigo-600 hover:bg-indigo-600 transition-colors"
                   >
                     연결하기 ({selectedConnectionIds.size}개)
                   </button>
@@ -947,7 +948,7 @@ ${summary}`;
       {/* 성공 토스트 */}
       {toast.type === 'success' && (
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-green-500 text-white rounded-xl shadow-2xl p-4 min-w-[300px] border border-green-600">
+          <div className="bg-green-500 text-white border-2 border-green-600 p-4 min-w-[300px]">
             <div className="flex items-center gap-3">
               <div className="text-2xl">✅</div>
               <div>

@@ -106,7 +106,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex relative">
+      <main className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-indigo-50 flex relative">
       {/* 토글 버튼 - 항상 보임 */}
       <button
         onClick={() => setShowInsights(!showInsights)}
@@ -176,7 +176,7 @@ export default function Home() {
               </button>
               <button
                 onClick={() => setShowTutorial(true)}
-                className="px-4 py-2 text-blue-600 hover:text-blue-900 hover:bg-blue-50 transition-colors text-sm font-medium flex items-center gap-1"
+                className="px-4 py-2 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 transition-colors text-sm font-medium flex items-center gap-1 border border-indigo-200"
                 title="튜토리얼 다시 보기"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -301,8 +301,8 @@ export default function Home() {
       {/* 물어보기 모달 */}
       {showModal === 'query' && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-cyan-50">
+          <div className="bg-white border-2 border-orange-200 max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b-2 border-orange-300 flex items-center justify-between bg-gradient-to-r from-orange-50 to-indigo-50">
               <h2 className="text-2xl font-bold text-gray-800">물어보기</h2>
               <button
                 onClick={() => setShowModal(null)}

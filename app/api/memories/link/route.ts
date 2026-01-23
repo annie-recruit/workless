@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { memoryId1, memoryId2, note } = await req.json();
+    const { memoryId1, memoryId2, note, isAIGenerated } = await req.json();
 
     if (!memoryId1 || !memoryId2) {
       return NextResponse.json(
@@ -59,9 +59,9 @@ export async function POST(req: NextRequest) {
 
     // 링크 메모 저장 (쌍으로 1개)
     if (typeof note === 'string') {
-      memoryLinkDb.upsert(memoryId1, memoryId2, note.trim());
+      memoryLinkDb.upsert(memoryId1, memoryId2, note.trim(), isAIGenerated === true);
     } else {
-      memoryLinkDb.upsert(memoryId1, memoryId2);
+      memoryLinkDb.upsert(memoryId1, memoryId2, undefined, isAIGenerated === true);
     }
 
     return NextResponse.json({ 

@@ -11,8 +11,8 @@ interface GroupManagerProps {
 }
 
 const COLOR_OPTIONS = [
-  { value: 'blue', label: '파랑', class: 'bg-blue-100 text-blue-800 border-blue-300' },
-  { value: 'purple', label: '보라', class: 'bg-purple-100 text-purple-800 border-purple-300' },
+  { value: 'blue', label: '파랑', class: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
+  { value: 'purple', label: '보라', class: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
   { value: 'green', label: '초록', class: 'bg-green-100 text-green-800 border-green-300' },
   { value: 'orange', label: '주황', class: 'bg-orange-100 text-orange-800 border-orange-300' },
   { value: 'pink', label: '핑크', class: 'bg-pink-100 text-pink-800 border-pink-300' },
@@ -185,7 +185,7 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
           <button
             onClick={fetchAISuggestions}
             disabled={loading}
-            className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2 bg-indigo-500 text-white border-2 border-indigo-600 hover:bg-indigo-600 disabled:opacity-50 flex items-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -194,7 +194,7 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2"
+            className="px-4 py-2 bg-indigo-500 text-white border-2 border-indigo-600 hover:bg-indigo-600 flex items-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -206,12 +206,12 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
 
       {/* AI 제안 패널 */}
       {showSuggestions && aiSuggestions.length > 0 && (
-        <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-xl border-2 border-purple-200">
+        <div className="bg-gradient-to-br from-orange-50 to-indigo-50 p-6 border-2 border-indigo-300">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-purple-900">💡 AI 그룹 제안</h3>
+            <h3 className="text-lg font-bold text-indigo-900">💡 AI 그룹 제안</h3>
             <button
               onClick={() => setShowSuggestions(false)}
-              className="text-purple-600 hover:text-purple-800"
+              className="text-indigo-600 hover:text-indigo-800"
             >
               ✕
             </button>
@@ -231,7 +231,7 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
                   </div>
                   <button
                     onClick={() => handleAcceptSuggestion(suggestion)}
-                    className="px-3 py-1 bg-purple-500 text-white text-sm rounded-lg hover:bg-purple-600"
+                    className="px-3 py-1 bg-indigo-500 text-white text-sm border-2 border-indigo-600 hover:bg-indigo-600"
                   >
                     생성
                   </button>
@@ -250,14 +250,14 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
           </div>
         ) : (
           groups.map(group => (
-            <div key={group.id} className="bg-white p-5 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors">
+            <div key={group.id} className="bg-white p-5 border-2 border-gray-200 hover:border-gray-400 transition-colors">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <span className={`px-4 py-2 rounded-full font-semibold ${getColorClass(group.color)}`}>
                     {group.name}
                   </span>
                   {group.isAIGenerated && (
-                    <span className="px-2 py-1 bg-purple-100 text-purple-600 text-xs rounded-full">
+                    <span className="px-2 py-1 bg-indigo-100 text-indigo-600 text-xs border border-indigo-300">
                       AI 생성
                     </span>
                   )}
@@ -285,7 +285,7 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
       {/* 직접 만들기 모달 */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+          <div className="bg-white border-2 border-gray-300 p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-gray-800">새 그룹 만들기</h3>
               <button
@@ -368,7 +368,7 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
               </button>
               <button
                 onClick={handleCreateGroup}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                className="px-4 py-2 bg-indigo-500 text-white border-2 border-indigo-600 hover:bg-indigo-600"
               >
                 생성
               </button>

@@ -4,10 +4,10 @@ import { signIn } from 'next-auth/react';
 
 export default function SignInPage() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center relative overflow-hidden">
-      {/* 배경 장식 요소 */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-bl from-blue-500/20 to-transparent rounded-full blur-3xl"></div>
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-purple-500/20 to-transparent rounded-full blur-3xl"></div>
+    <main className="min-h-screen bg-gradient-to-br from-orange-600 via-indigo-600 to-orange-500 flex items-center justify-center relative overflow-hidden">
+      {/* 직선 느낌 배경 장식 요소 */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-orange-400/20"></div>
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-400/20"></div>
       
       <div className="relative z-10 max-w-md w-full space-y-8 p-8">
         <div className="text-center">
@@ -15,20 +15,20 @@ export default function SignInPage() {
             Workless
           </h1>
           <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="h-px w-12 bg-gradient-to-r from-blue-400 to-purple-400"></div>
-            <p className="text-slate-300 text-base font-light">
+            <div className="h-0.5 w-12 bg-white"></div>
+            <p className="text-white/90 text-base font-light">
               알아서 정리해주는 개인 비서
             </p>
-            <div className="h-px w-12 bg-gradient-to-r from-purple-400 to-blue-400"></div>
+            <div className="h-0.5 w-12 bg-white"></div>
           </div>
-          <p className="text-slate-400 mb-8 text-sm">
+          <p className="text-white/80 mb-8 text-sm">
             구글 계정으로 로그인하여 시작하세요
           </p>
         </div>
         <div>
           <button
             onClick={() => signIn('google', { callbackUrl: '/' })}
-            className="w-full flex items-center justify-center gap-3 px-6 py-4 border border-slate-600 rounded-lg bg-white/10 backdrop-blur-sm hover:bg-white/20 transition-all shadow-lg hover:shadow-xl font-medium text-white"
+            className="w-full flex items-center justify-center gap-3 px-6 py-4 border-2 border-white/30 bg-white/10 hover:bg-white/20 transition-all font-medium text-white"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path

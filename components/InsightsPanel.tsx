@@ -64,7 +64,7 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
         <div className="text-gray-600 text-sm text-center mb-4">{error}</div>
         <button
           onClick={fetchInsights}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
+          className="px-4 py-2 bg-indigo-500 text-white border-2 border-indigo-600 hover:bg-indigo-600 text-sm"
         >
           다시 시도
         </button>
@@ -106,7 +106,7 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
         <div className="flex justify-end">
           <button
             onClick={fetchInsights}
-            className="text-sm text-blue-500 hover:text-blue-600 flex items-center gap-1"
+            className="text-sm text-indigo-500 hover:text-indigo-600 flex items-center gap-1"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -116,7 +116,7 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
         </div>
 
         {/* 전체 요약 */}
-        <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-4 rounded-xl">
+        <div className="bg-gradient-to-br from-orange-50 to-indigo-50 p-4 border-2 border-indigo-300">
           <h3 className="text-sm font-semibold text-gray-700 mb-2">💭 요약</h3>
           <p className="text-gray-700 leading-relaxed text-sm">
             {insights.summary}
@@ -128,7 +128,7 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
 
         {/* 주요 주제 */}
         {insights.topTopics.length > 0 && (
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
+          <div className="bg-white p-4 border-2 border-gray-300">
             <h3 className="text-sm font-semibold text-gray-700 mb-3">🏷️ 주요 주제</h3>
             <div className="space-y-2">
               {insights.topTopics.map((item, idx) => (
@@ -137,7 +137,7 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
                   <div className="flex items-center gap-2">
                     <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-blue-500 rounded-full transition-all"
+                        className="h-full bg-indigo-500 transition-all"
                         style={{ 
                           width: `${(item.count / insights.topTopics[0].count) * 100}%` 
                         }}
@@ -157,7 +157,7 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
 
         {/* 제안 */}
         {insights.suggestions.length > 0 && (
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-200">
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-4 border-2 border-green-300">
             <h3 className="text-sm font-semibold text-green-900 mb-3">💡 제안</h3>
             <ul className="space-y-2">
               {insights.suggestions.map((suggestion, idx) => (
@@ -212,7 +212,7 @@ function GoalsSection() {
 
   if (loading) {
     return (
-      <div className="bg-white p-4 rounded-xl border border-gray-200">
+      <div className="bg-white p-4 border-2 border-gray-300">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">🎯 진행 중인 목표</h3>
         <p className="text-xs text-gray-500">로딩 중...</p>
       </div>
@@ -223,14 +223,14 @@ function GoalsSection() {
 
   return (
     <>
-      <div className="bg-gradient-to-br from-orange-50 to-red-50 p-4 rounded-xl border border-orange-200">
+      <div className="bg-gradient-to-br from-orange-50 to-red-50 p-4 border-2 border-orange-300">
         <h3 className="text-sm font-semibold text-orange-700 mb-3">🎯 진행 중인 목표</h3>
         <div className="space-y-3">
           {goals.map((goal) => (
             <div
               key={goal.id}
               onClick={() => setSelectedGoal(goal)}
-              className="bg-white p-3 rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer border border-orange-200 hover:border-orange-400"
+              className="bg-white p-3 border-2 transition-all cursor-pointer border-orange-300 hover:border-orange-500"
             >
               <div className="flex items-start justify-between mb-2">
                 <h4 className="text-sm font-medium text-gray-900 flex-1 pr-2">
@@ -371,7 +371,7 @@ function GoalDetailModal({ goal, onClose, onUpdate }: { goal: Goal; onClose: () 
 
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-white border-2 border-gray-300 w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* 헤더 */}
         <div className="bg-gradient-to-r from-orange-500 to-red-600 p-6 rounded-t-2xl">
           <div className="flex items-start justify-between mb-4">

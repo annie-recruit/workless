@@ -120,6 +120,7 @@ db.exec(`
     memoryId1 TEXT NOT NULL,
     memoryId2 TEXT NOT NULL,
     note TEXT,
+    isAIGenerated INTEGER NOT NULL DEFAULT 0,
     updatedAt INTEGER NOT NULL,
     PRIMARY KEY (userId, memoryId1, memoryId2)
   );
@@ -282,6 +283,18 @@ try {
   }
 } catch (error) {
   console.error('Migration error:', error);
+}
+
+// 마이그레이션: memory_links 테이블에 isAIGenerated 컬럼 추가 (없으면)
+try {
+  const columns = db.prepare("PRAGMA table_info(memory_links)").all() as any[];
+  const hasIsAIGenerated = columns.some((col: any) => col.name === 'isAIGenerated');
+  if (!hasIsAIGenerated) {
+    console.log('📊 Adding isAIGenerated column to memory_links table...');
+    db.exec('ALTER TABLE memory_links ADD COLUMN isAIGenerated INTEGER NOT NULL DEFAULT 0');
+  }
+} catch (error) {
+  console.error('Failed to add isAIGenerated column:', error);
 }
 
 // Memory CRUD
@@ -772,16 +785,17 @@ export const boardCardColorDb = {
 };
 
 export const memoryLinkDb = {
-  upsert(memoryId1: string, memoryId2: string, note?: string): void {
+  upsert(memoryId1: string, memoryId2: string, note?: string, isAIGenerated?: boolean): void {
     const [a, b] = memoryId1 < memoryId2 ? [memoryId1, memoryId2] : [memoryId2, memoryId1];
     const stmt = db.prepare(`
-      INSERT INTO memory_links (memoryId1, memoryId2, note, updatedAt)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO memory_links (memoryId1, memoryId2, note, isAIGenerated, updatedAt)
+      VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(memoryId1, memoryId2) DO UPDATE SET
         note = excluded.note,
+        isAIGenerated = excluded.isAIGenerated,
         updatedAt = excluded.updatedAt
     `);
-    stmt.run(a, b, note || null, Date.now());
+    stmt.run(a, b, note || null, isAIGenerated ? 1 : 0, Date.now());
   },
 
   delete(memoryId1: string, memoryId2: string): void {
@@ -790,7 +804,7 @@ export const memoryLinkDb = {
     stmt.run(a, b);
   },
 
-  getByMemoryIds(memoryIds: string[]): { memoryId1: string; memoryId2: string; note: string | null }[] {
+  getByMemoryIds(memoryIds: string[]): { memoryId1: string; memoryId2: string; note: string | null; isAIGenerated: number }[] {
     if (memoryIds.length === 0) return [];
     const placeholders = memoryIds.map(() => '?').join(', ');
     const stmt = db.prepare(`
