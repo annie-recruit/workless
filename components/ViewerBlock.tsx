@@ -5,12 +5,10 @@ import dynamic from 'next/dynamic';
 import { ViewerSource, ViewerBlockConfig } from '@/types';
 import { useViewer } from './ViewerContext';
 import PixelIcon from './PixelIcon';
-import monitorFrameAsset from '@/이걸로써봐라.png';
 
-// 기본 모니터 프레임: 루트에 둔 "이걸로써봐라.png"를 정적 import로 사용
-// (public/ 아래가 아니어도 Next가 번들로 포함해 URL을 생성해줍니다)
-const DEFAULT_VIEWER_FRAME_SRC =
-  (monitorFrameAsset as any)?.src || '/assets/generated/viewer_frame_aaeeb227_transparent.png';
+// 기본 모니터 프레임: public 아래(ASCII 파일명)로 고정
+// (리눅스/도커 빌드에서 유니코드 파일명 정적 import가 깨질 수 있어서 URL 참조로 처리)
+const DEFAULT_VIEWER_FRAME_SRC = '/assets/generated/monitor_frame.png';
 
 // 모니터 프레임 기준 "파란 스크린" 영역(비율)
 // 이걸로써봐라.png (455x333)에서 블루 픽셀 bbox를 잡고,
