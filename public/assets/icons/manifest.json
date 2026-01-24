@@ -1,0 +1,12 @@
+{
+  "trash": "/assets/icons/trash.png",
+  "check": "/assets/icons/check.png",
+  "bundle": "/assets/icons/bundle.png",
+  "edit": "/assets/icons/edit.png",
+  "delete": "/assets/icons/delete.png",
+  "persona_default": "/assets/icons/persona_default.png",
+  "persona_hr": "/assets/icons/persona_hr.png",
+  "persona_chef": "/assets/icons/persona_chef.png",
+  "persona_developer": "/assets/icons/persona_developer.png",
+  "persona_student": "/assets/icons/persona_student.png"
+}

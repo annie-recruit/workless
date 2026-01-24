@@ -1,159 +1,218 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { Icon } from '@iconify/react';
 
 interface PixelIconProps {
   name: string;
   size?: number;
-  color?: string;
   className?: string;
-  variant?: 'regular' | 'solid';
+  style?: React.CSSProperties;
 }
 
-// 위젯/기능별 아이콘 매핑
+// Iconify pixelarticons 아이콘 이름 매핑
 const ICON_MAP: Record<string, string> = {
   // 위젯 타입
-  viewer: 'eye',
-  calendar: 'calender',
-  'meeting-recorder': 'sound-on',
-  memory: 'clipboard',
-  memo: 'clipboard',
-  note: 'clipboard',
+  'calendar': 'pixelarticons:calendar',
+  'minimap': 'pixelarticons:map',
+  'viewer': 'pixelarticons:device-tv',
+  'meeting-recorder': 'pixelarticons:audio-device',
+  'database': 'pixelarticons:chart',
+  'memory': 'pixelarticons:clipboard',
+  'memo': 'pixelarticons:clipboard',
+  'note': 'pixelarticons:clipboard',
   
   // 일반 아이콘
-  microphone: 'sound-on',
-  recorder: 'sound-on',
-  document: 'newspaper',
-  file: 'newspaper',
-  search: 'search',
-  edit: 'edit',
-  delete: 'trash',
-  save: 'save',
-  close: 'times',
-  check: 'check',
-  plus: 'plus',
-  minus: 'minus',
-  arrow: 'arrow-right',
-  home: 'home',
-  user: 'user',
-  users: 'users',
-  settings: 'cog',
-  star: 'star',
-  heart: 'heart',
-  bookmark: 'bookmark',
+  'microphone': 'pixelarticons:audio-device',
+  'recorder': 'pixelarticons:audio-device',
+  'document': 'pixelarticons:file',
+  'file': 'pixelarticons:file',
+  'pdf': 'pixelarticons:file',
+  'docx': 'pixelarticons:file',
+  'search': 'pixelarticons:search',
+  'edit': 'pixelarticons:edit',
+  'delete': 'pixelarticons:delete',
+  'save': 'pixelarticons:save',
+  'close': 'pixelarticons:close',
+  'check': 'pixelarticons:check',
+  'plus': 'pixelarticons:plus',
+  'minus': 'pixelarticons:minus',
+  'arrow': 'pixelarticons:arrow-right',
+  'home': 'pixelarticons:home',
+  'user': 'pixelarticons:user',
+  'users': 'pixelarticons:users',
+  'settings': 'pixelarticons:cog',
+  'star': 'pixelarticons:star',
+  'heart': 'pixelarticons:heart',
+  'bookmark': 'pixelarticons:bookmark',
+  
+  // 추가 아이콘
+  'link': 'pixelarticons:link',
+  'folder': 'pixelarticons:folder',
+  'lightbulb': 'pixelarticons:spotlight',
+  'alert': 'pixelarticons:alert',
+  'warning': 'pixelarticons:alert',
+  'attachment': 'pixelarticons:attachment',
+  'clock': 'pixelarticons:clock',
+  'clipboard': 'pixelarticons:clipboard',
+  'image': 'pixelarticons:image',
+  'success': 'pixelarticons:check',
+  'error': 'pixelarticons:close',
+  'info': 'pixelarticons:info',
+  'download': 'pixelarticons:cloud-download',
+  'upload': 'pixelarticons:cloud-upload',
+  'archive': 'pixelarticons:archive',
+  'refresh': 'pixelarticons:refresh',
+  'menu': 'pixelarticons:menu',
+  'filter': 'pixelarticons:filter',
+  'sort': 'pixelarticons:sort',
+  'pin': 'pixelarticons:pin',
+  'unpin': 'pixelarticons:pin-off',
+  'play': 'pixelarticons:play',
+  'pause': 'pixelarticons:pause',
+  'stop': 'pixelarticons:stop',
+  'next': 'pixelarticons:arrow-right',
+  'prev': 'pixelarticons:arrow-left',
+  'back': 'pixelarticons:arrow-left',
+  'forward': 'pixelarticons:arrow-right',
+  'up': 'pixelarticons:arrow-up',
+  'down': 'pixelarticons:arrow-down',
+  'tag': 'pixelarticons:label',
+  'summary': 'pixelarticons:file',
+  'topic': 'pixelarticons:label',
+
+  // 메모리카드 액션 아이콘 (pixelarticons 고정)
+  'group': 'pixelarticons:group',
+  'edit-box': 'pixelarticons:edit-box',
+  'trash-alt': 'pixelarticons:trash-alt',
 };
 
-// SVG를 동적으로 로드하는 함수
-async function loadSVG(iconName: string, variant: 'regular' | 'solid'): Promise<string | null> {
-  try {
-    // Next.js에서는 require를 사용하여 정적으로 import
-    // 동적 import를 위해 try-catch 사용
-    const iconFile = variant === 'solid' ? `${iconName}-solid` : iconName;
-    const svgModule = await import(
-      `@hackernoon/pixel-icon-library/icons/SVG/${variant}/${iconFile}.svg?raw`
-    );
-    return svgModule.default;
-  } catch (error) {
-    // 대안: 직접 파일 시스템에서 읽기 (서버 사이드)
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      const iconFile = variant === 'solid' ? `${iconName}-solid` : iconName;
-      const iconPath = path.join(
-        process.cwd(),
-        'node_modules',
-        '@hackernoon',
-        'pixel-icon-library',
-        'icons',
-        'SVG',
-        variant,
-        `${iconFile}.svg`
-      );
-      return fs.readFileSync(iconPath, 'utf-8');
-    } catch (fsError) {
-      console.error(`Failed to load icon: ${iconName}`, error);
-      return null;
-    }
-  }
-}
-
+/**
+ * PixelLab로 생성된 UI 아이콘 또는 Iconify pixelarticons를 렌더링하는 컴포넌트
+ * 1. manifest.json에서 생성된 아이콘을 먼저 찾고
+ * 2. 없으면 Iconify pixelarticons를 fallback으로 사용합니다.
+ * 
+ * 사용법:
+ *   <PixelIcon name="trash" size={32} />
+ *   <PixelIcon name="check" size={24} className="text-indigo-500" />
+ */
 export default function PixelIcon({
   name,
-  size = 24,
-  color = 'currentColor',
+  size = 32,
   className = '',
-  variant = 'regular',
+  style = {},
 }: PixelIconProps) {
-  const iconName = ICON_MAP[name] || name;
-  const [svgContent, setSvgContent] = React.useState<string | null>(null);
-  const [error, setError] = React.useState(false);
+  const [iconSrc, setIconSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [useIconify, setUseIconify] = useState(false);
 
-  React.useEffect(() => {
-    // 클라이언트 사이드에서 SVG 로드
-    if (typeof window !== 'undefined') {
-      const iconFile = variant === 'solid' ? `${iconName}-solid` : iconName;
-      // public 폴더에서 로드
-      const iconPath = `/icons/pixel/${iconFile}.svg`;
-      
-      fetch(iconPath)
-        .then((res) => {
-          if (!res.ok) {
-            throw new Error('Icon not found');
-          }
-          return res.text();
-        })
-        .then((text) => {
-          // SVG의 fill 속성을 currentColor로 변경하여 색상 커스터마이징 가능하게
-          const modifiedSvg = text
-            .replace(/fill="[^"]*"/g, `fill="${color}"`)
-            .replace(/fill='[^']*'/g, `fill="${color}"`)
-            .replace(/<svg([^>]*)>/, `<svg$1 width="${size}" height="${size}" style="display: inline-block;">`);
-          setSvgContent(modifiedSvg);
-        })
-        .catch(() => {
-          setError(true);
-        });
-    }
-  }, [iconName, variant, color, size]);
+  useEffect(() => {
+    const loadIcon = async () => {
+      try {
+        setLoading(true);
+        setUseIconify(false);
 
-  if (error) {
-    // 폴백: 간단한 placeholder
+        // manifest.json에서 아이콘 경로 로드
+        const response = await fetch('/assets/icons/manifest.json');
+        if (!response.ok) {
+          // manifest.json이 없으면 Iconify 사용
+          setUseIconify(true);
+          setLoading(false);
+          return;
+        }
+
+        const manifest = await response.json();
+        const iconPath = manifest[name];
+        
+        if (!iconPath) {
+          // manifest.json에 아이콘이 없으면 Iconify 사용
+          setUseIconify(true);
+          setLoading(false);
+          return;
+        }
+
+        // manifest에서 아이콘을 찾았으면 사용
+        setIconSrc(iconPath);
+        setUseIconify(false);
+      } catch (err) {
+        // 네트워크 오류 등은 Iconify로 fallback
+        console.warn(`[PixelIcon] manifest 로드 실패, Iconify 사용 (${name}):`, err);
+        setUseIconify(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadIcon();
+  }, [name]);
+
+  // 크기는 반드시 정수로
+  const iconSize = Math.round(size);
+
+  if (loading) {
     return (
-      <div
+      <span
+        className={`inline-block ${className}`}
+        style={{
+          width: iconSize,
+          height: iconSize,
+          ...style,
+        }}
+        aria-label={`${name} 아이콘 로딩 중`}
+      />
+    );
+  }
+
+  // Iconify pixelarticons 사용
+  if (useIconify) {
+    const iconName = ICON_MAP[name] || `pixelarticons:${name}`;
+    return (
+      <Icon
+        icon={iconName}
+        width={iconSize}
+        height={iconSize}
         className={className}
         style={{
-          width: size,
-          height: size,
-          backgroundColor: color,
-          opacity: 0.3,
-          borderRadius: '2px',
           display: 'inline-block',
+          verticalAlign: 'middle',
+          ...style,
         }}
       />
     );
   }
 
-  if (!svgContent) {
+  // manifest에서 로드한 이미지 사용
+  if (!iconSrc) {
+    // 아이콘이 없으면 Iconify로 fallback
+    const iconName = ICON_MAP[name] || `pixelarticons:${name}`;
     return (
-      <div
+      <Icon
+        icon={iconName}
+        width={iconSize}
+        height={iconSize}
         className={className}
         style={{
-          width: size,
-          height: size,
           display: 'inline-block',
+          verticalAlign: 'middle',
+          ...style,
         }}
       />
     );
   }
 
   return (
-    <span
-      className={className}
-      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color }}
-      dangerouslySetInnerHTML={{ __html: svgContent }}
+    <img
+      src={iconSrc}
+      alt={`${name} 아이콘`}
+      width={iconSize}
+      height={iconSize}
+      className={`pixel-icon ${className}`}
+      style={{
+        display: 'inline-block',
+        verticalAlign: 'middle',
+        ...style,
+      }}
+      loading="lazy"
     />
   );
 }
-
-// 아이콘 이름 타입 export (타입 안전성을 위해)
-export const iconNames = Object.keys(ICON_MAP) as Array<keyof typeof ICON_MAP>;

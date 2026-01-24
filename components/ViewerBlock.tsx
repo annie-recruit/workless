@@ -1,9 +1,27 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react';
 import dynamic from 'next/dynamic';
 import { ViewerSource, ViewerBlockConfig } from '@/types';
 import { useViewer } from './ViewerContext';
+import PixelIcon from './PixelIcon';
+import monitorFrameAsset from '@/이걸로써봐라.png';
+
+// 기본 모니터 프레임: 루트에 둔 "이걸로써봐라.png"를 정적 import로 사용
+// (public/ 아래가 아니어도 Next가 번들로 포함해 URL을 생성해줍니다)
+const DEFAULT_VIEWER_FRAME_SRC =
+  (monitorFrameAsset as any)?.src || '/assets/generated/viewer_frame_aaeeb227_transparent.png';
+
+// 모니터 프레임 기준 "파란 스크린" 영역(비율)
+// 이걸로써봐라.png (455x333)에서 블루 픽셀 bbox를 잡고,
+// 테두리/장식이 가려지지 않도록 약간 inset한 값입니다.
+const VIEWER_SCREEN_PCT = {
+  // raw bbox pct (before inset): left 0.1033, top 0.1231, width 0.7956, height 0.5706
+  left: 0.1033,
+  top: 0.1231,
+  width: 0.7956,
+  height: 0.5706,
+};
 
 // PdfViewer를 동적으로 import (SSR 방지)
 const PdfViewer = dynamic(() => import('./PdfViewer'), { ssr: false });
@@ -34,6 +52,8 @@ interface ViewerBlockProps {
   y: number;
   width?: number;
   height?: number;
+  /** 보드 줌(글자 선명도 보정용) */
+  zoom?: number;
   config: ViewerBlockConfig;
   onUpdate: (blockId: string, updates: Partial<{ x: number; y: number; config: ViewerBlockConfig }>) => void;
   onDelete: (blockId: string) => void;
@@ -51,7 +71,9 @@ export default function ViewerBlock({
   x,
   y,
   width = 600,
-  height = 400,
+  // 기본 프레임(455x333) 비율에 맞춰 기본값을 잡아, 첫 렌더에서 테두리가 덜 잘리게
+  height = 439,
+  zoom = 1,
   config,
   onUpdate,
   onDelete,
@@ -65,12 +87,12 @@ export default function ViewerBlock({
   const [currentSource, setCurrentSource] = useState<ViewerSource | null>(config.currentSource || null);
   const [history, setHistory] = useState<ViewerSource[]>(config.history || []);
   const [historyIndex, setHistoryIndex] = useState(config.historyIndex ?? -1);
-  const [pinned, setPinned] = useState(config.pinned || false);
   const [state, setState] = useState<ViewerState>(currentSource ? 'loading' : 'empty');
   const [error, setError] = useState<string | null>(null);
   const [pdfNumPages, setPdfNumPages] = useState<number>(0);
   const [pdfPage, setPdfPage] = useState<number>(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [frameImageFailed, setFrameImageFailed] = useState(false);
   
   // props의 config가 변경되었을 때 로컬 state 동기화 (외부에서 config를 변경한 경우)
   useEffect(() => {
@@ -83,30 +105,16 @@ export default function ViewerBlock({
     if (config.historyIndex !== undefined && config.historyIndex !== historyIndex) {
       setHistoryIndex(config.historyIndex ?? -1);
     }
-    if (config.pinned !== undefined && config.pinned !== pinned) {
-      setPinned(config.pinned || false);
-    }
-  }, [config.currentSource, config.history, config.historyIndex, config.pinned]);
+  }, [config.currentSource, config.history, config.historyIndex]);
 
   // Viewer 등록/해제
-  const pinnedRef = useRef(pinned);
   const historyIndexRef = useRef(historyIndex);
-  
-  // ref 동기화
-  useEffect(() => {
-    pinnedRef.current = pinned;
-  }, [pinned]);
   
   useEffect(() => {
     historyIndexRef.current = historyIndex;
   }, [historyIndex]);
   
   const updateSource = useCallback((source: ViewerSource) => {
-    if (pinnedRef.current) {
-      console.log('Viewer is pinned, ignoring source update');
-      return; // Pin 상태면 무시
-    }
-    
     console.log('ViewerBlock: updateSource called with:', source);
     setCurrentSource(source);
     setState('loading');
@@ -134,7 +142,9 @@ export default function ViewerBlock({
       currentSource: currentSource || undefined,
       history,
       historyIndex,
-      pinned,
+      // PixelLab 이미지도 유지 (외부에서 업데이트된 경우)
+      pixelArtFrame: config.pixelArtFrame,
+      pixelArtBackground: config.pixelArtBackground,
     };
     
     // 이전 config와 비교하여 실제로 변경되었을 때만 업데이트
@@ -143,13 +153,14 @@ export default function ViewerBlock({
       JSON.stringify(prevConfig.currentSource) !== JSON.stringify(newConfig.currentSource) ||
       JSON.stringify(prevConfig.history) !== JSON.stringify(newConfig.history) ||
       prevConfig.historyIndex !== newConfig.historyIndex ||
-      prevConfig.pinned !== newConfig.pinned;
+      prevConfig.pixelArtFrame !== newConfig.pixelArtFrame ||
+      prevConfig.pixelArtBackground !== newConfig.pixelArtBackground;
     
     if (hasChanged) {
       prevConfigRef.current = newConfig;
       onUpdate(blockId, { config: newConfig });
     }
-  }, [currentSource, history, historyIndex, pinned, blockId, onUpdate]);
+  }, [currentSource, history, historyIndex, config.pixelArtFrame, config.pixelArtBackground, blockId, onUpdate]);
 
   // 이미지 로드
   const handleImageLoad = useCallback(() => {
@@ -178,25 +189,6 @@ export default function ViewerBlock({
     setState('error');
     setError('PDF를 불러올 수 없습니다');
   }, []);
-
-  // 히스토리 네비게이션
-  const goBack = useCallback(() => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      setHistoryIndex(newIndex);
-      setCurrentSource(history[newIndex]);
-      setState('loading');
-    }
-  }, [history, historyIndex]);
-
-  const goForward = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      const newIndex = historyIndex + 1;
-      setHistoryIndex(newIndex);
-      setCurrentSource(history[newIndex]);
-      setState('loading');
-    }
-  }, [history, historyIndex]);
 
   // 파일 선택
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -279,19 +271,32 @@ export default function ViewerBlock({
      currentSource.fileName?.toLowerCase().endsWith('.docx') ||
      currentSource.fileName?.toLowerCase().endsWith('.doc'));
 
-  const canGoBack = historyIndex > 0;
-  const canGoForward = historyIndex < history.length - 1;
+  const frameSrc = config.pixelArtFrame || DEFAULT_VIEWER_FRAME_SRC;
+  const screenStyle: CSSProperties = {
+    left: `${VIEWER_SCREEN_PCT.left * 100}%`,
+    top: `${VIEWER_SCREEN_PCT.top * 100}%`,
+    width: `${VIEWER_SCREEN_PCT.width * 100}%`,
+    height: `${VIEWER_SCREEN_PCT.height * 100}%`,
+  };
+  const screenWidthPx = Math.max(0, Math.floor(width * VIEWER_SCREEN_PCT.width));
+  // 스크린을 최대한 채우도록 여백 최소화 (너무 큰 경우만 상한)
+  const pdfRenderWidth = Math.min(Math.max(200, screenWidthPx - 1), 1600);
 
-  const displayTitle = currentSource?.kind === 'file' 
-    ? currentSource.fileName 
-    : currentSource?.kind === 'url' 
-    ? currentSource.title || new URL(currentSource.url).hostname
-    : 'Viewer';
+  const backgroundStyle = config.pixelArtBackground
+    ? {
+        backgroundImage: `url(${config.pixelArtBackground})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }
+    : {};
 
   return (
     <div
       data-viewer-block={blockId}
-      className="absolute bg-gradient-to-br from-purple-100 via-pink-100 to-rose-100 rounded-2xl shadow-2xl border-4 border-purple-200 overflow-hidden"
+      // box-shadow는 요소의 "사각형 박스" 기준이라 투명 PNG에서 하얀/네모 헤일로처럼 보일 수 있음
+      // 프레임 PNG 자체(알파)를 따르는 drop-shadow는 아래 <img>에 적용
+      className="absolute"
       style={{
         transform: `translate3d(${x}px, ${y}px, 0)`,
         width: `${width}px`,
@@ -302,6 +307,8 @@ export default function ViewerBlock({
         willChange: isDragging ? 'transform' : 'auto',
         pointerEvents: isDragging ? 'none' : 'auto',
         contain: 'layout style paint',
+        background: frameImageFailed ? 'linear-gradient(to bottom right, rgb(243, 232, 255), rgb(251, 207, 232), rgb(255, 228, 230))' : 'transparent',
+        border: frameImageFailed ? '4px solid rgb(196, 181, 253)' : 'none',
       }}
       onPointerDown={onPointerDown}
       onClick={(e) => {
@@ -310,279 +317,212 @@ export default function ViewerBlock({
       }}
       onPaste={handlePaste}
     >
-      {/* 헤더 */}
-      <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-purple-200/80 via-pink-200/80 to-rose-200/80 border-b border-purple-300/50 backdrop-blur-sm">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">📺</span>
-            <span className="text-sm font-semibold text-purple-700">Viewer</span>
-          </div>
-          {currentSource && (
-            <>
-              <div className="h-4 w-px bg-purple-300/50" />
-              <span className="text-xs text-purple-600 truncate" title={displayTitle}>
-                {displayTitle}
-              </span>
-            </>
-          )}
-          {pinned && (
-            <span className="px-2 py-0.5 text-[10px] font-medium bg-purple-400/30 text-purple-700 rounded-full border border-purple-400/50">
-              Pinned
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setPinned(!pinned);
-            }}
-            className={`p-1.5 rounded-lg transition-colors ${
-              pinned 
-                ? 'bg-purple-400/30 text-purple-700 hover:bg-purple-400/40' 
-                : 'text-purple-500 hover:text-purple-600 hover:bg-purple-200/50'
-            }`}
-            title={pinned ? 'Pin 해제' : 'Pin 고정'}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-            </svg>
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(blockId);
-            }}
-            className="p-1.5 rounded-lg text-purple-500 hover:text-rose-500 hover:bg-rose-200/50 transition-colors"
-            title="닫기"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
+      <div className="relative w-full h-full">
+        {/* 임시: 기존 헤더/푸터 제거. 닫기 버튼만 최소 오버레이로 유지 */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(blockId);
+          }}
+          className="absolute top-3 right-3 z-20 w-8 h-8 rounded-lg bg-white/45 hover:bg-white/65 text-black/70 hover:text-black/80 transition-colors shadow-sm border border-black/10 backdrop-blur-sm"
+          title="닫기"
+        >
+          ×
+        </button>
 
-      {/* 본문 */}
-      <div className="relative bg-white/50 h-[calc(100%-120px)] overflow-auto">
-        {state === 'empty' && (
-          <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-            <div className="mb-4 text-6xl opacity-50">📺</div>
-            <p className="text-purple-600 text-sm mb-2 font-medium">Drop file / paste URL to preview</p>
-            <p className="text-purple-500 text-xs mb-4">이미지, PDF 또는 DOCX 파일을 드롭하거나 URL을 붙여넣으세요</p>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                fileInputRef.current?.click();
+        {!frameImageFailed && (
+          <img
+            src={frameSrc}
+            alt="Viewer Frame"
+            // object-cover는 컨테이너 비율이 다르면 상/하가 잘릴 수 있음.
+            // 프레임은 "전체가 보이는 게" 중요해서 fill로 맞춤(기본 비율은 위 height로 최대한 유지).
+            className="absolute inset-0 w-full h-full object-fill select-none pointer-events-none drop-shadow-2xl"
+            // 안티앨리어싱으로 투명 가장자리가 하얗게 보이는(프린지) 현상을 줄이기 위해 pixelated 사용
+            style={{ imageRendering: 'pixelated' as const }}
+            draggable={false}
+            onError={() => setFrameImageFailed(true)}
+          />
+        )}
+
+        {/* 스크린(파란 액정) 영역 */}
+        <div className="absolute" style={screenStyle}>
+          <div className="relative w-full h-full overflow-hidden rounded-lg">
+            {/* 본문 (헤더/푸터 없이 전체 높이 사용) */}
+            <div
+              className="relative w-full h-full overflow-auto"
+              style={{
+                backgroundColor: 'transparent',
+                ...backgroundStyle,
               }}
-              className="px-4 py-2 text-sm bg-gradient-to-r from-purple-300 to-pink-300 hover:from-purple-400 hover:to-pink-400 text-purple-800 rounded-lg transition-all shadow-md hover:shadow-lg font-medium"
             >
-              파일 선택
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,application/pdf"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-          </div>
-        )}
-
-        {state === 'loading' && currentSource && (
-          <div className="flex items-center justify-center h-full relative">
-            {isImage ? (
-              // 이미지는 로딩 중에도 렌더링 시작 (onLoad/onError에서 상태 변경)
-              <>
-                <img
-                  key={`${currentSource.url}-${Date.now()}`} // 강제 재로드
-                  src={currentSource.url}
-                  alt={currentSource.fileName}
-                  onLoad={handleImageLoad}
-                  onError={handleImageError}
-                  className="max-w-full max-h-full object-contain"
-                  style={{ imageRendering: 'auto' as const }}
-                />
-                <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
-                    <p className="text-purple-600 text-sm font-medium">로딩 중...</p>
+              {state === 'empty' && (
+                <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                  <div className="mb-4 opacity-50">
+                    <PixelIcon name="viewer" size={64} className="text-black/60" />
                   </div>
+                  <p className="text-black/80 text-sm mb-2 font-medium">Drop file / paste URL to preview</p>
+                  <p className="text-black/70 text-xs mb-4">이미지, PDF 또는 DOCX 파일을 드롭하거나 URL을 붙여넣으세요</p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
+                    className="px-4 py-2 text-sm bg-white/50 hover:bg-white/60 text-black/80 rounded-lg transition-all shadow-md hover:shadow-lg font-medium border border-black/10"
+                  >
+                    파일 선택
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
                 </div>
-              </>
-            ) : isPdf ? (
-              // PDF는 로딩 중에도 렌더링 시작 (onLoadSuccess에서 상태 변경)
-              <PdfViewer
-                key={currentSource.url}
-                url={currentSource.url}
-                page={pdfPage}
-                numPages={pdfNumPages}
-                width={Math.min(width - 40, 800)}
-                onLoadSuccess={onDocumentLoadSuccess}
-                onLoadError={onDocumentLoadError}
-                onPageChange={(newPage) => setPdfPage(newPage)}
-              />
-            ) : isDocx ? (
-              // DOCX는 로딩 중에도 렌더링 시작 (onLoadSuccess에서 상태 변경)
-              <DocxViewer
-                key={currentSource.url}
-                url={currentSource.url}
-                onLoadSuccess={() => {
-                  console.log('ViewerBlock: DOCX loaded successfully');
-                  setState('loaded');
-                  setError(null);
-                }}
-                onLoadError={onDocumentLoadError}
-              />
-            ) : (
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
-                <p className="text-purple-600 text-sm font-medium">로딩 중...</p>
-              </div>
-            )}
-          </div>
-        )}
+              )}
 
-        {state === 'error' && (
-          <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-            <div className="mb-4 text-5xl opacity-50">⚠️</div>
-            <p className="text-purple-600 text-sm mb-4 font-medium">Preview not available</p>
-            {currentSource && (
-              <div className="flex gap-2">
-                <a
-                  href={currentSource.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="px-4 py-2 text-sm bg-gradient-to-r from-purple-300 to-pink-300 hover:from-purple-400 hover:to-pink-400 text-purple-800 rounded-lg transition-all shadow-md hover:shadow-lg font-medium"
-                >
-                  Open in new tab
-                </a>
-                <a
-                  href={currentSource.url}
-                  download
-                  onClick={(e) => e.stopPropagation()}
-                  className="px-4 py-2 text-sm bg-gradient-to-r from-purple-300 to-pink-300 hover:from-purple-400 hover:to-pink-400 text-purple-800 rounded-lg transition-all shadow-md hover:shadow-lg font-medium"
-                >
-                  Download
-                </a>
-              </div>
-            )}
-          </div>
-        )}
+              {state === 'loading' && currentSource && (
+                <div className="flex items-center justify-center h-full relative">
+                  {isImage ? (
+                    // 이미지는 로딩 중에도 렌더링 시작 (onLoad/onError에서 상태 변경)
+                    <>
+                      <img
+                        key={`${currentSource.url}-${Date.now()}`} // 강제 재로드
+                        src={currentSource.url}
+                        alt={currentSource.fileName}
+                        onLoad={handleImageLoad}
+                        onError={handleImageError}
+                        className="max-w-full max-h-full object-contain"
+                        style={{ imageRendering: 'auto' as const }}
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
+                          <p className="text-purple-600 text-sm font-medium">로딩 중...</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : isPdf ? (
+                    // PDF는 로딩 중에도 렌더링 시작 (onLoadSuccess에서 상태 변경)
+                    <PdfViewer
+                      key={currentSource.url}
+                      url={currentSource.url}
+                      page={pdfPage}
+                      numPages={pdfNumPages}
+                      width={pdfRenderWidth}
+                      zoom={zoom}
+                      onLoadSuccess={onDocumentLoadSuccess}
+                      onLoadError={onDocumentLoadError}
+                      onPageChange={(newPage) => setPdfPage(newPage)}
+                    />
+                  ) : isDocx ? (
+                    // DOCX는 로딩 중에도 렌더링 시작 (onLoadSuccess에서 상태 변경)
+                    <DocxViewer
+                      key={currentSource.url}
+                      url={currentSource.url}
+                      onLoadSuccess={() => {
+                        console.log('ViewerBlock: DOCX loaded successfully');
+                        setState('loaded');
+                        setError(null);
+                      }}
+                      onLoadError={onDocumentLoadError}
+                    />
+                  ) : (
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
+                      <p className="text-purple-600 text-sm font-medium">로딩 중...</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
-        {state === 'loaded' && currentSource && (
-          <div className="h-full flex items-center justify-center p-4">
-            {isImage && (
-              <img
-                src={currentSource.url}
-                alt={currentSource.fileName}
-                onLoad={handleImageLoad}
-                onError={handleImageError}
-                className="max-w-full max-h-full object-contain"
-                  style={{ imageRendering: 'auto' as const }}
-              />
-            )}
-            {isPdf && (
-              <PdfViewer
-                url={currentSource.url}
-                page={pdfPage}
-                numPages={pdfNumPages}
-                width={Math.min(width - 40, 800)}
-                onLoadSuccess={onDocumentLoadSuccess}
-                onLoadError={onDocumentLoadError}
-                onPageChange={(newPage) => setPdfPage(newPage)}
-              />
-            )}
-            {isDocx && (
-              <DocxViewer
-                url={currentSource.url}
-                onLoadSuccess={() => {
-                  console.log('ViewerBlock: DOCX loaded successfully');
-                  setState('loaded');
-                  setError(null);
-                }}
-                onLoadError={onDocumentLoadError}
-              />
-            )}
-            {currentSource.kind === 'url' && (
-              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                <div className="mb-4 text-5xl opacity-50">🔗</div>
-                <p className="text-purple-600 text-sm mb-2 font-medium">{currentSource.title || 'URL'}</p>
-                <p className="text-purple-500 text-xs mb-4 break-all">{currentSource.url}</p>
-                <a
-                  href={currentSource.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="px-4 py-2 text-sm bg-gradient-to-r from-purple-300 to-pink-300 hover:from-purple-400 hover:to-pink-400 text-purple-800 rounded-lg transition-all shadow-md hover:shadow-lg font-medium"
-                >
-                  Open in new tab
-                </a>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+              {state === 'error' && (
+                <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                  <div className="mb-4 opacity-50">
+                    <PixelIcon name="warning" size={48} className="text-purple-500" />
+                  </div>
+                  <p className="text-purple-600 text-sm mb-4 font-medium">Preview not available</p>
+                  {currentSource && (
+                    <div className="flex gap-2">
+                      <a
+                        href={currentSource.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-4 py-2 text-sm bg-gradient-to-r from-purple-300 to-pink-300 hover:from-purple-400 hover:to-pink-400 text-purple-800 rounded-lg transition-all shadow-md hover:shadow-lg font-medium"
+                      >
+                        Open in new tab
+                      </a>
+                      <a
+                        href={currentSource.url}
+                        download
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-4 py-2 text-sm bg-gradient-to-r from-purple-300 to-pink-300 hover:from-purple-400 hover:to-pink-400 text-purple-800 rounded-lg transition-all shadow-md hover:shadow-lg font-medium"
+                      >
+                        Download
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
 
-      {/* 하단 컨트롤바 (리모컨 느낌) */}
-      <div className="absolute bottom-0 left-0 right-0 px-4 py-3 bg-gradient-to-r from-purple-200/80 via-pink-200/80 to-rose-200/80 border-t border-purple-300/50 backdrop-blur-sm flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              goBack();
-            }}
-            disabled={!canGoBack}
-            className="p-2 rounded-lg bg-purple-300/60 hover:bg-purple-400/70 disabled:opacity-50 disabled:cursor-not-allowed text-purple-700 transition-colors shadow-sm hover:shadow-md"
-            title="이전"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              goForward();
-            }}
-            disabled={!canGoForward}
-            className="p-2 rounded-lg bg-purple-300/60 hover:bg-purple-400/70 disabled:opacity-50 disabled:cursor-not-allowed text-purple-700 transition-colors shadow-sm hover:shadow-md"
-            title="다음"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
-        <div className="flex items-center gap-2">
-          {currentSource && (
-            <>
-              <a
-                href={currentSource.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="p-2 rounded-lg bg-purple-300/60 hover:bg-purple-400/70 text-purple-700 transition-colors shadow-sm hover:shadow-md"
-                title="새 탭에서 열기"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-              </a>
-              <a
-                href={currentSource.url}
-                download={currentSource.kind === 'file' ? currentSource.fileName : undefined}
-                onClick={(e) => e.stopPropagation()}
-                className="p-2 rounded-lg bg-purple-300/60 hover:bg-purple-400/70 text-purple-700 transition-colors shadow-sm hover:shadow-md"
-                title="다운로드"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-              </a>
-            </>
-          )}
+              {state === 'loaded' && currentSource && (
+                <div className="h-full w-full">
+                  {isImage && (
+                    <img
+                      src={currentSource.url}
+                      alt={currentSource.fileName}
+                      onLoad={handleImageLoad}
+                      onError={handleImageError}
+                      className="w-full h-full object-contain"
+                      style={{ imageRendering: 'auto' as const }}
+                    />
+                  )}
+                  {isPdf && (
+                    <PdfViewer
+                      url={currentSource.url}
+                      page={pdfPage}
+                      numPages={pdfNumPages}
+                      width={pdfRenderWidth}
+                      zoom={zoom}
+                      onLoadSuccess={onDocumentLoadSuccess}
+                      onLoadError={onDocumentLoadError}
+                      onPageChange={(newPage) => setPdfPage(newPage)}
+                    />
+                  )}
+                  {isDocx && (
+                    <DocxViewer
+                      url={currentSource.url}
+                      onLoadSuccess={() => {
+                        console.log('ViewerBlock: DOCX loaded successfully');
+                        setState('loaded');
+                        setError(null);
+                      }}
+                      onLoadError={onDocumentLoadError}
+                    />
+                  )}
+                  {currentSource.kind === 'url' && (
+                    <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                      <div className="mb-4 opacity-50">
+                        <PixelIcon name="link" size={48} className="text-purple-500" />
+                      </div>
+                      <p className="text-purple-600 text-sm mb-2 font-medium">{currentSource.title || 'URL'}</p>
+                      <p className="text-purple-500 text-xs mb-4 break-all">{currentSource.url}</p>
+                      <a
+                        href={currentSource.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-4 py-2 text-sm bg-gradient-to-r from-purple-300 to-pink-300 hover:from-purple-400 hover:to-pink-400 text-purple-800 rounded-lg transition-all shadow-md hover:shadow-lg font-medium"
+                      >
+                        Open in new tab
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

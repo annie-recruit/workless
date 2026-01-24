@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Goal } from '@/types';
+import PixelIcon from './PixelIcon';
 
 interface Insights {
   summary: string;
@@ -32,8 +33,17 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
         const data = await res.json();
         setInsights(data);
       } else {
-        const errorData = await res.json().catch(() => ({}));
-        const errorMessage = errorData.error || errorData.details || '인사이트를 불러올 수 없습니다';
+        let errorData: any = {};
+        try {
+          const text = await res.text();
+          if (text) {
+            errorData = JSON.parse(text);
+          }
+        } catch (e) {
+          // JSON 파싱 실패 시 빈 객체
+          errorData = {};
+        }
+        const errorMessage = errorData.error || errorData.details || `인사이트를 불러올 수 없습니다 (${res.status})`;
         setError(errorMessage);
         console.error('Insights API error:', errorData);
       }
@@ -60,11 +70,14 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
   if (error) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-4">
-        <div className="text-red-500 mb-2">⚠️ 오류</div>
+        <div className="text-red-500 mb-2 flex items-center gap-1">
+          <PixelIcon name="warning" size={16} />
+          오류
+        </div>
         <div className="text-gray-600 text-sm text-center mb-4">{error}</div>
         <button
           onClick={fetchInsights}
-          className="px-4 py-2 bg-indigo-500 text-white border-2 border-indigo-600 hover:bg-indigo-600 text-sm"
+          className="px-4 py-2 bg-indigo-500 text-white border border-indigo-600 hover:bg-indigo-600 text-sm"
         >
           다시 시도
         </button>
@@ -116,8 +129,11 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
         </div>
 
         {/* 전체 요약 */}
-        <div className="bg-gradient-to-br from-orange-50 to-indigo-50 p-4 border-2 border-indigo-300">
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">💭 요약</h3>
+        <div className="bg-gradient-to-br from-orange-50 to-indigo-50 p-4 border border-indigo-300">
+          <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1">
+            <PixelIcon name="summary" size={16} />
+            요약
+          </h3>
           <p className="text-gray-700 leading-relaxed text-sm">
             {insights.summary}
           </p>
@@ -128,8 +144,11 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
 
         {/* 주요 주제 */}
         {insights.topTopics.length > 0 && (
-          <div className="bg-white p-4 border-2 border-gray-300">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">🏷️ 주요 주제</h3>
+          <div className="bg-white p-4 border border-gray-300">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1">
+              <PixelIcon name="topic" size={16} />
+              주요 주제
+            </h3>
             <div className="space-y-2">
               {insights.topTopics.map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between">
@@ -157,8 +176,11 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
 
         {/* 제안 */}
         {insights.suggestions.length > 0 && (
-          <div className="bg-gray-50 p-4 border-2 border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">💡 제안</h3>
+          <div className="bg-gray-50 p-4 border border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1">
+              <PixelIcon name="lightbulb" size={16} />
+              제안
+            </h3>
             <ul className="space-y-2">
               {insights.suggestions.map((suggestion, idx) => (
                 <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
@@ -212,7 +234,7 @@ function GoalsSection() {
 
   if (loading) {
     return (
-      <div className="bg-white p-4 border-2 border-gray-300">
+      <div className="bg-white p-4 border border-gray-300">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">🎯 진행 중인 목표</h3>
         <p className="text-xs text-gray-500">로딩 중...</p>
       </div>
@@ -223,14 +245,14 @@ function GoalsSection() {
 
   return (
     <>
-      <div className="bg-gradient-to-br from-orange-50 to-red-50 p-4 border-2 border-orange-300">
+      <div className="bg-gradient-to-br from-orange-50 to-red-50 p-4 border border-orange-300">
         <h3 className="text-sm font-semibold text-orange-700 mb-3">🎯 진행 중인 목표</h3>
         <div className="space-y-3">
           {goals.map((goal) => (
             <div
               key={goal.id}
               onClick={() => setSelectedGoal(goal)}
-              className="bg-white p-3 border-2 transition-all cursor-pointer border-orange-300 hover:border-orange-500"
+              className="bg-white p-3 border transition-all cursor-pointer border-orange-300 hover:border-orange-500"
             >
               <div className="flex items-start justify-between mb-2">
                 <h4 className="text-sm font-medium text-gray-900 flex-1 pr-2">
@@ -371,7 +393,7 @@ function GoalDetailModal({ goal, onClose, onUpdate }: { goal: Goal; onClose: () 
 
   return (
     <div className="fixed inset-0 bg-black/30 backdrop-blur-md flex items-center justify-center z-50 p-4">
-      <div className="bg-white border-2 border-gray-300 w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-white border border-gray-300 w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* 헤더 */}
         <div className="bg-gradient-to-r from-orange-500 to-red-600 p-6 rounded-t-2xl">
           <div className="flex items-start justify-between mb-4">
@@ -423,12 +445,15 @@ function GoalDetailModal({ goal, onClose, onUpdate }: { goal: Goal; onClose: () 
           {/* 마일스톤 체크리스트 */}
           {milestones.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">✅ 실행 계획</h3>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1">
+                <PixelIcon name="check" size={16} />
+                실행 계획
+              </h3>
               <div className="space-y-2">
                 {milestones.map((milestone, idx) => (
                   <label
                     key={idx}
-                    className={`flex items-start p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                    className={`flex items-start p-3 border rounded-lg cursor-pointer transition-all ${
                       milestone.completed
                         ? 'border-green-300 bg-green-50'
                         : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
@@ -457,13 +482,13 @@ function GoalDetailModal({ goal, onClose, onUpdate }: { goal: Goal; onClose: () 
               onClick={handleArchive}
               className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              📦 보관
+              <PixelIcon name="archive" size={16} className="inline" /> 보관
             </button>
             <button
               onClick={handleDelete}
               className="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
             >
-              🗑️ 삭제
+              <PixelIcon name="delete" size={16} className="inline" /> 삭제
             </button>
           </div>
           <div className="flex gap-3">

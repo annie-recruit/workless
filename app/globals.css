@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+/* Galmuri11 (갈무리11) - https://quiple.dev/galmuri (SIL OFL 1.1) */
+@font-face {
+  font-family: "Galmuri11";
+  src: url("/fonts/galmuri/Galmuri11.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Galmuri11";
+  src: url("/fonts/galmuri/Galmuri11-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 보드/카드/위젯 영역에서 다른 폰트 지정(예: font-mono, inline style)을 강제로 덮어쓰기 */
+.font-galmuri11,
+.font-galmuri11 * {
+  font-family: "Galmuri11", var(--font-pretendard), system-ui, sans-serif !important;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -46,6 +69,13 @@ button:active, a:active {
 /* 스와이프 제스처 지원 */
 .swipeable {
   touch-action: pan-y;
+}
+
+/* PixelIcon 스타일 (픽셀 아트 아이콘 렌더링 최적화) */
+.pixel-icon {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  -ms-interpolation-mode: nearest-neighbor;
 }
 
 /* 모바일에서 스크롤 부드럽게 */

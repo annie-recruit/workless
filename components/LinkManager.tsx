@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Memory } from '@/types';
+import PixelIcon from './PixelIcon';
 
 interface LinkManagerProps {
   currentMemory: Memory;
@@ -82,7 +83,7 @@ export default function LinkManager({ currentMemory, allMemories, onClose, onLin
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
           <div className="bg-green-500 text-white rounded-xl shadow-2xl p-4 min-w-[300px] border border-green-600">
             <div className="flex items-center gap-3">
-              <div className="text-2xl">✅</div>
+              <PixelIcon name="success" size={24} />
               <div>
                 <p className="text-sm font-semibold">기록이 연결되었습니다!</p>
               </div>
@@ -154,7 +155,7 @@ export default function LinkManager({ currentMemory, allMemories, onClose, onLin
                       <button
                         key={memory.id}
                         onClick={() => setSelectedMemoryId(memory.id)}
-                        className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
+                        className={`w-full p-3 rounded-lg border transition-all text-left ${
                           selectedMemoryId === memory.id
                             ? 'border-blue-500 bg-blue-50'
                             : 'border-gray-200 hover:border-gray-300 bg-white'

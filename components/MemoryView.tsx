@@ -7,6 +7,8 @@ import { ko } from 'date-fns/locale';
 import LinkManager from './LinkManager';
 import dynamic from 'next/dynamic';
 import { useViewer } from './ViewerContext';
+import PixelIcon from './PixelIcon';
+import LottiePlayer from './LottiePlayer';
 
 // 큰 컴포넌트들을 동적 import로 로드 (초기 번들 크기 감소)
 const CalendarBlock = dynamic(() => import('./CalendarBlock'), {
@@ -427,7 +429,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     }
   };
   const [boardSize, setBoardSize] = useState({ width: 1600, height: 1200 });
-  const [viewportBounds, setViewportBounds] = useState({ left: 0, top: 0, width: 0, height: 0 });
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [zoom, setZoom] = useState(1);
   const zoomRef = useRef(1);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -443,7 +446,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
   useEffect(() => {
     fetchGroups();
+    fetchBlocks();
   }, []);
+
 
   // memories prop이 변경되면 로컬 상태도 업데이트
   useEffect(() => {
@@ -525,15 +530,24 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   // 미니맵 생성 (보드당 하나만)
   const handleCreateMinimapBlock = async () => {
     try {
+      // 보드 좌표계로 초기 위치 계산
+      // 메모리 카드 크기(m: 240x180) 정도로 축소
+      const minimapWidth = 240;
+      const minimapHeight = 180;
+      
+      // 보드의 오른쪽 하단에 배치 (보드 좌표계)
+      const x = boardSize.width - minimapWidth - 20;
+      const y = 20; // 보드 상단에서 20px 아래
+      
       const res = await fetch('/api/board/blocks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'minimap',
-          x: 20,
-          y: 20,
-          width: 420,
-          height: 300,
+          x,
+          y,
+          width: minimapWidth,
+          height: minimapHeight,
           config: {},
         }),
       });
@@ -639,8 +653,23 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   };
 
   // 블록 업데이트
-  const handleBlockUpdate = useCallback(async (blockId: string, updates: Partial<{ x: number; y: number; config: any }>) => {
+  const handleBlockUpdate = useCallback(async (blockId: string, updates: Partial<{ x: number; y: number; width?: number; height?: number; config: any }>) => {
     try {
+      // 즉시 UI 반영을 위해 로컬 상태를 먼저 갱신 (optimistic update)
+      setBlocks(prev =>
+        prev.map(b => {
+          if (b.id !== blockId) return b;
+          return {
+            ...b,
+            ...(updates.x !== undefined ? { x: updates.x } : null),
+            ...(updates.y !== undefined ? { y: updates.y } : null),
+            ...(updates.width !== undefined ? { width: updates.width } : null),
+            ...(updates.height !== undefined ? { height: updates.height } : null),
+            ...(updates.config !== undefined ? { config: updates.config } : null),
+          };
+        })
+      );
+
       // 위치 업데이트의 경우 이미 로컬 상태가 업데이트되어 있으므로 API만 호출
       // config 업데이트의 경우도 ViewerBlock에서 이미 로컬 상태를 관리하므로 API만 호출
       const res = await fetch(`/api/board/blocks?id=${blockId}`, {
@@ -658,6 +687,21 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       console.error('Failed to update block:', error);
     }
   }, []);
+
+  // 미니맵 블록 크기 자동 축소 (기존 블록이 크면 메모리 카드 크기로 축소)
+  const minimapSizeFixedRef = useRef(false);
+  useEffect(() => {
+    if (minimapSizeFixedRef.current) return; // 이미 수정했으면 스킵
+    const minimapBlock = blocks.find(b => b.type === 'minimap');
+    if (minimapBlock && minimapBlock.width !== undefined && minimapBlock.height !== undefined && 
+        (minimapBlock.width > 250 || minimapBlock.height > 190)) {
+      minimapSizeFixedRef.current = true;
+      handleBlockUpdate(minimapBlock.id, {
+        width: 240,
+        height: 180,
+      });
+    }
+  }, [blocks, handleBlockUpdate]);
 
   // 블록 삭제
   const handleBlockDelete = async (blockId: string) => {
@@ -679,6 +723,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     fetchBlocks();
   }, []);
 
+
   // 드래그 앤 드롭 핸들러
   const handleDragStart = (memoryId: string) => {
     setDraggedMemoryId(memoryId);
@@ -696,58 +741,103 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
   const clampZoom = (value: number) => Math.min(Math.max(value, 0.5), 1.6);
   
-  const updateViewportBounds = useCallback(() => {
+  // pan 상태 업데이트 (스크롤 이벤트에서)
+  const updatePan = useCallback(() => {
     if (boardContainerRef.current) {
-      const scrollLeft = boardContainerRef.current.scrollLeft;
-      const scrollTop = boardContainerRef.current.scrollTop;
-      const clientWidth = boardContainerRef.current.clientWidth;
-      const clientHeight = boardContainerRef.current.clientHeight;
-      
-      setViewportBounds({
-        left: scrollLeft / zoom,
-        top: scrollTop / zoom,
-        width: clientWidth / zoom,
-        height: clientHeight / zoom,
+      const container = boardContainerRef.current;
+      setPan({
+        x: -container.scrollLeft,
+        y: -container.scrollTop,
+      });
+      setContainerSize({
+        width: container.clientWidth,
+        height: container.clientHeight,
       });
     }
-  }, [zoom]);
+  }, []);
+
+  const viewportBounds = useMemo(() => {
+    if (!boardContainerRef.current || !boardRef.current) {
+      return { left: 0, top: 0, width: 0, height: 0 };
+    }
+
+    const container = boardContainerRef.current;
+    const containerRect = container.getBoundingClientRect();
+
+    // 스크롤 위치는 transform: scale(zoom) 이 적용된 보드를 기준으로 하므로,
+    // zoom 으로 나누어 보드 좌표계(스케일 전)로 변환한다.
+    const scrollLeft = container.scrollLeft;
+    const scrollTop = container.scrollTop;
+
+    const left = scrollLeft / zoom;
+    const top = scrollTop / zoom;
+    const width = containerRect.width / zoom;
+    const height = containerRect.height / zoom;
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[viewportBounds] 계산(심플):', {
+        scrollLeft,
+        scrollTop,
+        zoom,
+        containerWidth: containerRect.width,
+        containerHeight: containerRect.height,
+        boardWidth: boardSize.width,
+        boardHeight: boardSize.height,
+        viewportBounds: { left, top, width, height },
+      });
+    }
+
+    return { left, top, width, height };
+  }, [pan, zoom, boardContainerRef.current?.clientWidth, boardContainerRef.current?.clientHeight, boardRef.current, boardSize]);
 
   const changeZoom = (delta: number) => {
     setZoom(prev => {
-      const newZoom = clampZoom(prev + delta);
-      // zoom 변경 후 뷰포트 업데이트
-      setTimeout(updateViewportBounds, 0);
-      return newZoom;
+      return clampZoom(prev + delta);
     });
   };
   const resetZoom = () => {
     setZoom(1);
-    setTimeout(updateViewportBounds, 0);
   };
 
-  // 초기 뷰포트 설정 및 zoom 변경 시 업데이트
+  // 초기 pan 설정
   useEffect(() => {
-    const update = () => {
-      if (boardContainerRef.current) {
-        const scrollLeft = boardContainerRef.current.scrollLeft;
-        const scrollTop = boardContainerRef.current.scrollTop;
-        const clientWidth = boardContainerRef.current.clientWidth;
-        const clientHeight = boardContainerRef.current.clientHeight;
-        
-        setViewportBounds({
-          left: scrollLeft / zoom,
-          top: scrollTop / zoom,
-          width: clientWidth / zoom,
-          height: clientHeight / zoom,
+    updatePan();
+  }, [updatePan]);
+
+  // 스크롤 이벤트 추적 (throttled) - pan 업데이트
+  useEffect(() => {
+    const container = boardContainerRef.current;
+    if (!container) return;
+
+    let rafId: number | null = null;
+    const handleScroll = () => {
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          updatePan();
+          rafId = null;
         });
       }
     };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
     
-    update();
-    const handleResize = () => update();
+    // 초기 업데이트
+    updatePan();
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [updatePan]);
+
+  // 리사이즈 이벤트 추적
+  useEffect(() => {
+    const handleResize = () => {
+      updatePan();
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [zoom, boardSize]);
+  }, [updatePan]);
 
   const ensureBoardBounds = (x: number, y: number) => {
     const { width: cardWidth, height: cardHeight } = CARD_DIMENSIONS[cardSize];
@@ -1021,6 +1111,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     const viewBottom = viewportBounds.top + viewportBounds.height + padding;
     
     return blocks.filter(block => {
+      // 미니맵은 항상 표시
+      if (block.type === 'minimap') return true;
+      
       const blockLeft = block.x;
       const blockRight = block.x + (block.width || 400);
       const blockTop = block.y;
@@ -1251,12 +1344,22 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       }
 
       // 드래그 중: 마지막 포인터 위치만 저장 (RAF에서 처리)
-      const rect = boardRef.current!.getBoundingClientRect();
-      const scale = zoomRef.current;
-      lastPointerPosRef.current = {
-        x: (event.clientX - rect.left) / scale,
-        y: (event.clientY - rect.top) / scale,
-      };
+      if (draggingEntity.type === 'block') {
+        // 모든 블록(미니맵 포함)은 보드 좌표계 사용
+        const rect = boardRef.current!.getBoundingClientRect();
+        const scale = zoomRef.current;
+        lastPointerPosRef.current = {
+          x: (event.clientX - rect.left) / scale,
+          y: (event.clientY - rect.top) / scale,
+        };
+      } else {
+        const rect = boardRef.current!.getBoundingClientRect();
+        const scale = zoomRef.current;
+        lastPointerPosRef.current = {
+          x: (event.clientX - rect.left) / scale,
+          y: (event.clientY - rect.top) / scale,
+        };
+      }
 
       // RAF가 없으면 시작
       if (dragRafIdRef.current === null) {
@@ -1267,11 +1370,12 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           }
 
           const { x: mouseX, y: mouseY } = lastPointerPosRef.current;
-          const newX = Math.max(0, mouseX - dragOffset.x);
-          const newY = Math.max(0, mouseY - dragOffset.y);
-
+          
           if (draggingEntity.type === 'block') {
-            // 블록 드래그: transform 기반 (더 정밀한 위치 업데이트)
+            const block = blocks.find(b => b.id === draggingEntity.id);
+            // 모든 블록(미니맵 포함)은 보드 좌표계 사용
+            const newX = Math.max(0, mouseX - dragOffset.x);
+            const newY = Math.max(0, mouseY - dragOffset.y);
             setBlocks(prev => {
               const block = prev.find(b => b.id === draggingEntity.id);
               if (!block) return prev;
@@ -1289,6 +1393,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
             });
           } else {
             // 메모리 카드 드래그: transform 기반
+            const newX = Math.max(0, mouseX - dragOffset.x);
+            const newY = Math.max(0, mouseY - dragOffset.y);
             const currentSelectedIds = selectedMemoryIdsRef.current;
             if (currentSelectedIds.has(draggingEntity.id) && currentSelectedIds.size > 1) {
               // 다중 선택
@@ -1328,9 +1434,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 };
               });
             }
+            
+            // 메모리 카드 드래그의 경우 보드 경계 확인
+            ensureBoardBounds(newX, newY);
           }
 
-          ensureBoardBounds(newX, newY);
           dragRafIdRef.current = requestAnimationFrame(updatePosition);
         };
         dragRafIdRef.current = requestAnimationFrame(updatePosition);
@@ -1365,22 +1473,80 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       let finalX: number;
       let finalY: number;
 
-      if (event) {
-        const rect = boardRef.current.getBoundingClientRect();
-        const scale = zoomRef.current;
-        const mouseX = (event.clientX - rect.left) / scale;
-        const mouseY = (event.clientY - rect.top) / scale;
-        finalX = Math.max(0, mouseX - dragOffset.x);
-        finalY = Math.max(0, mouseY - dragOffset.y);
-      } else if (lastPointerPosRef.current) {
-        finalX = Math.max(0, lastPointerPosRef.current.x - dragOffset.x);
-        finalY = Math.max(0, lastPointerPosRef.current.y - dragOffset.y);
+      if (draggingEntity.type === 'block') {
+        const block = blocks.find(b => b.id === draggingEntity.id);
+        // 미니맵 블록의 경우 뷰포트 기준 좌표 (fixed 위치)
+        if (block?.type === 'minimap') {
+          const containerRect = boardContainerRef.current?.getBoundingClientRect();
+          const minimapWidth = block.width || 240;
+          const minimapHeight = block.height || 180;
+          
+          if (event) {
+            let x = event.clientX - dragOffset.x;
+            let y = event.clientY - dragOffset.y;
+            
+            // 캔버스 컨테이너 영역 내로 제한
+            if (containerRect) {
+              const maxX = containerRect.right - minimapWidth - 10;
+              const maxY = containerRect.bottom - minimapHeight - 10;
+              const minX = containerRect.left + 10;
+              const minY = containerRect.top + 10;
+              
+              finalX = Math.max(minX, Math.min(maxX, x));
+              finalY = Math.max(minY, Math.min(maxY, y));
+            } else {
+              finalX = Math.max(0, x);
+              finalY = Math.max(0, y);
+            }
+          } else if (lastPointerPosRef.current) {
+            let x = lastPointerPosRef.current.x - dragOffset.x;
+            let y = lastPointerPosRef.current.y - dragOffset.y;
+            
+            if (containerRect) {
+              const maxX = containerRect.right - minimapWidth - 10;
+              const maxY = containerRect.bottom - minimapHeight - 10;
+              const minX = containerRect.left + 10;
+              const minY = containerRect.top + 10;
+              
+              finalX = Math.max(minX, Math.min(maxX, x));
+              finalY = Math.max(minY, Math.min(maxY, y));
+            } else {
+              finalX = Math.max(0, x);
+              finalY = Math.max(0, y);
+            }
+          } else {
+            finalX = block.x ?? 0;
+            finalY = block.y ?? 0;
+          }
+        } else {
+          // 일반 블록
+          if (event) {
+            const rect = boardRef.current.getBoundingClientRect();
+            const scale = zoomRef.current;
+            const mouseX = (event.clientX - rect.left) / scale;
+            const mouseY = (event.clientY - rect.top) / scale;
+            finalX = Math.max(0, mouseX - dragOffset.x);
+            finalY = Math.max(0, mouseY - dragOffset.y);
+          } else if (lastPointerPosRef.current) {
+            finalX = Math.max(0, lastPointerPosRef.current.x - dragOffset.x);
+            finalY = Math.max(0, lastPointerPosRef.current.y - dragOffset.y);
+          } else {
+            finalX = block?.x ?? 0;
+            finalY = block?.y ?? 0;
+          }
+        }
       } else {
-        // 폴백: 현재 위치 사용
-        if (draggingEntity.type === 'block') {
-          const block = blocks.find(b => b.id === draggingEntity.id);
-          finalX = block?.x ?? 0;
-          finalY = block?.y ?? 0;
+        // 메모리 카드
+        if (event) {
+          const rect = boardRef.current.getBoundingClientRect();
+          const scale = zoomRef.current;
+          const mouseX = (event.clientX - rect.left) / scale;
+          const mouseY = (event.clientY - rect.top) / scale;
+          finalX = Math.max(0, mouseX - dragOffset.x);
+          finalY = Math.max(0, mouseY - dragOffset.y);
+        } else if (lastPointerPosRef.current) {
+          finalX = Math.max(0, lastPointerPosRef.current.x - dragOffset.x);
+          finalY = Math.max(0, lastPointerPosRef.current.y - dragOffset.y);
         } else {
           const pos = positionsRef.current[draggingEntity.id] || { x: 0, y: 0 };
           finalX = pos.x;
@@ -1870,22 +2036,25 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const cardSizeCenter = { x: cardSizeData.centerX, y: cardSizeData.centerY };
 
   const cardColorClass = cardColor === 'green'
-    ? 'bg-orange-50 border-2 border-orange-300'
+    ? 'bg-orange-50'
     : cardColor === 'pink'
-    ? 'bg-indigo-50 border-2 border-indigo-300'
-    : 'bg-indigo-50 border-2 border-indigo-300';
+    ? 'bg-indigo-50'
+    : 'bg-indigo-50';
 
   // 연결 그룹을 찾아서 색상 할당
   const connectionPairsWithColor = useMemo(() => {
     const set = new Set<string>();
     const pairs: Array<{ from: string; to: string }> = [];
     const visibleIds = new Set(filteredMemories.map(m => m.id));
+    const allMemoryIds = new Set(localMemories.map(m => m.id));
     
-    // 연결 쌍 수집
-    filteredMemories.forEach(memory => {
+    // 연결 쌍 수집 (localMemories 전체를 기반으로, visibleIds에 있는 것만 필터링)
+    localMemories.forEach(memory => {
       const related = memory.relatedMemoryIds || [];
       related.forEach(relatedId => {
-        if (!visibleIds.has(relatedId)) return;
+        // 양쪽 모두 localMemories에 있고, visibleIds에 있는 것만 표시
+        if (!allMemoryIds.has(relatedId)) return;
+        if (!visibleIds.has(memory.id) || !visibleIds.has(relatedId)) return;
         const key = [memory.id, relatedId].sort().join(':');
         if (set.has(key)) return;
         set.add(key);
@@ -1926,16 +2095,16 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       }
     });
 
-    // 색상 팔레트
+    // 색상 팔레트 - 주황+인디고 계열로 통일
     const colors = [
-      '#6366F1', // indigo (기본)
-      '#10B981', // green
-      '#F59E0B', // amber
-      '#EF4444', // red
-      '#8B5CF6', // purple
-      '#06B6D4', // cyan
-      '#EC4899', // pink
-      '#14B8A6', // teal
+      '#6366F1', // indigo
+      '#818CF8', // indigo-400
+      '#A5B4FC', // indigo-300
+      '#FB923C', // orange-400
+      '#FDBA74', // orange-300
+      '#FED7AA', // orange-200
+      '#4F46E5', // indigo-600
+      '#7C3AED', // indigo-700
     ];
 
     // 각 연결 쌍에 색상 할당 (연결 그룹별로)
@@ -1993,7 +2162,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       connectionGroups: validGroups,
       nodeToGroup,
     };
-  }, [filteredMemories, linkInfo, getLinkKey]);
+  }, [localMemories, filteredMemories, linkInfo, getLinkKey]);
 
   // 간단한 시드 기반 랜덤 함수 (groupId 기반 고정 랜덤)
   const seededRandom = useCallback((seed: number) => {
@@ -2053,16 +2222,16 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       const maxX = Math.max(...cardPositions.map(p => p.x + p.width)) + paddingX;
       const maxY = Math.max(...cardPositions.map(p => p.y + p.height)) + paddingY;
 
-      // 파스텔 색상 팔레트
+      // 주황+인디고 파스텔 색상 팔레트
       const pastelColors = [
-        '#E0E7FF', // indigo
-        '#D1FAE5', // green
-        '#FEF3C7', // amber
-        '#FEE2E2', // red
-        '#EDE9FE', // purple
-        '#CFFAFE', // cyan
-        '#FCE7F3', // pink
-        '#CCFBF1', // teal
+        '#E0E7FF', // indigo-100
+        '#C7D2FE', // indigo-200
+        '#A5B4FC', // indigo-300
+        '#FED7AA', // orange-200
+        '#FDBA74', // orange-300
+        '#FED7AA', // orange-200 (반복)
+        '#DDD6FE', // indigo-100 (보라 계열)
+        '#E9D5FF', // indigo-50 (연한 보라)
       ];
 
       // 원/타원 기반 Blob을 위한 중심점과 반지름 계산
@@ -2093,6 +2262,77 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     return connectionPairsWithColor.pairsWithColor;
   }, [connectionPairsWithColor]);
 
+  // calculateGroupBounds: 그룹의 메모리 ID들로부터 bounds 계산
+  const calculateGroupBounds = useCallback((memoryIds: string[], positions: Record<string, { x: number; y: number }>, cardSize: 's' | 'm' | 'l') => {
+    const cardPositions = memoryIds
+      .map(id => {
+        const pos = positions[id];
+        if (!pos) return null;
+        const cardData = CARD_DIMENSIONS[cardSize];
+        return {
+          x: pos.x,
+          y: pos.y,
+          width: cardData.width,
+          height: cardData.height,
+        };
+      })
+      .filter((p): p is NonNullable<typeof p> => p !== null);
+
+    if (cardPositions.length === 0) {
+      return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+    }
+
+    const padding = 20;
+    const minX = Math.min(...cardPositions.map(p => p.x)) - padding;
+    const minY = Math.min(...cardPositions.map(p => p.y)) - padding;
+    const maxX = Math.max(...cardPositions.map(p => p.x + p.width)) + padding;
+    const maxY = Math.max(...cardPositions.map(p => p.y + p.height)) + padding;
+
+    return { minX, minY, maxX, maxY };
+  }, [cardSize]);
+
+  // groups 기반 blobAreas for Minimap
+  const minimapBlobAreas = useMemo(() => {
+    return groups
+      .filter(g => g.memoryIds && g.memoryIds.length > 0)
+      .map(g => ({
+        id: g.id,
+        bounds: calculateGroupBounds(g.memoryIds, positions, cardSize),
+        color: '#A5B4FC', // 테마 색 (indigo-300)
+      }));
+  }, [groups, positions, cardSize, calculateGroupBounds]);
+
+  // filteredMemories 기반 connectionPairs for Minimap (실제 보드와 동일한 데이터 사용)
+  const minimapConnectionPairs = useMemo(() => {
+    // connectionPairsWithColor의 pairsWithColor를 직접 사용 (실제 보드와 동일)
+    // filteredMemories에 있는 메모리들만 필터링
+    const visibleIds = new Set(filteredMemories.map(m => m.id));
+    
+    return connectionPairsWithColor.pairsWithColor
+      .filter((pair: any) => visibleIds.has(pair.from) && visibleIds.has(pair.to))
+      .map((pair: any) => ({
+        from: pair.from,
+        to: pair.to,
+        color: pair.color || '#6366F1',
+        offsetIndex: pair.offsetIndex || 0,
+        totalConnections: pair.totalConnections || 1,
+      }));
+  }, [filteredMemories, connectionPairsWithColor]);
+
+  // Minimap용 positions: 메모리 positions + blocks 위치 병합
+  const minimapPositions = useMemo(() => {
+    const merged: Record<string, { x: number; y: number }> = { ...positions };
+    
+    // blocks의 위치를 positions에 추가
+    blocks.forEach(block => {
+      if (block.x !== undefined && block.y !== undefined) {
+        merged[block.id] = { x: block.x, y: block.y };
+      }
+    });
+    
+    return merged;
+  }, [positions, blocks]);
+
   // 새로 생성된 blob 감지 및 애니메이션 트리거
   useEffect(() => {
     const currentBlobIds = new Set(blobAreas.map(b => b.id));
@@ -2122,7 +2362,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           });
           return updated;
         });
-      }, 400); // 400ms 애니메이션
+      }, 900); // created용 전용 Lottie(800~1200ms)로 추후 교체 예정
     }
   }, [blobAreas, animatedBlobIds]);
 
@@ -2162,17 +2402,17 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         {/* 전체 */}
         <button
           onClick={() => setSelectedGroupId(null)}
-          className={`flex flex-col items-center gap-1 p-3 border-2 transition-all ${
+          className={`flex flex-col items-center gap-1 p-3 border transition-all ${
             selectedGroupId === null
               ? 'bg-gray-900 border-indigo-500 scale-105'
               : 'hover:bg-gray-50 border-gray-200'
           }`}
         >
-          <svg viewBox="0 0 24 24" fill="none" className={`w-10 h-10 transition-all`}>
-            <path d="M3 6C3 4.89543 3.89543 4 5 4H9L11 6H19C20.1046 6 21 6.89543 21 8V18C21 19.1046 20.1046 20 19 20H5C3.89543 20 3 19.1046 3 18V6Z" 
-                  fill={selectedGroupId === null ? 'white' : '#6B7280'}
-                  stroke="none"/>
-          </svg>
+          <PixelIcon 
+            name="folder" 
+            size={40} 
+            className={selectedGroupId === null ? 'text-white' : 'text-gray-500'}
+          />
           <span className={`text-xs font-medium ${selectedGroupId === null ? 'text-white' : 'text-gray-600'}`}>
             전체 {memories.length}
           </span>
@@ -2202,7 +2442,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 selectedGroupId === group.id
                   ? 'bg-gray-900 shadow-lg scale-105'
                   : dropTargetGroupId === group.id
-                  ? 'bg-indigo-50 border-2 border-indigo-300 scale-105'
+                  ? 'bg-indigo-50 border border-indigo-300 scale-105'
                   : 'hover:bg-gray-50'
               }`}
             >
@@ -2226,7 +2466,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 {group.memoryIds.length}개
               </span>
               {dropTargetGroupId === group.id && (
-                <div className="absolute -top-1 -right-1 text-lg">📥</div>
+                <div className="absolute -top-1 -right-1">
+                  <PixelIcon name="download" size={16} className="text-indigo-500" />
+                </div>
               )}
             </button>
           );
@@ -2261,7 +2503,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
       {/* 그룹 설명 */}
       {selectedGroupId && (
-        <div className="mb-4 p-4 bg-gradient-to-r from-orange-50 to-indigo-50 border-2 border-indigo-300">
+        <div className="mb-4 p-4 bg-gradient-to-r from-orange-50 to-indigo-50 border border-indigo-300">
           {isLoadingGroupDescription ? (
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <div className="animate-spin">✨</div>
@@ -2269,7 +2511,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
             </div>
           ) : groupDescription ? (
             <div className="flex items-start gap-3">
-              <div className="text-2xl">📁</div>
+              <PixelIcon name="folder" size={24} />
               <div className="flex-1">
                 <h3 className="text-sm font-bold text-gray-800 mb-1">
                   {groups.find(g => g.id === selectedGroupId)?.name || '그룹'}에 대해
@@ -2292,9 +2534,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
             해당 그룹에 기억이 없습니다
           </div>
         ) : (
-          <div className="w-full bg-white border-2 border-gray-300 overflow-hidden">
+          <div className="w-full bg-white border border-gray-300 overflow-auto font-galmuri11" ref={boardContainerRef}>
             {/* 컨트롤 바 - 엑셀 틀고정처럼 항상 고정 */}
-            <div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500 bg-white border-b border-gray-200">
+            <div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500 bg-white border-b border-gray-200 sticky top-0 z-10">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-gray-700">화이트보드</span>
                 <span className="text-[11px] text-gray-400">
@@ -2322,7 +2564,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-1"
                   title="캘린더 블록"
                 >
-                  <span>📅</span>
+                  <PixelIcon name="calendar" size={16} />
                   <span>캘린더</span>
                 </button>
                 <button
@@ -2331,7 +2573,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 flex items-center gap-1"
                   title={blocks.some(b => b.type === 'minimap') ? '미니맵은 보드당 하나만 추가할 수 있습니다' : '미니맵 블록 추가'}
                 >
-                  <span>🗺️</span>
+                  <PixelIcon name="minimap" size={16} />
                   <span>미니맵 추가</span>
                 </button>
                 <button
@@ -2339,7 +2581,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-1"
                   title="Viewer 위젯"
                 >
-                  <span>📺</span>
+                  <PixelIcon name="viewer" size={16} />
                   <span>Viewer</span>
                 </button>
                 <button
@@ -2347,7 +2589,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-1"
                   title="미팅 레코더"
                 >
-                  <span>🎙️</span>
+                  <PixelIcon name="meeting-recorder" size={16} />
                   <span>미팅 레코더</span>
                 </button>
                 <button
@@ -2355,7 +2597,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-1"
                   title="데이터베이스"
                 >
-                  <span>📊</span>
+                  <PixelIcon name="database" size={16} />
                   <span>데이터베이스</span>
                 </button>
               </div>
@@ -2384,18 +2626,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
               </div>
             </div>
 
-            {/* 스크롤 가능한 보드 영역 - 엑셀 틀고정처럼 컨트롤 바는 고정, 이 영역만 스크롤 */}
-            <div
-              ref={boardContainerRef}
-              className="relative w-full overflow-auto"
-              style={{ height: 'calc(100vh - 400px)', minHeight: '600px' }}
-              onScroll={updateViewportBounds}
-            >
-              <div
-                className="relative"
-                style={{ minWidth: boardSize.width, minHeight: boardSize.height }}
-              >
-              
+            {/* 미니맵을 뷰포트 기준으로 고정 (메뉴바처럼) */}
               <div
                 className="relative"
                 style={{
@@ -2436,10 +2667,164 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   }
                 }}
               >
+                {/* 미니맵 블록은 boardRef 내부에 렌더링 */}
+                {blocks.find(b => b.type === 'minimap') && (() => {
+                  const minimapBlock = blocks.find(b => b.type === 'minimap')!;
+                  // 기존 블록이 크면 메모리 카드 크기로 강제 축소
+                  const minimapWidth = minimapBlock.width && minimapBlock.width > 250 ? 240 : (minimapBlock.width || 240);
+                  const minimapHeight = minimapBlock.height && minimapBlock.height > 190 ? 180 : (minimapBlock.height || 180);
+                  
+                  // 보드 좌표계로 위치 설정
+                  const left = minimapBlock.x;
+                  const top = minimapBlock.y;
+                  
+                  return (
+                    <div
+                      key={minimapBlock.id}
+                      data-minimap-block={minimapBlock.id}
+                      className="absolute bg-white border-[3px] border-black rounded-lg shadow-xl"
+                      style={{
+                        left: `${left}px`,
+                        top: `${top}px`,
+                        width: `${minimapWidth}px`,
+                        height: `${minimapHeight}px`,
+                        zIndex: draggingBlockId === minimapBlock.id ? 10000 : (lastClickedItem?.type === 'block' && lastClickedItem.id === minimapBlock.id ? 5000 : (clickedBlockId === minimapBlock.id ? 100 : 30)),
+                        opacity: draggingBlockId === minimapBlock.id ? 0.85 : 1,
+                        transition: 'none',
+                        willChange: draggingBlockId === minimapBlock.id ? 'transform' : 'auto',
+                        pointerEvents: draggingBlockId === minimapBlock.id ? 'none' : 'auto',
+                        contain: 'layout style paint',
+                      }}
+                      onPointerDown={(e) => {
+                        const target = e.target as HTMLElement;
+                        const isInteractiveElement = target.closest('button') || 
+                                                     target.closest('canvas');
+                        
+                        if (!isInteractiveElement) {
+                          bringToFrontBlock(minimapBlock.id);
+                          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                        }
+                        
+                        if (isInteractiveElement) {
+                          return;
+                        }
+                        
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        // 보드 좌표계로 드래그 시작
+                        const rect = boardRef.current!.getBoundingClientRect();
+                        const scale = zoomRef.current;
+                        const mouseX = (e.clientX - rect.left) / scale;
+                        const mouseY = (e.clientY - rect.top) / scale;
+                        
+                        setDraggingEntity({ type: 'block', id: minimapBlock.id });
+                        setDragOffset({
+                          x: mouseX - minimapBlock.x,
+                          y: mouseY - minimapBlock.y,
+                        });
+                      }}
+                    >
+                      {/* 헤더 */}
+                      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-300 bg-white rounded-t-lg">
+                        <div className="flex items-center gap-1.5">
+                          <PixelIcon name="minimap" size={16} />
+                          <span className="text-xs font-semibold text-gray-700">Minimap</span>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleBlockDelete(minimapBlock.id);
+                          }}
+                          className="text-gray-400 hover:text-gray-600 text-xs"
+                          title="삭제"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      {/* 크기 조정 핸들 */}
+                      <div
+                        className="absolute bottom-0 right-0 w-4 h-4 bg-blue-500 cursor-se-resize opacity-0 hover:opacity-100 transition-opacity rounded-tl-lg"
+                        style={{ zIndex: 1000 }}
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          const startX = e.clientX;
+                          const startY = e.clientY;
+                          const startWidth = minimapBlock.width || 240;
+                          const startHeight = minimapBlock.height || 180;
+                          
+                          const handleMove = (moveEvent: PointerEvent) => {
+                            const deltaX = moveEvent.clientX - startX;
+                            const deltaY = moveEvent.clientY - startY;
+                            // 메모리 카드 크기 정도로 제한 (최대 280x200, 최소 200x150)
+                            const newWidth = Math.max(200, Math.min(280, startWidth + deltaX));
+                            const newHeight = Math.max(150, Math.min(200, startHeight + deltaY));
+                            
+                            setBlocks(prev => {
+                              const updated = [...prev];
+                              const index = updated.findIndex(b => b.id === minimapBlock.id);
+                              if (index !== -1) {
+                                const currentBlock = updated[index];
+                                updated[index] = { ...currentBlock, width: newWidth, height: newHeight };
+                              }
+                              return updated;
+                            });
+                          };
+                          
+                          const handleUp = () => {
+                            window.removeEventListener('pointermove', handleMove);
+                            window.removeEventListener('pointerup', handleUp);
+                            
+                            // 최신 상태에서 크기 가져와서 저장
+                            setBlocks(prev => {
+                              const currentBlock = prev.find(b => b.id === minimapBlock.id);
+                              if (currentBlock && (currentBlock.width !== startWidth || currentBlock.height !== startHeight)) {
+                                handleBlockUpdate(minimapBlock.id, { 
+                                  width: currentBlock.width, 
+                                  height: currentBlock.height 
+                                });
+                              }
+                              return prev;
+                            });
+                          };
+                          
+                          window.addEventListener('pointermove', handleMove);
+                          window.addEventListener('pointerup', handleUp);
+                        }}
+                      />
+                      {/* 미니맵 캔버스 */}
+                      {boardSize.width > 0 && boardSize.height > 0 && (
+                        <div 
+                          className="overflow-hidden rounded-b-lg"
+                          style={{ 
+                            height: `${(minimapBlock.height || 180) - 40}px`,
+                            width: '100%'
+                          }}
+                        >
+                          <Minimap
+                            positions={minimapPositions}
+                            blocks={blocks.filter(b => b.type !== 'minimap')}
+                            memories={filteredMemories}
+                            connectionPairs={minimapConnectionPairs}
+                            viewportBounds={viewportBounds}
+                            zoom={zoom}
+                            cardColorMap={cardColorMap}
+                            boardSize={boardSize}
+                            containerWidth={minimapBlock.width || 240}
+                            containerHeight={(minimapBlock.height || 180) - 40}
+                            cardSize={cardSize}
+                            blobAreas={blobAreas}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
                 {/* 드래그 선택 박스 */}
                 {selectionBox && (
                   <div
-                    className="absolute border-2 border-indigo-500 bg-indigo-200/20 pointer-events-none z-40"
+                    className="absolute border border-indigo-500 bg-indigo-200/20 pointer-events-none z-40"
                     style={{
                       left: `${Math.min(selectionBox.startX, selectionBox.endX)}px`,
                       top: `${Math.min(selectionBox.startY, selectionBox.endY)}px`,
@@ -2451,7 +2836,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
                 {/* 다중 선택 안내 */}
                 {selectedMemoryIds.size > 0 && (
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-indigo-500 text-white px-4 py-2 border-2 border-indigo-600 flex items-center gap-2 z-30">
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-indigo-500 text-white px-4 py-2 border border-indigo-600 flex items-center gap-2 z-30">
                     <span className="text-sm font-medium">
                       {selectedMemoryIds.size}개 카드 선택됨 (드래그 또는 Ctrl/Cmd + 클릭으로 선택)
                     </span>
@@ -2549,92 +2934,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       />
                     );
                   }
+                  // 미니맵은 transform 밖에 별도 렌더링하므로 여기서는 제외
                   if (block.type === 'minimap') {
-                    return (
-                      <div
-                        key={block.id}
-                        data-minimap-block={block.id}
-                        className="absolute bg-white border-2 border-gray-300 overflow-hidden"
-                        style={{
-                          transform: `translate3d(${block.x}px, ${block.y}px, 0)`,
-                          width: `${block.width || 420}px`,
-                          height: `${block.height || 300}px`,
-                          zIndex: draggingBlockId === block.id ? 10000 : (lastClickedItem?.type === 'block' && lastClickedItem.id === block.id ? 5000 : (clickedBlockId === block.id ? 100 + blockIndex : 10 + blockIndex)),
-                          opacity: draggingBlockId === block.id ? 0.85 : 1,
-                          transition: 'none',
-                          willChange: draggingBlockId === block.id ? 'transform' : 'auto',
-                          pointerEvents: draggingBlockId === block.id ? 'none' : 'auto',
-                          contain: 'layout style paint',
-                        }}
-                        onPointerDown={(e) => {
-                          const target = e.target as HTMLElement;
-                          const isInteractiveElement = target.closest('button') || 
-                                                       target.closest('canvas');
-                          
-                          // 조작 요소가 아니면 먼저 bring-to-front 처리
-                          if (!isInteractiveElement) {
-                            bringToFrontBlock(block.id);
-                            // Pointer capture 설정
-                            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-                          }
-                          
-                          // 조작 요소에서는 드래그만 비활성화
-                          if (isInteractiveElement) {
-                            return;
-                          }
-                          
-                          if (!boardRef.current) return;
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const rect = boardRef.current.getBoundingClientRect();
-                          const scale = zoomRef.current;
-                          
-                          setDraggingEntity({ type: 'block', id: block.id });
-                          setDragOffset({
-                            x: (e.clientX - rect.left) / scale - block.x,
-                            y: (e.clientY - rect.top) / scale - block.y,
-                          });
-                        }}
-                      >
-                        {/* 헤더 */}
-                        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm">🗺️</span>
-                            <span className="text-xs font-semibold text-gray-700">Minimap</span>
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleBlockDelete(block.id);
-                            }}
-                            className="text-gray-400 hover:text-gray-600 text-xs"
-                            title="삭제"
-                          >
-                            ×
-                          </button>
-                        </div>
-                        {/* 미니맵 캔버스 */}
-                        {boardSize.width > 0 && boardSize.height > 0 && (
-                          <div className="h-[calc(100%-40px)] overflow-hidden">
-                            <Minimap
-                              boardSize={boardSize}
-                              positions={positions}
-                              blocks={blocks.filter(b => b.type !== 'minimap')}
-                              memories={filteredMemories}
-                              blobAreas={blobAreas}
-                              connectionPairs={connectionPairsWithColor.pairsWithColor}
-                              viewportBounds={viewportBounds}
-                              zoom={zoom}
-                              boardContainerRef={boardContainerRef}
-                              cardSize={cardSize}
-                              cardColorMap={cardColorMap}
-                              cardColor={cardColor}
-                              headerHeight={0}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
+                    return null;
                   }
                   if (block.type === 'viewer') {
                     const viewerConfig = block.config as ViewerBlockConfig;
@@ -2646,6 +2948,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         y={block.y}
                         width={block.width}
                         height={block.height}
+                        zoom={zoom}
                         config={viewerConfig}
                         onUpdate={handleBlockUpdate}
                         onDelete={handleBlockDelete}
@@ -2786,6 +3089,97 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 {/* 연결선 SVG - 카드 뒤에 렌더링 */}
                 {/* Blob Areas 렌더링 (연결선 아래) */}
                 {blobAreas.length > 0 && (
+                  <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0 }}>
+                    {(() => {
+                      // Blob이 여러 개일 때는 대표 1~2개만 loop, 나머지는 정적+CSS opacity로 degrade
+                      const blobsWithArea = blobAreas
+                        .map((blob) => {
+                          const b = blobPositions[blob.id] || blob.bounds;
+                          const w = Math.max(1, b.maxX - b.minX);
+                          const h = Math.max(1, b.maxY - b.minY);
+                          return { blob, bounds: b, area: w * h };
+                        })
+                        .sort((a, b) => b.area - a.area);
+
+                      const loopIds = new Set(blobsWithArea.slice(0, 2).map((x) => x.blob.id));
+
+                      // base Lottie는 노란색(#FFDD00 계열). blob.color에 맞춰 hue만 대략 맞추는 필터.
+                      const hexToHue = (hex: string): number | null => {
+                        const m = hex.trim().match(/^#?([0-9a-f]{6})$/i);
+                        if (!m) return null;
+                        const int = parseInt(m[1], 16);
+                        const r = ((int >> 16) & 255) / 255;
+                        const g = ((int >> 8) & 255) / 255;
+                        const b = (int & 255) / 255;
+                        const max = Math.max(r, g, b);
+                        const min = Math.min(r, g, b);
+                        const d = max - min;
+                        if (d === 0) return 0;
+                        let h = 0;
+                        if (max === r) h = ((g - b) / d) % 6;
+                        else if (max === g) h = (b - r) / d + 2;
+                        else h = (r - g) / d + 4;
+                        h = Math.round(h * 60);
+                        if (h < 0) h += 360;
+                        return h;
+                      };
+
+                      const BASE_HUE = 52; // 대략 #FFDD00의 hue
+
+                      return blobsWithArea.map(({ blob, bounds }) => {
+                        const isHovered =
+                          hoveredBlobId === blob.id ||
+                          (hoveredMemoryId && blob.memoryIds.includes(hoveredMemoryId));
+                        const animState = blobAnimationStates[blob.id] || 'idle';
+                        const isEntering = animState === 'entering';
+
+                        const shouldLoop = loopIds.has(blob.id);
+                        const hue = hexToHue(blob.color);
+                        const hueRotate = hue === null ? 0 : hue - BASE_HUE;
+
+                        // loop는 조금 더 존재감, 나머지는 degrade (색을 "조금" 더 진하게)
+                        const baseOpacity = shouldLoop ? 0.22 : 0.13;
+                        const hoverBoost = isHovered ? 0.07 : 0;
+                        const opacity = Math.max(0, Math.min(0.42, baseOpacity + hoverBoost));
+
+                        // created(entering) 쪽은 추후 전용 Lottie(soft expand 800~1200ms)로 분리 예정.
+                        const scale = isEntering ? 0.92 : 1;
+                        const enterOpacity = isEntering ? 0 : opacity;
+
+                        return (
+                          <div
+                            key={`blob-lottie-${blob.id}`}
+                            className="absolute"
+                            style={{
+                              left: bounds.minX,
+                              top: bounds.minY,
+                              width: Math.max(1, bounds.maxX - bounds.minX),
+                              height: Math.max(1, bounds.maxY - bounds.minY),
+                              opacity: enterOpacity,
+                              transform: `scale(${scale})`,
+                              transformOrigin: 'center',
+                              transition: isEntering
+                                ? 'opacity 900ms ease-out, transform 900ms cubic-bezier(0.34, 1.56, 0.64, 1)'
+                                : 'opacity 200ms ease-out, transform 200ms ease-out',
+                              filter: `hue-rotate(${hueRotate}deg) saturate(1.35) contrast(1.08)`,
+                            }}
+                          >
+                            <LottiePlayer
+                              path="/lottie/graph.blob.idle.json"
+                              loop={shouldLoop}
+                              autoplay={shouldLoop}
+                              stillFrame={0}
+                              className="w-full h-full"
+                            />
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                )}
+
+                {/* Lottie blob를 사용하면 기존 SVG blob(blur/glow)을 숨김 */}
+                {blobAreas.length > 0 && false && (
                   <svg
                     className="absolute inset-0"
                     width={boardSize.width}
@@ -2911,7 +3305,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                               transform: `scale(${animScale})`,
                               transformOrigin: `${cx}px ${cy}px`,
                               transition: isEntering 
-                                ? 'opacity 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.4s ease-out, transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), strokeOpacity 0.4s ease-out'
+                                ? 'opacity 0.9s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.9s ease-out, transform 0.9s cubic-bezier(0.34, 1.56, 0.64, 1), strokeOpacity 0.9s ease-out'
                                 : 'opacity 0.25s ease-out, filter 0.25s ease-out, strokeOpacity 0.25s ease-out, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
                               cursor: 'pointer',
                               pointerEvents: 'auto',
@@ -3048,7 +3442,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 {/* 드래그 선택 박스 */}
                 {selectionBox && (
                   <div
-                    className="absolute border-2 border-indigo-500 bg-indigo-200/20 pointer-events-none z-40"
+                    className="absolute border border-indigo-500 bg-indigo-200/20 pointer-events-none z-40"
                     style={{
                       left: `${Math.min(selectionBox.startX, selectionBox.endX)}px`,
                       top: `${Math.min(selectionBox.startY, selectionBox.endY)}px`,
@@ -3060,7 +3454,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
                 {/* 다중 선택 안내 */}
                 {selectedMemoryIds.size > 0 && (
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-indigo-500 text-white px-4 py-2 border-2 border-indigo-600 flex items-center gap-2 z-30">
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-indigo-500 text-white px-4 py-2 border border-indigo-600 flex items-center gap-2 z-30">
                     <span className="text-sm font-medium">
                       {selectedMemoryIds.size}개 카드 선택됨 (드래그 또는 Ctrl/Cmd + 클릭으로 선택)
                     </span>
@@ -3096,7 +3490,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       return (
                         <div
                           key={toast.id}
-                          className="absolute bg-white border-2 border-indigo-400 z-50 p-3 min-w-[280px] max-w-[320px] max-h-[500px] overflow-y-auto cursor-pointer"
+                          className="absolute bg-white border border-indigo-400 z-50 p-3 min-w-[280px] max-w-[320px] max-h-[500px] overflow-y-auto cursor-pointer"
                           style={{
                             left: `${toast.x}px`,
                             top: `${toast.y}px`,
@@ -3166,9 +3560,10 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                                   >
-                                    <span className="text-sm">
-                                      {attachment.mimetype.includes('pdf') ? '📄' : '📎'}
-                                    </span>
+                                    <PixelIcon 
+                                      name={attachment.mimetype.includes('pdf') ? 'pdf' : 'attachment'} 
+                                      size={16} 
+                                    />
                                     <div className="flex-1 min-w-0">
                                       <p className="text-[10px] text-gray-700 truncate">{attachment.filename}</p>
                                       <p className="text-[9px] text-gray-500">
@@ -3277,10 +3672,10 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   const position = positions[memory.id] || { x: 0, y: 0 };
                   const memoryColor = cardColorMap[memory.id] || cardColor;
                   const memoryColorClass = memoryColor === 'green'
-                    ? 'bg-orange-50 border-2 border-orange-300'
+                    ? 'bg-orange-50'
                     : memoryColor === 'pink'
-                    ? 'bg-indigo-50 border-2 border-indigo-300'
-                    : 'bg-indigo-50 border-2 border-indigo-300';
+                    ? 'bg-indigo-50'
+                    : 'bg-indigo-50';
                   const isSelected = selectedMemoryIds.has(memory.id);
                   const isDragging = draggingId === memory.id || (isSelected && draggingId && selectedMemoryIds.has(draggingId));
                   
@@ -3291,7 +3686,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   
                   return (
                     <div
-                key={memory.id}
+                      key={memory.id}
                       data-memory-card={memory.id}
                       onMouseEnter={() => setHoveredMemoryId(memory.id)}
                       onMouseLeave={() => setHoveredMemoryId(null)}
@@ -3336,7 +3731,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         contain: 'layout style paint',
                       }}
                       className={`absolute ${cardSizeClass} select-none touch-none cursor-grab active:cursor-grabbing ${
-                        isDragging ? 'cursor-grabbing border-2 border-indigo-500' : ''
+                        isDragging ? 'cursor-grabbing border border-indigo-500' : ''
                       } ${isSelected ? 'ring-2 ring-blue-300/50 ring-offset-1' : ''} ${
                         isBlobHovered ? 'ring-2 ring-blue-200/60 ring-offset-1' : ''
                       }`}
@@ -3406,9 +3801,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     </div>
                   );
                 })}
-                </div>
               </div>
-            </div>
           </div>
         )}
       </div>
@@ -3451,7 +3844,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       {/* AI 자동 묶기 토스트 팝업 */}
       {toast.type === 'loading' && (
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-white border-2 border-gray-300 p-4 min-w-[300px]">
+          <div className="bg-white border border-gray-300 p-4 min-w-[300px]">
             <div className="flex items-center gap-3">
               <div className="text-2xl animate-spin">✨</div>
               <div>
@@ -3465,9 +3858,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
       {toast.type === 'confirm' && toast.data && (
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-white border-2 border-gray-300 p-5 min-w-[400px] max-w-[500px]">
+          <div className="bg-white border border-gray-300 p-5 min-w-[400px] max-w-[500px]">
             <div className="flex items-start gap-3 mb-4">
-              <div className="text-2xl">📁</div>
+              <PixelIcon name="folder" size={24} />
               <div className="flex-1">
                 <h3 className="text-base font-bold text-gray-800 mb-1">
                   이렇게 묶을까요?
@@ -3482,7 +3875,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   />
                 </div>
                 
-                <div className="bg-gradient-to-br from-orange-50 to-indigo-50 border-2 border-indigo-300 p-3 mb-4 max-h-64 overflow-y-auto">
+                <div className="bg-gradient-to-br from-orange-50 to-indigo-50 border border-indigo-300 p-3 mb-4 max-h-64 overflow-y-auto">
                   <p className="text-xs font-semibold text-gray-700 mb-2">
                     묶일 기록들 ({(editableRelatedMemories?.length || 0) + 1}개):
                   </p>
@@ -3525,7 +3918,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   </button>
                   <button
                     onClick={handleConfirmGroup}
-                    className="flex-1 px-3 py-2 text-sm bg-indigo-500 text-white border-2 border-indigo-600 hover:bg-indigo-600 transition-colors"
+                    className="flex-1 px-3 py-2 text-sm bg-indigo-500 text-white border border-indigo-600 hover:bg-indigo-600 transition-colors"
                   >
                     확인
                   </button>
@@ -3548,7 +3941,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
           <div className="bg-green-500 text-white rounded-xl shadow-2xl p-4 min-w-[300px] border border-green-600">
             <div className="flex items-center gap-3">
-              <div className="text-2xl">✅</div>
+              <PixelIcon name="success" size={24} />
               <div>
                 <p className="text-sm font-semibold">{toast.data?.message || '완료되었습니다!'}</p>
               </div>
@@ -3559,7 +3952,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
       {toast.type === 'delete-link' && (
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-white border-2 border-gray-300 p-5 min-w-[350px] max-w-[450px]">
+          <div className="bg-white border border-gray-300 p-5 min-w-[350px] max-w-[450px]">
             <div className="flex items-start gap-3 mb-4">
               <div className="text-2xl">🔗</div>
               <div className="flex-1">
@@ -3599,9 +3992,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
       {toast.type === 'delete-memory' && (
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-white border-2 border-gray-300 p-5 min-w-[350px] max-w-[450px]">
+          <div className="bg-white border border-gray-300 p-5 min-w-[350px] max-w-[450px]">
             <div className="flex items-start gap-3 mb-4">
-              <div className="text-2xl">🗑️</div>
+              <PixelIcon name="delete" size={24} />
               <div className="flex-1">
                 <h3 className="text-base font-bold text-gray-800 mb-1">
                   기록을 삭제하시겠습니까?
@@ -3639,7 +4032,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
       {toast.type === 'delete-location' && (
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-white border-2 border-gray-300 p-5 min-w-[350px] max-w-[450px]">
+          <div className="bg-white border border-gray-300 p-5 min-w-[350px] max-w-[450px]">
             <div className="flex items-start gap-3 mb-4">
               <div className="text-2xl">📍</div>
               <div className="flex-1">
@@ -3682,7 +4075,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
           <div className="bg-red-500 text-white rounded-xl shadow-2xl p-4 min-w-[300px] border border-red-600">
             <div className="flex items-center gap-3">
-              <div className="text-2xl">❌</div>
+              <PixelIcon name="error" size={24} />
               <div className="flex-1">
                 <p className="text-sm font-semibold">{toast.data?.message || '오류가 발생했습니다'}</p>
               </div>
@@ -3964,8 +4357,8 @@ const MemoryCard = memo(function MemoryCard({
   }, [onMentionClick, safeHtml]);
 
   const cardClassName = variant === 'board'
-    ? `${colorClass || 'bg-green-50 border-2 border-green-300'} border-2`
-    : 'bg-white border-2 border-gray-200 hover:border-gray-400';
+    ? `${colorClass || 'bg-orange-50'}`
+    : 'bg-white';
 
   return (
     <div 
@@ -3983,7 +4376,7 @@ const MemoryCard = memo(function MemoryCard({
         if (isEditing) return;
         onDragEnd?.();
       }}
-      className={`group relative p-2 border rounded-lg transition-all scroll-mt-4 h-full flex flex-col ${
+      className={`group relative p-2 border-[3px] border-black rounded-lg transition-all scroll-mt-4 h-full flex flex-col ${
         isEditing ? 'cursor-default' : 'cursor-move'
       } ${cardClassName}`}
       onPointerDown={(e) => {
@@ -4001,32 +4394,34 @@ const MemoryCard = memo(function MemoryCard({
       </div>
       
       {/* 상단 우측 버튼들 */}
-      <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="absolute top-2 right-3 flex items-center gap-px opacity-0 group-hover:opacity-100 transition-opacity">
         {/* AI 자동 묶기 버튼 */}
         <button
           onClick={handleAutoGroup}
-          className="p-1.5 hover:bg-indigo-50 transition-colors"
+          className="group/action w-8 h-8 inline-flex items-center justify-center rounded-md transition-colors"
           title="AI로 자동 묶기"
         >
-          <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
+          {/* pixelarticons 사용 (그룹/묶기) */}
+          <span className="inline-flex w-8 h-8 items-center justify-center rounded-md transition-colors translate-x-[20px]">
+            <PixelIcon name="group" size={16} className="text-gray-500" />
+          </span>
         </button>
         
         {/* 수정 버튼 */}
         <button
           onClick={handleEdit}
-          className="p-1.5 hover:bg-indigo-50 transition-colors"
+          className="group/action w-8 h-8 inline-flex items-center justify-center rounded-md transition-colors"
           title={isEditing ? '저장' : '수정'}
         >
           {isEditing ? (
-            <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
+            <span className="inline-flex w-8 h-8 items-center justify-center rounded-md transition-colors translate-x-[10px]">
+              <PixelIcon name="check" size={16} className="text-gray-500" />
+            </span>
           ) : (
-            <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
+            /* pixelarticons 사용 (편집) */
+            <span className="inline-flex w-8 h-8 items-center justify-center rounded-md transition-colors translate-x-[10px]">
+              <PixelIcon name="edit-box" size={16} className="text-gray-500" />
+            </span>
           )}
         </button>
         
@@ -4034,12 +4429,11 @@ const MemoryCard = memo(function MemoryCard({
         <button
           onClick={handleDelete}
           disabled={isDeleting}
-          className="p-1.5 hover:bg-red-50 rounded-lg disabled:opacity-50 transition-colors"
+          className="w-8 h-8 inline-flex items-center justify-center rounded-md hover:bg-red-50 disabled:opacity-50 transition-colors"
           title="삭제"
         >
-          <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
+          {/* pixelarticons 사용 (삭제) */}
+          <PixelIcon name="trash-alt" size={16} className="text-red-500" />
         </button>
       </div>
 
@@ -4055,9 +4449,9 @@ const MemoryCard = memo(function MemoryCard({
             onPointerDown={(e) => e.stopPropagation()}
             onDragStart={(e) => e.preventDefault()}
             placeholder="제목 (선택)"
-            className="w-full px-2 py-1 mb-1.5 text-xs font-semibold border-2 border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-2 py-1 mb-1.5 text-xs font-semibold border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
-          <div className="flex items-center gap-1 px-2 py-1 border-2 border-indigo-300 bg-indigo-50/60">
+          <div className="flex items-center gap-1 px-2 py-1 border border-indigo-300 bg-indigo-50/60">
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
@@ -4095,7 +4489,7 @@ const MemoryCard = memo(function MemoryCard({
               className="px-2 py-1 text-xs rounded hover:bg-white"
               title="하이퍼링크"
             >
-              🔗
+              <PixelIcon name="link" size={16} />
             </button>
           </div>
           <div
@@ -4104,7 +4498,7 @@ const MemoryCard = memo(function MemoryCard({
             onMouseDown={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
             onDragStart={(e) => e.preventDefault()}
-            className="w-full p-2 border-2 border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[11px] whitespace-pre-wrap"
+            className="w-full p-2 border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[11px] whitespace-pre-wrap"
             onInput={() => setEditContent(editRef.current?.innerHTML || '')}
             suppressContentEditableWarning
           />
@@ -4177,7 +4571,7 @@ const MemoryCard = memo(function MemoryCard({
                 <button
                   key={item.id}
                   onClick={() => onCardColorChange?.(item.id)}
-                  className={`w-4 h-4 border-2 ${item.class} border-white`}
+                  className={`w-4 h-4 border ${item.class} border-white`}
                   title={`${item.id === 'green' ? '주황' : item.id === 'pink' ? '인디고' : '인디고'} 카드`}
                 />
               ))}
@@ -4188,7 +4582,7 @@ const MemoryCard = memo(function MemoryCard({
 
       {/* AI 요약 표시 */}
       {showSummary && summary && (
-        <div className="mb-1.5 p-1.5 bg-gradient-to-r from-orange-50 to-indigo-50 border-2 border-indigo-300">
+        <div className="mb-1.5 p-1.5 bg-gradient-to-r from-orange-50 to-indigo-50 border border-indigo-300">
           <div className="flex items-start gap-1">
             <svg className="w-2.5 h-2.5 text-indigo-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -4203,7 +4597,7 @@ const MemoryCard = memo(function MemoryCard({
 
       {/* AI 제안 표시 */}
       {showSuggestions && suggestions && (
-        <div className="mb-1.5 p-2 bg-gradient-to-br from-orange-50 to-indigo-50 border-2 border-indigo-300 space-y-2">
+        <div className="mb-1.5 p-2 bg-gradient-to-br from-orange-50 to-indigo-50 border border-indigo-300 space-y-2">
           {/* 다음 단계 */}
           {suggestions.nextSteps && suggestions.nextSteps.length > 0 && (
             <div>
@@ -4335,7 +4729,7 @@ const MemoryCard = memo(function MemoryCard({
                         className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
                         title="다운로드"
                       >
-                        ⬇️
+                        <PixelIcon name="download" size={12} />
                       </a>
                     )}
                   </div>
@@ -4353,10 +4747,10 @@ const MemoryCard = memo(function MemoryCard({
                       viewerExists && isSupported ? 'cursor-pointer' : ''
                     }`}
                   >
-                    <span className="text-sm">
-                      {attachment.mimetype.includes('pdf') ? '📄' : 
-                       (isDocx ? '📝' : '📎')}
-                    </span>
+                    <PixelIcon 
+                      name={attachment.mimetype.includes('pdf') ? 'pdf' : (isDocx ? 'docx' : 'attachment')} 
+                      size={16} 
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] text-gray-700 truncate">{attachment.filename}</p>
                       <p className="text-[9px] text-gray-500">

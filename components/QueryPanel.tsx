@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { SummaryResponse, Memory } from '@/types';
+import PixelIcon from './PixelIcon';
 
 const stripHtmlClient = (html: string) => html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 
@@ -90,7 +91,7 @@ export default function QueryPanel({ personaId }: QueryPanelProps) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="예: 요즘 내가 무슨 생각 많이 했어?"
-          className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:border-green-400 focus:outline-none"
+          className="w-full px-4 py-3 text-base border border-gray-200 rounded-xl focus:border-green-400 focus:outline-none"
           disabled={loading}
         />
 
@@ -142,7 +143,10 @@ export default function QueryPanel({ personaId }: QueryPanelProps) {
 
           {result.suggestions && result.suggestions.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold text-green-900 mb-2">💡 제안</h3>
+              <h3 className="text-sm font-semibold text-green-900 mb-2 flex items-center gap-1">
+                <PixelIcon name="lightbulb" size={16} />
+                제안
+              </h3>
               <ul className="space-y-1">
                 {result.suggestions.map((suggestion, idx) => (
                   <li key={idx} className="text-sm text-gray-700">

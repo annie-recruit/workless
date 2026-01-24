@@ -3,6 +3,7 @@ import "./globals.css";
 import SessionProvider from "@/components/SessionProvider";
 import { ViewerProvider } from "@/components/ViewerContext";
 import WebVitals from "@/components/WebVitals";
+import ConsoleLogger from "@/components/ConsoleLogger";
 
 export const metadata: Metadata = {
   title: "Workless - 개인 비서",
@@ -56,6 +57,7 @@ export default function RootLayout({
       </head>
       <body className="font-pretendard">
         <WebVitals />
+        <ConsoleLogger />
         <SessionProvider>
           <ViewerProvider>{children}</ViewerProvider>
         </SessionProvider>

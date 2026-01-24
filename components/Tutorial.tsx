@@ -240,7 +240,7 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
         }}
       >
         <div 
-          className="bg-white rounded-xl shadow-2xl p-6 max-w-sm pointer-events-auto border-2 border-blue-500" 
+          className="bg-white rounded-xl shadow-2xl p-6 max-w-sm pointer-events-auto border border-blue-500" 
           style={{ maxHeight: 'calc(100vh - 40px)', overflowY: 'auto' }}
           onClick={(e) => e.stopPropagation()}
         >

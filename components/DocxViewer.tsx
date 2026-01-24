@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import PixelIcon from './PixelIcon';
 
 interface DocxViewerProps {
   url: string;
@@ -124,7 +125,9 @@ export default function DocxViewer({
   if (loadError) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-        <div className="mb-4 text-5xl opacity-50">⚠️</div>
+        <div className="mb-4 opacity-50">
+          <PixelIcon name="warning" size={48} className="text-purple-500" />
+        </div>
         <p className="text-purple-600 text-sm mb-2 font-medium">DOCX를 불러올 수 없습니다</p>
         <p className="text-rose-500 text-xs mb-4">{loadError}</p>
         <div className="flex gap-2">
@@ -151,9 +154,9 @@ export default function DocxViewer({
   }
 
   return (
-    <div className="w-full h-full overflow-auto p-8 bg-white/30">
+    <div className="w-full h-full overflow-auto p-2 bg-transparent">
       <div
-        className="max-w-4xl mx-auto prose prose-slate prose-headings:font-semibold prose-p:text-slate-700 prose-a:text-purple-600 prose-strong:text-slate-900 prose-headings:text-purple-800"
+        className="w-full max-w-none prose prose-slate prose-headings:font-semibold prose-p:text-slate-700 prose-a:text-purple-600 prose-strong:text-slate-900 prose-headings:text-purple-800"
         dangerouslySetInnerHTML={{ __html: htmlContent }}
         style={{
           fontFamily: 'system-ui, -apple-system, sans-serif',

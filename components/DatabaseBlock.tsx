@@ -170,7 +170,7 @@ export default function DatabaseBlock({
             }
           }}
           autoFocus
-          className="w-full px-1 py-0.5 text-[10px] border-2 border-indigo-500 focus:outline-none"
+          className="w-full px-1 py-0.5 text-[10px] border border-indigo-500 focus:outline-none"
         />
       );
     }
@@ -194,7 +194,7 @@ export default function DatabaseBlock({
         <select
           value={value || ''}
           onChange={(e) => handleCellUpdate(row.id, property.id, e.target.value)}
-          className="w-full px-1 py-0.5 text-[10px] border-2 border-gray-300 focus:outline-none focus:border-indigo-500"
+          className="w-full px-1 py-0.5 text-[10px] border border-gray-300 focus:outline-none focus:border-indigo-500"
           multiple={property.type === 'multi-select'}
         >
           {property.options?.map((opt, idx) => (
@@ -211,7 +211,7 @@ export default function DatabaseBlock({
           type="date"
           value={dateValue}
           onChange={(e) => handleCellUpdate(row.id, property.id, e.target.value ? new Date(e.target.value).getTime() : null)}
-          className="w-full px-1 py-0.5 text-[10px] border-2 border-gray-300 focus:outline-none focus:border-indigo-500"
+          className="w-full px-1 py-0.5 text-[10px] border border-gray-300 focus:outline-none focus:border-indigo-500"
         />
       );
     }
@@ -232,7 +232,7 @@ export default function DatabaseBlock({
 
   return (
     <div
-      className="absolute bg-white rounded-lg shadow-lg border-2 border-gray-200 overflow-hidden flex flex-col"
+      className="absolute bg-white rounded-lg shadow-lg border-[3px] border-black overflow-hidden flex flex-col"
       style={{
         transform: `translate3d(${x}px, ${y}px, 0)`,
         width: `${width}px`,
@@ -393,7 +393,7 @@ export default function DatabaseBlock({
             </select>
             <button
               onClick={handleAddProperty}
-              className="px-2 py-0.5 bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] border-2 border-indigo-600"
+              className="px-2 py-0.5 bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] border border-indigo-600"
             >
               추가
             </button>

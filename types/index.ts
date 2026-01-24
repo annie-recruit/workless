@@ -152,6 +152,8 @@ export interface ViewerBlockConfig {
   history?: ViewerSource[];       // 히스토리
   historyIndex?: number;           // 현재 히스토리 인덱스
   pinned?: boolean;                // Pin 상태
+  pixelArtFrame?: string;          // PixelLab로 생성한 프레임 이미지 URL
+  pixelArtBackground?: string;     // PixelLab로 생성한 배경 이미지 URL
 }
 
 // Meeting Recorder 블록 설정

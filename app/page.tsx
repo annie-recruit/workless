@@ -23,6 +23,8 @@ export default function Home() {
   const [showInsights, setShowInsights] = useState(true); // 인사이트 패널 토글
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialButtonSrc, setTutorialButtonSrc] = useState<string>('/assets/generated/tutorial_button.png');
+  const [tutorialButtonTextSrc, setTutorialButtonTextSrc] = useState<string>('/assets/generated/tutorial_button_text.png');
   const contentMaxWidth = showInsights ? 'calc(100vw - 420px)' : 'calc(100vw - 40px)';
 
   const fetchMemories = async () => {
@@ -46,6 +48,22 @@ export default function Home() {
 
   useEffect(() => {
     fetchMemories();
+  }, []);
+
+  // 튜토리얼 버튼 스프라이트 로드 (generated asset)
+  useEffect(() => {
+    fetch('/assets/generated/manifest.json')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((manifest) => {
+        const bg = manifest?.tutorial_button_bg || manifest?.tutorial_button;
+        const text = manifest?.tutorial_button_text;
+
+        if (typeof bg === 'string' && bg.length > 0) setTutorialButtonSrc(bg);
+        if (typeof text === 'string' && text.length > 0) setTutorialButtonTextSrc(text);
+      })
+      .catch(() => {
+        // 실패 시 기본 경로 사용
+      });
   }, []);
 
   // 최초 로그인 시 튜토리얼 자동 시작
@@ -138,7 +156,7 @@ export default function Home() {
           <div className="container mx-auto px-4 py-12">
             <div className="relative z-10">
               <h1 className="text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', letterSpacing: '-0.05em' }}>
-                Workless - 나의 생각 지도
+                Workless
               </h1>
               <div className="flex items-center gap-3">
                 <div className="h-0.5 w-12 bg-white"></div>
@@ -173,13 +191,22 @@ export default function Home() {
               </button>
               <button
                 onClick={() => setShowTutorial(true)}
-                className="px-4 py-2 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 transition-colors text-sm font-medium flex items-center gap-1 border border-indigo-200"
+                className="relative inline-flex items-center justify-center p-0 bg-transparent border-0"
+                style={{ width: 120, height: 32 }}
                 title="튜토리얼 다시 보기"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                튜토리얼
+                <img
+                  src={tutorialButtonSrc}
+                  alt=""
+                  className="pixel-icon absolute inset-0 w-full h-full select-none pointer-events-none"
+                  draggable={false}
+                />
+                <img
+                  src={tutorialButtonTextSrc}
+                  alt="Tutorial"
+                  className="pixel-icon absolute left-1/2 top-1/2 w-[88px] h-[20px] -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
+                  draggable={false}
+                />
               </button>
             </div>
 
@@ -248,7 +275,7 @@ export default function Home() {
           </div>
 
           {/* 보관함 영역 */}
-          <div data-tutorial-target="board-view">
+          <div data-tutorial-target="board-view" className="font-galmuri11">
             {loading ? (
               <div className="text-center py-12 text-gray-400">
                 불러오는 중...
@@ -298,7 +325,7 @@ export default function Home() {
       {/* 물어보기 모달 */}
       {showModal === 'query' && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white border-2 border-orange-200 max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+          <div className="bg-white border border-orange-200 max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b-2 border-orange-300 flex items-center justify-between bg-gradient-to-r from-orange-50 to-indigo-50">
               <h2 className="text-2xl font-bold text-gray-800">물어보기</h2>
               <button

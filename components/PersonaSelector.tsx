@@ -2,24 +2,44 @@
 
 import { useState, useEffect } from 'react';
 import { Persona } from '@/types';
+import PixelIcon from './PixelIcon';
 
 interface PersonaSelectorProps {
   selectedPersonaId: string | null;
   onPersonaChange: (personaId: string | null) => void;
 }
 
+// 이모지 → PixelIcon name 매핑
+const EMOJI_TO_ICON: Record<string, string> = {
+  '👤': 'persona_default',
+  '👨‍💼': 'persona_hr',
+  '👨‍🍳': 'persona_chef',
+  '💻': 'persona_developer',
+  '📚': 'persona_student',
+};
+
 const DEFAULT_PERSONAS = [
-  { icon: '👨‍💼', name: 'HR 전문가', description: '채용, 인사, 조직 관리' },
-  { icon: '👨‍🍳', name: '요리사', description: '레시피, 요리, 음식' },
-  { icon: '💻', name: '개발자', description: '프로그래밍, 기술, 개발' },
-  { icon: '📚', name: '학생', description: '공부, 학습, 교육' },
+  { icon: '👨‍💼', iconName: 'persona_hr', name: 'HR 전문가', description: '채용, 인사, 조직 관리' },
+  { icon: '👨‍🍳', iconName: 'persona_chef', name: '요리사', description: '레시피, 요리, 음식' },
+  { icon: '💻', iconName: 'persona_developer', name: '개발자', description: '프로그래밍, 기술, 개발' },
+  { icon: '📚', iconName: 'persona_student', name: '학생', description: '공부, 학습, 교육' },
 ];
+
+// 이모지 또는 아이콘 이름을 PixelIcon name으로 변환
+function getIconName(icon: string): string | null {
+  // 이미 iconName 형식이면 그대로 사용
+  if (icon.startsWith('persona_')) {
+    return icon;
+  }
+  // 이모지면 매핑된 이름 반환
+  return EMOJI_TO_ICON[icon] || null;
+}
 
 export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ...props }: PersonaSelectorProps & React.HTMLAttributes<HTMLDivElement>) {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [newPersona, setNewPersona] = useState({ name: '', icon: '👤', description: '', context: '' });
+  const [newPersona, setNewPersona] = useState({ name: '', icon: 'persona_default', description: '', context: '' });
 
   useEffect(() => {
     loadPersonas();
@@ -48,7 +68,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
       if (res.ok) {
         await loadPersonas();
         setIsCreating(false);
-        setNewPersona({ name: '', icon: '👤', description: '', context: '' });
+        setNewPersona({ name: '', icon: 'persona_default', description: '', context: '' });
       }
     } catch (error) {
       console.error('Failed to create persona:', error);
@@ -82,7 +102,8 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
         title={selectedPersona ? `${selectedPersona.name}` : '페르소나 선택'}
         data-tutorial-target="persona-selector"
       >
-        <span className="text-2xl">{selectedPersona?.icon || '👤'}</span>
+        {/* 페르소나 왼쪽 아이콘을 "기본 모드"와 동일하게 통일 */}
+        <PixelIcon name="persona_default" size={24} className="flex-shrink-0" />
         <span className="text-sm font-medium text-gray-700">
           {selectedPersona?.name || '페르소나'}
         </span>
@@ -115,7 +136,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                 !selectedPersonaId ? 'bg-blue-50' : ''
               }`}
             >
-              <span className="text-2xl">👤</span>
+              <PixelIcon name="persona_default" size={24} className="flex-shrink-0" />
               <div className="flex-1">
                 <div className="font-medium text-gray-800">기본 모드</div>
                 <div className="text-xs text-gray-500">페르소나 없이 사용</div>
@@ -140,7 +161,8 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                   }}
                   className="flex-1 text-left flex items-center gap-3"
                 >
-                  <span className="text-2xl">{persona.icon}</span>
+                  {/* 페르소나 왼쪽 아이콘을 "기본 모드"와 동일하게 통일 */}
+                  <PixelIcon name="persona_default" size={24} className="flex-shrink-0" />
                   <div className="flex-1">
                     <div className="font-medium text-gray-800">{persona.name}</div>
                     {persona.description && (
@@ -156,7 +178,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                   className="p-1 hover:bg-red-100 rounded text-red-500 text-sm"
                   title="삭제"
                 >
-                  🗑️
+                  <PixelIcon name="delete" size={16} />
                 </button>
               </div>
             ))}
@@ -167,7 +189,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                 onClick={() => setIsCreating(true)}
                 className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors flex items-center gap-3 text-blue-600 font-medium"
               >
-                <span className="text-2xl">➕</span>
+                <PixelIcon name="plus" size={20} />
                 <span>새 페르소나 만들기</span>
               </button>
             )}
@@ -176,28 +198,33 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
             {isCreating && (
               <div className="p-4 border-t border-gray-200 bg-gray-50">
                 <div className="space-y-3">
-                  {/* 이모티콘 선택 */}
+                  {/* 아이콘 선택 */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">이모티콘</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">아이콘</label>
                     <div className="flex gap-2 flex-wrap">
                       {DEFAULT_PERSONAS.map(p => (
                         <button
-                          key={p.icon}
-                          onClick={() => setNewPersona({ ...newPersona, icon: p.icon })}
-                          className={`text-2xl p-2 rounded-lg border-2 ${
-                            newPersona.icon === p.icon ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                          key={p.iconName}
+                          onClick={() => setNewPersona({ ...newPersona, icon: p.iconName })}
+                          className={`p-2 rounded-lg border flex items-center justify-center ${
+                            newPersona.icon === p.iconName ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
                           }`}
+                          style={{ width: '48px', height: '48px' }}
+                          title={p.name}
                         >
-                          {p.icon}
+                          <PixelIcon name={p.iconName} size={32} />
                         </button>
                       ))}
+                      <div className="text-xs text-gray-500 self-center px-2">
+                        또는 직접 입력
+                      </div>
                       <input
                         type="text"
                         value={newPersona.icon}
                         onChange={(e) => setNewPersona({ ...newPersona, icon: e.target.value })}
-                        className="w-16 text-center p-2 border-2 border-gray-200 rounded-lg"
-                        placeholder="😊"
-                        maxLength={2}
+                        className="w-20 text-center p-2 border border-gray-200 rounded-lg text-xs"
+                        placeholder="icon name"
+                        maxLength={50}
                       />
                     </div>
                   </div>
@@ -249,7 +276,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                     <button
                       onClick={() => {
                         setIsCreating(false);
-                        setNewPersona({ name: '', icon: '👤', description: '', context: '' });
+                        setNewPersona({ name: '', icon: 'persona_default', description: '', context: '' });
                       }}
                       className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
                     >

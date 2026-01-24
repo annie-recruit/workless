@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Memory, CalendarBlockConfig } from '@/types';
+import PixelIcon from './PixelIcon';
 
 interface CalendarBlockProps {
   blockId: string;
@@ -114,7 +115,7 @@ export default function CalendarBlock({
   return (
     <div
       data-calendar-block={blockId}
-      className="absolute bg-white rounded-lg shadow-lg border border-gray-200 p-4 cursor-move"
+      className="absolute bg-white rounded-lg shadow-lg border-[3px] border-black p-4 cursor-move"
       style={{
         transform: `translate3d(${x}px, ${y}px, 0)`,
         width: `${width}px`,
@@ -138,7 +139,7 @@ export default function CalendarBlock({
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
         <div className="flex items-center gap-2">
-          <span className="text-lg">📅</span>
+          <PixelIcon name="calendar" size={18} />
           <h3 className="text-sm font-semibold text-gray-800">캘린더</h3>
         </div>
         <div className="flex items-center gap-1">

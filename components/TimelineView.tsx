@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Memory } from '@/types';
 import { formatDistanceToNow, format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, startOfWeek, endOfWeek } from 'date-fns';
 import { ko } from 'date-fns/locale';
+import PixelIcon from './PixelIcon';
 
 interface TimelineViewProps {
   memories: Memory[];
@@ -68,7 +69,10 @@ export default function TimelineView({ memories, onMemoryClick }: TimelineViewPr
       <div className="bg-gradient-to-r from-cyan-500 to-blue-500 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-white">📅 타임라인</h2>
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <PixelIcon name="calendar" size={24} />
+              타임라인
+            </h2>
             
             {/* 뷰 모드 토글 */}
             <div className="flex bg-white/20 rounded-lg p-1 backdrop-blur-sm">
@@ -194,7 +198,7 @@ export default function TimelineView({ memories, onMemoryClick }: TimelineViewPr
                               )}
                               {memory.attachments && memory.attachments.length > 0 && (
                                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-50 text-gray-700 border border-gray-200">
-                                  📎 {memory.attachments.length}개
+                                  <PixelIcon name="attachment" size={14} className="inline" /> {memory.attachments.length}개
                                 </span>
                               )}
                             </div>

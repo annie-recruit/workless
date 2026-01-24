@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Memory } from '@/types';
+import PixelIcon from './PixelIcon';
 
 interface MemoryInputProps {
   onMemoryCreated: () => void;
@@ -140,13 +141,18 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
                 errorMessage = error.message || '위치 정보를 가져올 수 없습니다';
                 break;
             }
-            console.error('위치 정보 가져오기 실패:', {
-              code: error.code,
-              message: error.message,
-              error,
-            });
+            // 개발 중 디버깅을 위해서만 콘솔 경고 출력 (에러 오버레이 방지)
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('위치 정보 가져오기 실패:', {
+                code: error.code,
+                message: error.message,
+                error,
+              });
+            }
           } else {
-            console.error('위치 정보 가져오기 실패: 알 수 없는 에러');
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('위치 정보 가져오기 실패: 알 수 없는 에러');
+            }
           }
           
           setLocationError(errorMessage);
@@ -564,7 +570,7 @@ ${summary}`;
           onDrop={handleDrop}
         >
           <div
-            className={`w-full border-2 transition-all flex flex-col ${
+            className={`w-full border transition-all flex flex-col ${
               isDragging 
                 ? 'border-indigo-500 bg-indigo-50 border-dashed' 
                 : 'border-gray-200 focus-within:border-indigo-500'
@@ -601,7 +607,7 @@ ${summary}`;
                 className="px-1.5 py-0.5 text-xs rounded hover:bg-gray-100"
                 title="하이퍼링크"
               >
-                🔗
+                <PixelIcon name="link" size={14} />
               </button>
               <button
                 type="button"
@@ -664,7 +670,7 @@ ${summary}`;
                     className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded disabled:opacity-50 transition-colors"
                     title="파일 첨부"
                   >
-                    📎
+                    <PixelIcon name="attachment" size={16} />
                   </button>
                   {!isRecording && !isProcessing ? (
                     <button
@@ -674,7 +680,7 @@ ${summary}`;
                       className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded disabled:opacity-50 transition-colors"
                       title="회의 녹음"
                     >
-                      🎤
+                      <PixelIcon name="microphone" size={16} />
                     </button>
                   ) : isRecording ? (
                     <button
@@ -692,7 +698,7 @@ ${summary}`;
                       disabled
                       className="px-2 py-1 text-xs text-gray-400 rounded flex items-center gap-1"
                     >
-                      <span className="animate-spin text-xs">⏳</span>
+                      <PixelIcon name="clock" size={14} className="animate-spin" />
                     </button>
                   )}
                 </div>
@@ -723,7 +729,7 @@ ${summary}`;
 
           {/* 멘션 검색 패널 */}
           {isMentionPanelOpen && (
-            <div className="mt-2 w-full bg-white border-2 border-gray-300">
+            <div className="mt-2 w-full bg-white border border-gray-300">
               <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100">
                 <span className="text-sm text-gray-500">@</span>
                 <input
@@ -761,9 +767,11 @@ ${summary}`;
           
           {/* 드래그 오버레이 */}
           {isDragging && (
-            <div className="absolute inset-0 flex items-center justify-center bg-indigo-50/90 border-2 border-indigo-500 border-dashed pointer-events-none">
+            <div className="absolute inset-0 flex items-center justify-center bg-indigo-50/90 border border-indigo-500 border-dashed pointer-events-none">
               <div className="text-center">
-                <div className="text-4xl mb-2">📎</div>
+                <div className="mb-2 flex justify-center">
+                  <PixelIcon name="attachment" size={48} className="text-indigo-500" />
+                </div>
                 <div className="text-lg font-semibold text-indigo-600">
                   파일을 여기에 놓아주세요
                 </div>
@@ -783,8 +791,9 @@ ${summary}`;
                 key={index}
                 className="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded text-xs"
               >
-                <span className="truncate max-w-[150px]">
-                  {file.type.startsWith('image/') ? '🖼️' : '📎'} {file.name}
+                <span className="truncate max-w-[150px] flex items-center gap-1">
+                  <PixelIcon name={file.type.startsWith('image/') ? 'image' : 'attachment'} size={14} />
+                  {file.name}
                 </span>
                 <button
                   type="button"
@@ -801,9 +810,10 @@ ${summary}`;
 
       {/* 조건부 제안 */}
       {suggestions.length > 0 && (
-        <div className="mt-6 p-4 bg-orange-50 border-2 border-orange-300">
-          <h3 className="text-sm font-semibold text-amber-900 mb-2">
-            💡 이런 건 어때요?
+        <div className="mt-6 p-4 bg-orange-50 border border-orange-300">
+          <h3 className="text-sm font-semibold text-amber-900 mb-2 flex items-center gap-1">
+            <PixelIcon name="lightbulb" size={16} />
+            이런 건 어때요?
           </h3>
           <ul className="space-y-2">
             {suggestions.map((suggestion, idx) => (
@@ -826,7 +836,7 @@ ${summary}`;
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
           <div className="bg-white rounded-xl shadow-2xl p-5 min-w-[400px] max-w-[500px] border border-gray-200">
             <div className="flex items-start gap-3 mb-4">
-              <div className="text-2xl">🔗</div>
+              <PixelIcon name="link" size={24} />
               <div className="flex-1">
                 <h3 className="text-base font-bold text-gray-800 mb-1">
                   이 기록들을 함께 연결할까요?
@@ -876,7 +886,7 @@ ${summary}`;
                       setConnectionSuggestions([]);
                       onMemoryCreated();
                     }}
-                    className="flex-1 px-3 py-2 text-sm border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     건너뛰기
                   </button>
@@ -922,7 +932,7 @@ ${summary}`;
                         onMemoryCreated();
                       }
                     }}
-                    className="flex-1 px-3 py-2 text-sm bg-indigo-500 text-white border-2 border-indigo-600 hover:bg-indigo-600 transition-colors"
+                    className="flex-1 px-3 py-2 text-sm bg-indigo-500 text-white border border-indigo-600 hover:bg-indigo-600 transition-colors"
                   >
                     연결하기 ({selectedConnectionIds.size}개)
                   </button>
@@ -948,9 +958,9 @@ ${summary}`;
       {/* 성공 토스트 */}
       {toast.type === 'success' && (
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-green-500 text-white border-2 border-green-600 p-4 min-w-[300px]">
+          <div className="bg-green-500 text-white border border-green-600 p-4 min-w-[300px]">
             <div className="flex items-center gap-3">
-              <div className="text-2xl">✅</div>
+              <PixelIcon name="success" size={24} />
               <div>
                 <p className="text-sm font-semibold">{toast.message || '완료되었습니다!'}</p>
               </div>

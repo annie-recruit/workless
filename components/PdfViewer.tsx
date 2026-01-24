@@ -3,12 +3,15 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import PixelIcon from './PixelIcon';
 
 interface PdfViewerProps {
   url: string;
   page: number;
   numPages: number;
   width: number;
+  /** 보드 줌(1.0 = 기본). transform scale로 확대될 때 해상도 보정용 */
+  zoom?: number;
   onLoadSuccess: (data: { numPages: number }) => void;
   onLoadError: (error: Error) => void;
   onPageChange: (page: number) => void;
@@ -19,6 +22,7 @@ export default function PdfViewer({
   page,
   numPages,
   width,
+  zoom = 1,
   onLoadSuccess,
   onLoadError,
   onPageChange,
@@ -265,7 +269,12 @@ export default function PdfViewer({
   }
 
   return (
-    <div className="w-full h-full flex flex-col items-center overflow-auto py-4">
+    <div className="w-full h-full flex flex-col items-center overflow-auto py-0">
+      {/* 
+        보드는 transform: scale(zoom)로 확대되기 때문에,
+        PDF canvas도 함께 확대되며 글자가 깨져 보일 수 있음.
+        devicePixelRatio를 zoom에 비례해 올려서(상한 적용) 선명도를 유지.
+      */}
       <Document
         file={pdfUrl}
         onLoadSuccess={(data: { numPages: number }) => {
@@ -297,7 +306,9 @@ export default function PdfViewer({
         }
         error={
           <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-            <div className="mb-4 text-5xl opacity-50">⚠️</div>
+            <div className="mb-4 opacity-50">
+              <PixelIcon name="warning" size={48} className="text-purple-500" />
+            </div>
             <p className="text-purple-600 text-sm mb-2 font-medium">PDF를 불러올 수 없습니다</p>
             {loadError && (
               <p className="text-rose-500 text-xs mb-2">{loadError}</p>
@@ -332,9 +343,14 @@ export default function PdfViewer({
             key={`page_${index + 1}`}
             pageNumber={index + 1}
             width={width}
+            devicePixelRatio={
+              typeof window === 'undefined'
+                ? 1
+                : Math.min(3, (window.devicePixelRatio || 1) * Math.max(0.5, Math.min(2, zoom)))
+            }
             renderTextLayer={false}
             renderAnnotationLayer={false}
-            className="shadow-lg mb-4"
+            className="mb-2"
             onLoadError={(error: Error) => {
               console.error(`PDF Page ${index + 1} load error:`, error);
               onLoadError(error);

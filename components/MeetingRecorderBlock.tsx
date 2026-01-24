@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { CanvasBlock, MeetingRecorderBlockConfig } from '@/types';
+import PixelIcon from './PixelIcon';
 
 interface MeetingRecorderBlockProps {
   blockId: string;
@@ -349,7 +350,7 @@ export default function MeetingRecorderBlock({
 
   return (
     <div
-      className="absolute bg-white rounded-lg shadow-lg border-2 border-gray-200 overflow-hidden"
+      className="absolute bg-white rounded-lg shadow-lg border-[3px] border-black overflow-hidden"
       style={{
         transform: `translate3d(${x}px, ${y}px, 0)`,
         width: `${width}px`,
@@ -366,7 +367,7 @@ export default function MeetingRecorderBlock({
       {/* 헤더 */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
         <div className="flex items-center gap-1.5">
-          <span className="text-lg">🎙️</span>
+          <PixelIcon name="meeting-recorder" size={18} />
           <span className="text-xs font-semibold text-gray-700">미팅 레코더</span>
         </div>
         <button
@@ -419,29 +420,27 @@ export default function MeetingRecorderBlock({
                 className="absolute inset-0 flex items-center justify-center cursor-pointer group"
                 title="녹음 시작"
               >
-                <div className={`w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 flex items-center justify-center shadow-xl transition-all hover:scale-110 active:scale-95 ${
-                  isRecording && !isPaused ? 'animate-pulse scale-110' : 'scale-100'
-                }`}
-                style={{
-                  boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.2)',
-                }}>
-                  <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                  </svg>
+                {/* 네모 버튼 + 픽셀 아이콘(마이크) */}
+                <div
+                  className="w-16 h-16 border-[3px] border-black bg-white hover:bg-gray-50 flex items-center justify-center shadow-xl transition-transform group-hover:scale-105 active:scale-95"
+                  style={{ boxShadow: '0 8px 24px rgba(0, 0, 0, 0.18)' }}
+                >
+                  <PixelIcon name="microphone" size={28} className="text-black" />
                 </div>
-                {/* 펄스 효과 */}
-                <div className="absolute inset-0 rounded-full bg-indigo-500 opacity-0 group-hover:opacity-20 animate-ping pointer-events-none"></div>
               </button>
             ) : (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className={`w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg transition-all ${
-                  isRecording && !isPaused ? 'animate-pulse scale-110' : 'scale-100'
-                }`}>
-                  <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                  </svg>
+                <div
+                  className={`w-16 h-16 border-[3px] border-black flex items-center justify-center shadow-lg transition-transform ${
+                    isRecording && !isPaused ? 'bg-black scale-105' : 'bg-white scale-100'
+                  }`}
+                  style={{ boxShadow: '0 6px 18px rgba(0, 0, 0, 0.16)' }}
+                >
+                  <PixelIcon
+                    name="microphone"
+                    size={28}
+                    className={isRecording && !isPaused ? 'text-white' : 'text-black'}
+                  />
                 </div>
               </div>
             )}
@@ -555,14 +554,18 @@ export default function MeetingRecorderBlock({
               <div className="h-full flex items-center justify-center text-gray-400 text-sm">
                 {isRecording || isPaused ? (
                   <div className="text-center">
-                    <div className="text-2xl mb-2">🎙️</div>
+                    <div className="mb-2 flex justify-center">
+                      <PixelIcon name="meeting-recorder" size={32} className="text-gray-400" />
+                    </div>
                     <div>녹음 중...</div>
                     <div className="text-xs mt-1">완료 버튼을 누르면</div>
                     <div className="text-xs">자동으로 변환됩니다</div>
                   </div>
                 ) : (
                   <div className="text-center">
-                    <div className="text-2xl mb-2">📝</div>
+                    <div className="mb-2 flex justify-center">
+                      <PixelIcon name="file" size={32} className="text-gray-400" />
+                    </div>
                     <div>녹음 버튼을 눌러</div>
                     <div className="text-xs mt-1">미팅을 시작하세요</div>
                   </div>

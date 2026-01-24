@@ -138,6 +138,65 @@ npm start
 2. 환경 변수 설정
 3. 자동 배포 완료!
 
+### PixelLab 에셋 생성
+
+PixelLab API를 사용하여 픽셀 아트 에셋을 자동 생성하고 프로젝트에 저장할 수 있습니다.
+
+#### 기본 사용법
+```bash
+pnpm gen:asset --name <에셋이름> --prompt "<프롬프트>" [옵션]
+```
+
+#### 옵션
+- `--name <이름>`: 에셋 논리 이름 (필수, 예: `viewer_frame`, `icon_bundle`)
+- `--prompt "<텍스트>"`: PixelLab에 전달할 프롬프트 (필수)
+- `--size <숫자>`: 출력 해상도 (기본값: 64)
+- `--transparent`: 배경 투명 여부
+- `--force`: 기존 파일 덮어쓰기
+- `--model <모델>`: `pixflux` 또는 `bitforge` (기본값: `pixflux`)
+
+#### 프롬프트 예시
+
+**뷰어 프레임:**
+```bash
+pnpm gen:asset --name viewer_frame --prompt "pixel art UI frame, computer monitor shape, purple indigo color, two-tone shading, white outline, simple clean design, front view" --size 128 --transparent
+```
+
+**아이콘 묶기:**
+```bash
+pnpm gen:asset --name icon_bundle --prompt "pixel art icon, stack of three rectangles, purple indigo color, two-tone shading, white outline, simple clean design, front view" --size 64 --transparent
+```
+
+**아이콘 수정:**
+```bash
+pnpm gen:asset --name icon_edit --prompt "pixel art icon, document with pencil, purple indigo color, two-tone shading, white outline, simple clean design, front view" --size 64 --transparent
+```
+
+#### 생성된 에셋 사용
+
+생성된 에셋은 `public/assets/generated/` 디렉토리에 저장되며, `manifest.json`에 자동 등록됩니다.
+
+**ViewerFrame 컴포넌트 예시:**
+```tsx
+import ViewerFrame from '@/components/ViewerFrame';
+
+export default function MyComponent() {
+  return (
+    <ViewerFrame className="w-full h-96">
+      <div>내부 콘텐츠</div>
+    </ViewerFrame>
+  );
+}
+```
+
+**직접 이미지 사용:**
+```tsx
+// manifest.json에서 경로 가져오기
+import manifest from '@/public/assets/generated/manifest.json';
+
+<img src={manifest.viewer_frame} alt="Viewer Frame" />
+```
+
 ### PWA 아이콘 생성
 1. 브라우저에서 `http://localhost:3000/generate-icons.html` 열기
 2. 자동으로 `icon-192.png`와 `icon-512.png` 다운로드됨
