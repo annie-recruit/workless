@@ -3,7 +3,7 @@
 import { ingestDb, memoryDb } from '@/lib/db';
 import crypto from 'crypto';
 import { getServerSession } from 'next-auth/next';
-import { nextAuthOptions } from '@/app/api/auth/[...nextauth]/route';
+import { nextAuthOptions } from '@/lib/nextAuthOptions';
 
 interface QuickAddResult {
     success: boolean;
