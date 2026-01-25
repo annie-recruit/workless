@@ -15,23 +15,24 @@ export interface Memory {
   content: string;          // 사용자 입력 원문
   createdAt: number;        // timestamp
   derivedFromCardId?: string; // 요약 파생 출처 카드 ID
-  
+  ingestId?: string;        // 원문(IngestItem) 참조 ID
+
   // AI 자동 분류
   topic?: string;           // 아이디어/업무/커리어/감정/기록
   nature?: string;          // 단순기록/아이디어/요청/고민
   timeContext?: string;     // 당장/언젠가/특정시점
-  
+
   // 맥락 연결
   relatedMemoryIds?: string[];
   clusterTag?: string;      // 비슷한 주제 묶음 태그
-  
+
   // 반복 추적
   repeatCount?: number;
   lastMentionedAt?: number; // timestamp
-  
+
   // 첨부 파일
   attachments?: Attachment[];
-  
+
   // 위치 정보
   location?: {
     latitude: number;      // 위도
@@ -39,6 +40,38 @@ export interface Memory {
     address?: string;      // 주소 (선택, 역지오코딩 결과)
     accuracy?: number;     // 정확도 (미터)
   };
+
+  // 출처 정보
+  source?: 'gmail' | 'manual' | 'ios-shortcut' | 'workless-web' | string;
+  sourceId?: string;       // Gmail messageId 등
+  sourceLink?: string;     // Gmail 메일 링크 등
+  sourceSender?: string;   // 발신자 이메일
+  sourceSubject?: string;  // 메일 제목
+  dedupeKey?: string;      // 중복 방지 키
+}
+
+// Universal Send API 원문 저장 단위
+export interface IngestItem {
+  id: string;
+  userId: string;
+  rawText: string;
+  rawMeta?: Record<string, unknown>;
+  source: string;
+  sourceItemId?: string;
+  dedupeKey?: string;
+  createdAt: number;
+}
+
+// Gmail 메일 정규화 객체
+export interface GmailEmail {
+  messageId: string;
+  threadId?: string;
+  subject: string;
+  from: string;
+  date: string; // ISO
+  snippet: string;
+  bodyText?: string;
+  gmailLink?: string;
 }
 
 // 맥락 묶음
@@ -110,6 +143,7 @@ export interface Persona {
 
 // 캔버스 블록 타입
 export type BlockType = 'calendar' | 'photo' | 'automation' | 'insight' | 'minimap' | 'viewer' | 'meeting-recorder' | 'database';
+
 
 // 캔버스 블록
 export interface CanvasBlock {

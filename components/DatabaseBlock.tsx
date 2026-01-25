@@ -17,6 +17,7 @@ interface DatabaseBlockProps {
   isClicked?: boolean;
   zIndex?: number;
   onPointerDown?: (e: React.PointerEvent) => void;
+  isHighlighted?: boolean;
 }
 
 const DEFAULT_PROPERTIES: DatabaseProperty[] = [
@@ -37,6 +38,7 @@ export default function DatabaseBlock({
   isClicked = false,
   zIndex = 10,
   onPointerDown,
+  isHighlighted = false,
 }: DatabaseBlockProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [databaseName, setDatabaseName] = useState(config.name || '데이터베이스');
@@ -232,7 +234,10 @@ export default function DatabaseBlock({
 
   return (
     <div
-      className="absolute bg-white rounded-lg shadow-lg border-[3px] border-black overflow-hidden flex flex-col"
+      data-database-block={blockId}
+      className={`absolute bg-white rounded-lg shadow-lg border-[3px] border-black overflow-hidden flex flex-col ${
+        isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
+      }`}
       style={{
         transform: `translate3d(${x}px, ${y}px, 0)`,
         width: `${width}px`,
@@ -243,6 +248,9 @@ export default function DatabaseBlock({
         willChange: isDragging ? 'transform' : 'auto',
         pointerEvents: isDragging ? 'none' : 'auto',
         contain: 'layout style paint',
+        ...(isHighlighted
+          ? { backgroundImage: 'linear-gradient(rgba(99, 102, 241, 0.06), rgba(99, 102, 241, 0.06))' }
+          : null),
       }}
       onPointerDown={onPointerDown}
     >

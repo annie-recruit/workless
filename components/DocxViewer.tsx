@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import ProcessingLoader from './ProcessingLoader';
 import PixelIcon from './PixelIcon';
 
 interface DocxViewerProps {
@@ -116,8 +117,7 @@ export default function DocxViewer({
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mb-4"></div>
-        <p className="text-purple-600 text-sm font-medium">DOCX 파일 로딩 중...</p>
+        <ProcessingLoader size={32} variant="panel" tone="indigo" label="DOCX 파일 로딩 중..." />
       </div>
     );
   }

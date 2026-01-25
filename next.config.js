@@ -1,4 +1,5 @@
 const withPWA = require('next-pwa');
+const { withSentryConfig } = require('@sentry/nextjs');
 
 // 개발 환경에서 NEXTAUTH_URL 자동 설정
 if (process.env.NODE_ENV === 'development' && !process.env.NEXTAUTH_URL) {
@@ -41,4 +42,14 @@ if (process.env.ANALYZE === 'true') {
   config = withBundleAnalyzer(config);
 }
 
-module.exports = config;
+// Sentry 설정 (소스맵 업로드/릴리즈 등은 환경변수로 제어)
+module.exports = withSentryConfig(
+  config,
+  {
+    silent: true,
+  },
+  {
+    disableLogger: true,
+    hideSourceMaps: true,
+  }
+);

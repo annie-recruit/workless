@@ -81,6 +81,7 @@ export default function QueryPanel({ personaId }: QueryPanelProps) {
     '요즘 내가 무슨 생각 많이 했어?',
     '아이디어 관련해서 뭐 쌓여 있어?',
     '업무 관련 기록 보여줘',
+    '최근 회의록 요약해줘',
   ];
 
   return (

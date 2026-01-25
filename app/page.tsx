@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSession, signIn, signOut } from 'next-auth/react';
@@ -9,32 +9,40 @@ import MemoryView from '@/components/MemoryView';
 import QueryPanel from '@/components/QueryPanel';
 import InsightsPanel from '@/components/InsightsPanel';
 import GroupManager from '@/components/GroupManager';
+import MemoryListPanel from '@/components/MemoryListPanel';
 import PersonaSelector from '@/components/PersonaSelector';
 import Tutorial, { TutorialStep } from '@/components/Tutorial';
 import GlobalSearch from '@/components/GlobalSearch';
-import { Memory } from '@/types';
+import PixelIcon from '@/components/PixelIcon';
+import ProcessingLoader from '@/components/ProcessingLoader';
+import QuickAdd from '@/components/QuickAdd';
+import { Memory, CanvasBlock } from '@/types';
 
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [memories, setMemories] = useState<Memory[]>([]);
-  const [showModal, setShowModal] = useState<'groups' | 'query' | 'timeline' | null>(null);
+  const [blocks, setBlocks] = useState<CanvasBlock[]>([]); // Page level blocks state
+  const [showModal, setShowModal] = useState<'groups' | 'query' | 'timeline' | 'memory_manager' | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showInsights, setShowInsights] = useState(true); // 인사이트 패널 토글
+  const [showInsights, setShowInsights] = useState(false); // 인사이트 패널 토글 (기본: 숨김)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialButtonSrc, setTutorialButtonSrc] = useState<string>('/assets/generated/tutorial_button.png');
   const [tutorialButtonTextSrc, setTutorialButtonTextSrc] = useState<string>('/assets/generated/tutorial_button_text.png');
   const contentMaxWidth = showInsights ? 'calc(100vw - 420px)' : 'calc(100vw - 40px)';
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const lastActiveElementRef = useRef<HTMLElement | null>(null);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
-  const fetchMemories = async () => {
-    setLoading(true);
+  const fetchMemories = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch('/api/memories');
       if (res.ok) {
         const data = await res.json();
         // 시간순 정렬 (최신순)
-        const sortedMemories = data.memories.sort((a: Memory, b: Memory) => 
+        const sortedMemories = data.memories.sort((a: Memory, b: Memory) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
         setMemories(sortedMemories);
@@ -42,12 +50,25 @@ export default function Home() {
     } catch (error) {
       console.error('Failed to fetch memories:', error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+    }
+  };
+
+  const fetchBlocks = async () => {
+    try {
+      const res = await fetch('/api/board/blocks');
+      if (res.ok) {
+        const data = await res.json();
+        setBlocks(data.blocks || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch blocks:', error);
     }
   };
 
   useEffect(() => {
     fetchMemories();
+    fetchBlocks();
   }, []);
 
   // 튜토리얼 버튼 스프라이트 로드 (generated asset)
@@ -71,13 +92,13 @@ export default function Home() {
     if (status === 'authenticated' && session?.user) {
       const tutorialCompleted = localStorage.getItem('workless.tutorial.completed');
       const isFirstLogin = !tutorialCompleted;
-      
+
       if (isFirstLogin) {
         // 페이지 로드 완료 대기 (메모리 로드 및 렌더링 완료 대기)
         const timer = setTimeout(() => {
           setShowTutorial(true);
         }, 2000); // 2초로 증가 (렌더링 완료 대기)
-        
+
         return () => clearTimeout(timer);
       }
     }
@@ -94,20 +115,98 @@ export default function Home() {
     }
   }, [status, session, router]);
 
-  const handleMemoryCreated = async () => {
-    // 메모리 생성 후 즉시 새로고침 (필요한 경우에만)
-    // 전체 메모리를 다시 가져오는 대신, 최신 메모리만 추가하는 방식으로 최적화 가능
-    await fetchMemories();
+  // 전역 단축키: / 로 검색 오버레이 열기, ESC로 닫기
+  useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null) => {
+      const el = target instanceof HTMLElement ? target : null;
+      if (!el) return false;
+      if (el.closest('input, textarea, select')) return true;
+      if (el.isContentEditable) return true;
+      return false;
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (isSearchOpen) return;
+        if (isEditableTarget(e.target)) return;
+
+        e.preventDefault();
+        lastActiveElementRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        setIsSearchOpen(true);
+        return;
+      }
+
+      if (e.key === 'Escape' && isSearchOpen) {
+        e.preventDefault();
+        setIsSearchOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isSearchOpen]);
+
+  // 검색 오버레이 닫힐 때: 마지막 포커스 복원
+  useEffect(() => {
+    if (isSearchOpen) return;
+    const el = lastActiveElementRef.current;
+    if (!el) return;
+
+    lastActiveElementRef.current = null;
+    setTimeout(() => {
+      if (document.contains(el)) el.focus?.();
+    }, 0);
+  }, [isSearchOpen]);
+
+  const handleMemoryCreated = async (newMemory?: Memory) => {
+    // 메모리 생성 후 즉시 로컬 상태에 추가하여 사용자에게 즉각적인 피드백 제공
+    if (newMemory) {
+      setMemories(prev => {
+        // 중복 방지 (이미 fetch로 가져왔을 수 있음)
+        if (prev.some(m => m.id === newMemory.id)) return prev;
+        const updated = [newMemory, ...prev];
+        return updated.sort((a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+      });
+    }
+    // 전체 메모리를 백업으로 다시 가져옴 (사일런트 모드)
+    await fetchMemories(true);
+  };
+
+  const handleManualDeleteMemory = async (id: string) => {
+    if (!confirm('기억을 삭제하시겠습니까?')) return;
+    try {
+      const res = await fetch(`/api/memories?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setMemories(prev => prev.filter(m => m.id !== id));
+      } else {
+        alert('삭제 실패');
+      }
+    } catch {
+      alert('삭제 중 오류 발생');
+    }
+  };
+
+  const handleManualDeleteBlock = async (id: string) => {
+    if (!confirm('위젯을 삭제하시겠습니까?')) return;
+    try {
+      const res = await fetch(`/api/board/blocks?id=${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setBlocks(prev => prev.filter(b => b.id !== id));
+      } else {
+        alert('삭제 실패');
+      }
+    } catch {
+      alert('삭제 중 오류 발생');
+    }
   };
 
   // 로그인하지 않은 경우 로그인 화면 표시
   if (status === 'loading') {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">로딩 중...</p>
-        </div>
+        <ProcessingLoader size={64} variant="overlay" tone="indigo" label="로딩 중..." />
       </main>
     );
   }
@@ -115,34 +214,29 @@ export default function Home() {
   if (!session) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">로그인 페이지로 이동 중...</p>
-        </div>
+        <ProcessingLoader size={64} variant="overlay" tone="indigo" label="로그인 페이지로 이동 중..." />
       </main>
     );
   }
 
   return (
-      <main className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-indigo-50 flex relative">
+    <main className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-indigo-50 flex relative">
       {/* 토글 버튼 - 항상 보임 */}
       <button
         onClick={() => setShowInsights(!showInsights)}
-        className={`fixed top-1/2 -translate-y-1/2 bg-white border border-gray-200 hover:bg-gray-50 transition-all duration-300 shadow-lg z-50 ${
-          showInsights ? 'right-[360px]' : 'right-0'
-        }`}
-        style={{ 
+        className={`fixed top-1/2 -translate-y-1/2 bg-white border border-gray-200 hover:bg-gray-50 transition-all duration-300 shadow-lg z-50 ${showInsights ? 'right-[360px]' : 'right-0'
+          }`}
+        style={{
           padding: '12px 6px',
           borderRadius: showInsights ? '8px 0 0 8px' : '8px'
         }}
         title={showInsights ? "인사이트 숨기기" : "인사이트 보기"}
       >
-        <svg 
-          className={`w-4 h-4 text-gray-600 transition-transform duration-300 ${
-            showInsights ? 'rotate-0' : 'rotate-180'
-          }`} 
-          fill="none" 
-          stroke="currentColor" 
+        <svg
+          className={`w-4 h-4 text-gray-600 transition-transform duration-300 ${showInsights ? 'rotate-0' : 'rotate-180'
+            }`}
+          fill="none"
+          stroke="currentColor"
           viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -152,10 +246,10 @@ export default function Home() {
       {/* 메인 콘텐츠 영역 */}
       <div className="flex-1 overflow-y-auto">
         {/* 헤더 배너 - 전체 폭 */}
-        <header className="relative overflow-hidden bg-indigo-600 border-b-2 border-indigo-500">
+        <header className="relative overflow-hidden bg-indigo-600 border-b-2 border-indigo-500 font-galmuri11">
           <div className="container mx-auto px-4 py-12">
             <div className="relative z-10">
-              <h1 className="text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif', letterSpacing: '-0.05em' }}>
+              <h1 className="text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ letterSpacing: '-0.05em' }}>
                 Workless
               </h1>
               <div className="flex items-center gap-3">
@@ -169,7 +263,7 @@ export default function Home() {
         </header>
 
         <div
-          className="mx-auto px-3 py-8 w-full"
+          className="mx-auto px-3 py-8 w-full font-galmuri11"
           style={{ maxWidth: contentMaxWidth }}
         >
 
@@ -188,6 +282,13 @@ export default function Home() {
                 data-tutorial-target="group-manager"
               >
                 그룹 관리
+              </button>
+              <button
+                onClick={() => setShowModal('memory_manager')}
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium flex items-center gap-1"
+              >
+                <PixelIcon name="list" size={16} />
+                기억 관리
               </button>
               <button
                 onClick={() => setShowTutorial(true)}
@@ -212,6 +313,16 @@ export default function Home() {
 
             {/* 오른쪽: 사용자 정보 */}
             <div className="flex items-center gap-1">
+              <button
+                onClick={() => setShowQuickAdd(true)}
+                className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors text-sm font-medium flex items-center gap-2"
+                title="빠른 추가"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                빠른 추가
+              </button>
               {session ? (
                 <div className="flex items-center gap-2">
                   {session.user?.image ? (
@@ -256,8 +367,10 @@ export default function Home() {
           <div className="mb-8">
             <MemoryInput onMemoryCreated={handleMemoryCreated} />
             {/* 전역 검색 */}
-            <GlobalSearch 
-              memories={memories} 
+            <GlobalSearch
+              memories={memories}
+              isOpen={isSearchOpen}
+              onClose={() => setIsSearchOpen(false)}
               onMemoryClick={(memory: Memory) => {
                 // 메모리 카드로 스크롤
                 const element = document.getElementById(`memory-${memory.id}`);
@@ -277,13 +390,16 @@ export default function Home() {
           {/* 보관함 영역 */}
           <div data-tutorial-target="board-view" className="font-galmuri11">
             {loading ? (
-              <div className="text-center py-12 text-gray-400">
-                불러오는 중...
+              <div className="py-12 flex items-center justify-center">
+                <ProcessingLoader variant="panel" tone="indigo" label="불러오는 중..." />
               </div>
             ) : (
-              <MemoryView 
-                memories={memories} 
-                onMemoryDeleted={fetchMemories}
+              <MemoryView
+                memories={memories}
+                onMemoryDeleted={() => {
+                  fetchMemories(true);
+                  fetchBlocks();
+                }}
                 personaId={selectedPersonaId}
               />
             )}
@@ -292,13 +408,23 @@ export default function Home() {
       </div>
 
       {/* 사이드 패널 (인사이트) - 토글 가능 */}
-      <div 
-        className={`bg-white border-l border-gray-200 shadow-lg overflow-y-auto transition-all duration-300 ease-in-out ${
-          showInsights ? 'w-[360px]' : 'w-0'
-        }`}
+      <div
+        className={`bg-white border-l border-gray-200 shadow-lg overflow-y-auto transition-all duration-300 ease-in-out ${showInsights ? 'w-[360px]' : 'w-0'
+          }`}
       >
         {showInsights && <InsightsPanel personaId={selectedPersonaId} />}
       </div>
+
+      {/* 기억 관리 패널 (토스트 스타일, Non-blocking) */}
+      {showModal === 'memory_manager' && (
+        <MemoryListPanel
+          memories={memories}
+          blocks={blocks}
+          onClose={() => setShowModal(null)}
+          onDeleteMemory={handleManualDeleteMemory}
+          onDeleteBlock={handleManualDeleteBlock}
+        />
+      )}
 
       {/* 그룹 관리 모달 */}
       {showModal === 'groups' && (
@@ -396,6 +522,14 @@ export default function Home() {
       )}
 
       {/* 타임라인은 별도 페이지로 */}
+
+      {/* Quick Add 모달 */}
+      {showQuickAdd && (
+        <QuickAdd
+          onMemoryCreated={handleMemoryCreated}
+          onClose={() => setShowQuickAdd(false)}
+        />
+      )}
     </main>
   );
 }

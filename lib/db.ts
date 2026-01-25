@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { Memory, Cluster, Attachment, Group, Goal, CanvasBlock } from '@/types';
+import { Memory, Cluster, Attachment, Group, Goal, CanvasBlock, IngestItem } from '@/types';
 import { nanoid } from 'nanoid';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
@@ -19,6 +19,8 @@ const db = new Database(dbPath);
 
 console.log(`📊 Database path: ${dbPath}`);
 
+let memoryTableHasIngestId = false;
+
 // 테이블 초기화
 db.exec(`
   CREATE TABLE IF NOT EXISTS memories (
@@ -28,6 +30,7 @@ db.exec(`
     content TEXT NOT NULL,
     createdAt INTEGER NOT NULL,
     derivedFromCardId TEXT,
+    ingestId TEXT,
     topic TEXT,
     nature TEXT,
     timeContext TEXT,
@@ -35,7 +38,23 @@ db.exec(`
     clusterTag TEXT,
     repeatCount INTEGER DEFAULT 0,
     lastMentionedAt INTEGER,
-    attachments TEXT
+    attachments TEXT,
+    source TEXT,
+    sourceId TEXT,
+    sourceLink TEXT,
+    sourceSender TEXT,
+    sourceSubject TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS ingest_items (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    rawText TEXT NOT NULL,
+    rawMeta TEXT,
+    source TEXT NOT NULL,
+    sourceItemId TEXT,
+    dedupeKey TEXT,
+    createdAt INTEGER NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS clusters (
@@ -141,6 +160,9 @@ db.exec(`
     email TEXT UNIQUE NOT NULL,
     name TEXT,
     image TEXT,
+    googleAccessToken TEXT,
+    googleRefreshToken TEXT,
+    googleTokenExpiresAt INTEGER,
     createdAt INTEGER NOT NULL,
     updatedAt INTEGER NOT NULL
   );
@@ -160,7 +182,19 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_board_card_colors_groupId ON board_card_colors(groupId);
   CREATE INDEX IF NOT EXISTS idx_memory_links_memoryId1 ON memory_links(memoryId1);
   CREATE INDEX IF NOT EXISTS idx_memory_links_memoryId2 ON memory_links(memoryId2);
+  CREATE INDEX IF NOT EXISTS idx_ingest_items_user_dedupeKey ON ingest_items(userId, dedupeKey);
 `);
+
+// ingest_items: (userId, dedupeKey) 유니크 (dedupeKey가 있을 때만)
+try {
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_ingest_items_user_dedupeKey
+    ON ingest_items(userId, dedupeKey)
+    WHERE dedupeKey IS NOT NULL;
+  `);
+} catch (error) {
+  console.error('Failed to create ingest_items unique index:', error);
+}
 
 // 마이그레이션: memories 테이블에 title 컬럼 추가 (없으면)
 try {
@@ -175,8 +209,22 @@ try {
     console.log('📊 Adding derivedFromCardId column to memories table...');
     db.exec('ALTER TABLE memories ADD COLUMN derivedFromCardId TEXT');
   }
+  const hasIngestId = columns.some((col: any) => col.name === 'ingestId');
+  memoryTableHasIngestId = hasIngestId;
+  if (!hasIngestId) {
+    console.log('📊 Adding ingestId column to memories table...');
+    db.exec('ALTER TABLE memories ADD COLUMN ingestId TEXT');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_memories_ingestId ON memories(ingestId)');
+    memoryTableHasIngestId = true;
+  }
 } catch (error) {
   console.error('Migration error:', error);
+}
+
+try {
+  db.exec('CREATE INDEX IF NOT EXISTS idx_memories_ingestId ON memories(ingestId)');
+} catch (error) {
+  console.warn('Skipping ingestId index creation until column exists:', error);
 }
 
 // 마이그레이션: memories 테이블에 location 컬럼 추가 (없으면)
@@ -206,7 +254,7 @@ try {
       }
     }
   });
-  
+
   // board_settings 테이블의 PRIMARY KEY 수정 (기존 테이블이 groupId만 PRIMARY KEY인 경우)
   try {
     const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='board_settings'").get() as any;
@@ -214,7 +262,7 @@ try {
       console.log('📊 Fixing board_settings PRIMARY KEY...');
       // 기존 데이터 백업
       const oldData = db.prepare('SELECT * FROM board_settings').all() as any[];
-      
+
       // 테이블 재생성
       db.exec(`
         CREATE TABLE IF NOT EXISTS board_settings_new (
@@ -226,7 +274,7 @@ try {
           PRIMARY KEY (userId, groupId)
         );
       `);
-      
+
       // 데이터 마이그레이션 (userId가 없는 경우 빈 문자열로)
       oldData.forEach(row => {
         const userId = row.userId || '';
@@ -235,7 +283,7 @@ try {
           VALUES (?, ?, ?, ?, ?)
         `).run(userId, row.groupId, row.cardSize, row.cardColor, row.updatedAt);
       });
-      
+
       // 기존 테이블 삭제 및 새 테이블로 교체
       db.exec('DROP TABLE board_settings');
       db.exec('ALTER TABLE board_settings_new RENAME TO board_settings');
@@ -243,7 +291,7 @@ try {
   } catch (err) {
     console.error('Failed to fix board_settings PRIMARY KEY:', err);
   }
-  
+
   // board_positions 테이블의 PRIMARY KEY 수정 (기존 테이블이 userId가 없는 경우)
   try {
     const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='board_positions'").get() as any;
@@ -251,7 +299,7 @@ try {
       console.log('📊 Fixing board_positions PRIMARY KEY...');
       // 기존 데이터 백업
       const oldData = db.prepare('SELECT * FROM board_positions').all() as any[];
-      
+
       // 테이블 재생성
       db.exec(`
         CREATE TABLE IF NOT EXISTS board_positions_new (
@@ -264,7 +312,7 @@ try {
           PRIMARY KEY (userId, groupId, memoryId)
         );
       `);
-      
+
       // 데이터 마이그레이션 (userId가 없는 경우 빈 문자열로)
       oldData.forEach(row => {
         const userId = row.userId || '';
@@ -273,7 +321,7 @@ try {
           VALUES (?, ?, ?, ?, ?, ?)
         `).run(userId, row.groupId, row.memoryId, row.x, row.y, row.updatedAt);
       });
-      
+
       // 기존 테이블 삭제 및 새 테이블로 교체
       db.exec('DROP TABLE board_positions');
       db.exec('ALTER TABLE board_positions_new RENAME TO board_positions');
@@ -297,6 +345,49 @@ try {
   console.error('Failed to add isAIGenerated column:', error);
 }
 
+// 마이그레이션: memories 테이블에 source 관련 컬럼 추가
+try {
+  const columns = db.prepare("PRAGMA table_info(memories)").all() as any[];
+  const hasSource = columns.some((col: any) => col.name === 'source');
+  if (!hasSource) {
+    console.log('📊 Adding source columns to memories table...');
+    db.exec('ALTER TABLE memories ADD COLUMN source TEXT');
+    db.exec('ALTER TABLE memories ADD COLUMN sourceId TEXT');
+    db.exec('ALTER TABLE memories ADD COLUMN sourceLink TEXT');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_memories_sourceId ON memories(sourceId)');
+  }
+
+  const hasSourceSender = columns.some((col: any) => col.name === 'sourceSender');
+  if (!hasSourceSender) {
+    console.log('📊 Adding sourceSender/sourceSubject columns to memories table...');
+    db.exec('ALTER TABLE memories ADD COLUMN sourceSender TEXT');
+    db.exec('ALTER TABLE memories ADD COLUMN sourceSubject TEXT');
+  }
+
+  const hasDedupeKey = columns.some((col: any) => col.name === 'dedupeKey');
+  if (!hasDedupeKey) {
+    console.log('📊 Adding dedupeKey column to memories table...');
+    db.exec('ALTER TABLE memories ADD COLUMN dedupeKey TEXT');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_memories_dedupeKey ON memories(dedupeKey)');
+  }
+} catch (error) {
+  console.error('Failed to add source columns to memories:', error);
+}
+
+// 마이그레이션: users 테이블에 OAuth 토큰 관련 컬럼 추가
+try {
+  const columns = db.prepare("PRAGMA table_info(users)").all() as any[];
+  const hasAccessToken = columns.some((col: any) => col.name === 'googleAccessToken');
+  if (!hasAccessToken) {
+    console.log('📊 Adding OAuth columns to users table...');
+    db.exec('ALTER TABLE users ADD COLUMN googleAccessToken TEXT');
+    db.exec('ALTER TABLE users ADD COLUMN googleRefreshToken TEXT');
+    db.exec('ALTER TABLE users ADD COLUMN googleTokenExpiresAt INTEGER');
+  }
+} catch (error) {
+  console.error('Failed to add OAuth columns to users:', error);
+}
+
 // Memory CRUD
 export const memoryDb = {
   // 생성
@@ -309,20 +400,42 @@ export const memoryDb = {
       ...classification,
     };
 
-    const stmt = db.prepare(`
-      INSERT INTO memories (
-        id, userId, title, content, createdAt, derivedFromCardId, topic, nature, timeContext,
-        relatedMemoryIds, clusterTag, repeatCount, lastMentionedAt, attachments, location
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    const columns = [
+      'id',
+      'userId',
+      'title',
+      'content',
+      'createdAt',
+      'derivedFromCardId',
+      ...(memoryTableHasIngestId ? ['ingestId'] : []),
+      'topic',
+      'nature',
+      'timeContext',
+      'relatedMemoryIds',
+      'clusterTag',
+      'repeatCount',
+      'lastMentionedAt',
+      'attachments',
+      'location',
+      'source',
+      'sourceId',
+      'sourceLink',
+      'sourceSender',
+      'sourceSubject',
+      'dedupeKey',
+    ];
 
-    stmt.run(
+    const placeholders = columns.map(() => '?').join(', ');
+    const stmt = db.prepare(`INSERT INTO memories (${columns.join(', ')}) VALUES (${placeholders})`);
+
+    const values = [
       memory.id,
       userId,
       memory.title || null,
       memory.content,
       memory.createdAt,
       memory.derivedFromCardId || null,
+      ...(memoryTableHasIngestId ? [memory.ingestId || null] : []),
       memory.topic || null,
       memory.nature || null,
       memory.timeContext || null,
@@ -331,15 +444,23 @@ export const memoryDb = {
       memory.repeatCount || 0,
       memory.lastMentionedAt || null,
       memory.attachments ? JSON.stringify(memory.attachments) : null,
-      memory.location ? JSON.stringify(memory.location) : null
-    );
+      memory.location ? JSON.stringify(memory.location) : null,
+      memory.source || 'manual',
+      memory.sourceId || null,
+      memory.sourceLink || null,
+      memory.sourceSender || null,
+      memory.sourceSubject || null,
+      (memory as any).dedupeKey || null,
+    ];
+
+    stmt.run(...values);
 
     return memory;
   },
 
   // 조회
   getById(id: string, userId?: string): Memory | null {
-    const stmt = userId 
+    const stmt = userId
       ? db.prepare('SELECT * FROM memories WHERE id = ? AND userId = ?')
       : db.prepare('SELECT * FROM memories WHERE id = ?');
     const row = userId ? stmt.get(id, userId) : stmt.get(id) as any;
@@ -405,6 +526,31 @@ export const memoryDb = {
     stmt.run(id);
   },
 
+  // sourceId로 조회 (중복 방지용)
+  getBySourceId(sourceId: string, userId: string): Memory | null {
+    const stmt = db.prepare('SELECT * FROM memories WHERE sourceId = ? AND userId = ?');
+    const row = stmt.get(sourceId, userId) as any;
+    if (!row) return null;
+    return this.parseRow(row);
+  },
+
+  // dedupeKey로 조회 (중복 방지용)
+  getByDedupeKey(dedupeKey: string, userId: string): Memory | null {
+    const stmt = db.prepare('SELECT * FROM memories WHERE dedupeKey = ? AND userId = ?');
+    const row = stmt.get(dedupeKey, userId) as any;
+    if (!row) return null;
+    return this.parseRow(row);
+  },
+
+  // ingestId로 조회 (원문-카드 연결)
+  getByIngestId(ingestId: string, userId: string): Memory | null {
+    if (!memoryTableHasIngestId) return null;
+    const stmt = db.prepare('SELECT * FROM memories WHERE ingestId = ? AND userId = ?');
+    const row = stmt.get(ingestId, userId) as any;
+    if (!row) return null;
+    return this.parseRow(row);
+  },
+
   // 헬퍼: row 파싱
   parseRow(row: any): Memory {
     return {
@@ -412,6 +558,55 @@ export const memoryDb = {
       relatedMemoryIds: row.relatedMemoryIds ? JSON.parse(row.relatedMemoryIds) : undefined,
       attachments: row.attachments ? JSON.parse(row.attachments) : undefined,
       location: row.location ? JSON.parse(row.location) : undefined,
+    };
+  },
+};
+
+export const ingestDb = {
+  create(input: Omit<IngestItem, 'id'>): IngestItem {
+    const ingest: IngestItem = {
+      id: nanoid(),
+      ...input,
+    };
+
+    const stmt = db.prepare(`
+      INSERT INTO ingest_items (
+        id, userId, rawText, rawMeta, source, sourceItemId, dedupeKey, createdAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      ingest.id,
+      ingest.userId,
+      ingest.rawText,
+      ingest.rawMeta ? JSON.stringify(ingest.rawMeta) : null,
+      ingest.source,
+      ingest.sourceItemId || null,
+      ingest.dedupeKey || null,
+      ingest.createdAt
+    );
+
+    return ingest;
+  },
+
+  getById(id: string, userId: string): IngestItem | null {
+    const stmt = db.prepare('SELECT * FROM ingest_items WHERE id = ? AND userId = ?');
+    const row = stmt.get(id, userId) as any;
+    if (!row) return null;
+    return this.parseRow(row);
+  },
+
+  getByDedupeKey(dedupeKey: string, userId: string): IngestItem | null {
+    const stmt = db.prepare('SELECT * FROM ingest_items WHERE dedupeKey = ? AND userId = ?');
+    const row = stmt.get(dedupeKey, userId) as any;
+    if (!row) return null;
+    return this.parseRow(row);
+  },
+
+  parseRow(row: any): IngestItem {
+    return {
+      ...row,
+      rawMeta: row.rawMeta ? JSON.parse(row.rawMeta) : undefined,
     };
   },
 };
@@ -905,15 +1100,61 @@ export const userDb = {
   },
 
   // 조회
-  getById(id: string): { id: string; email: string; name: string | null; image: string | null; createdAt: number; updatedAt: number } | undefined {
+  getById(id: string): {
+    id: string;
+    email: string;
+    name: string | null;
+    image: string | null;
+    googleAccessToken: string | null;
+    googleRefreshToken: string | null;
+    googleTokenExpiresAt: number | null;
+    createdAt: number;
+    updatedAt: number
+  } | undefined {
     const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
     return stmt.get(id) as any;
   },
 
   // 이메일로 조회
-  getByEmail(email: string): { id: string; email: string; name: string | null; image: string | null; createdAt: number; updatedAt: number } | undefined {
+  getByEmail(email: string): {
+    id: string;
+    email: string;
+    name: string | null;
+    image: string | null;
+    googleAccessToken: string | null;
+    googleRefreshToken: string | null;
+    googleTokenExpiresAt: number | null;
+    createdAt: number;
+    updatedAt: number
+  } | undefined {
     const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
     return stmt.get(email) as any;
+  },
+
+  // OAuth 토큰 업데이트
+  updateTokens(id: string, accessToken: string, refreshToken?: string, expiresAt?: number): void {
+    const now = Date.now();
+    let stmt;
+    if (refreshToken) {
+      stmt = db.prepare(`
+        UPDATE users SET 
+          googleAccessToken = ?, 
+          googleRefreshToken = ?, 
+          googleTokenExpiresAt = ?, 
+          updatedAt = ? 
+        WHERE id = ?
+      `);
+      stmt.run(accessToken, refreshToken, expiresAt || null, now, id);
+    } else {
+      stmt = db.prepare(`
+        UPDATE users SET 
+          googleAccessToken = ?, 
+          googleTokenExpiresAt = ?, 
+          updatedAt = ? 
+        WHERE id = ?
+      `);
+      stmt.run(accessToken, expiresAt || null, now, id);
+    }
   },
 };
 

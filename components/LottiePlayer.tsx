@@ -15,6 +15,8 @@ interface LottiePlayerProps {
   loop?: boolean;
   autoplay?: boolean;
   renderer?: LottieRenderer;
+  /** 재생 속도 (기본 1.0) */
+  speed?: number;
   /** autoplay=false일 때 멈춰둘 프레임 (기본 0) */
   stillFrame?: number;
   /** loop=false일 때 완료 콜백 */
@@ -28,11 +30,16 @@ export default function LottiePlayer({
   loop = true,
   autoplay = true,
   renderer = 'svg',
+  speed = 1,
   stillFrame = 0,
   onComplete,
 }: LottiePlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<AnimationItem | null>(null);
+
+  useEffect(() => {
+    animRef.current?.setSpeed(speed);
+  }, [speed]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -62,6 +69,7 @@ export default function LottiePlayer({
     });
 
     animRef.current = anim;
+    anim.setSpeed(speed);
 
     if (!autoplay || prefersReducedMotion) {
       anim.addEventListener('DOMLoaded', () => {
@@ -87,8 +95,7 @@ export default function LottiePlayer({
       anim.destroy();
       animRef.current = null;
     };
-  }, [path, loop, autoplay, renderer, stillFrame, onComplete]);
+  }, [path, loop, autoplay, renderer, speed, stillFrame, onComplete]);
 
   return <div ref={containerRef} className={className} style={style} />;
 }
-

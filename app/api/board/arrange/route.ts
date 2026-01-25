@@ -13,21 +13,22 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { memories, connections, currentPositions, cardSize } = body;
+    const { memories, blocks, connections, currentPositions, cardSize } = body;
 
     if (!memories || !Array.isArray(memories)) {
       return NextResponse.json({ error: 'Invalid memories data' }, { status: 400 });
     }
 
     // AI를 사용하여 최적의 레이아웃 생성
-    const layout = await generateLayout({
+    const { layout, blockLayout } = await generateLayout({
       memories,
+      blocks,
       connections,
       currentPositions,
       cardSize,
     });
 
-    return NextResponse.json({ layout });
+    return NextResponse.json({ layout, blockLayout });
   } catch (error) {
     console.error('Failed to generate layout:', error);
     return NextResponse.json(

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import SessionProvider from "@/components/SessionProvider";
 import { ViewerProvider } from "@/components/ViewerContext";
+import { FlagProvider } from "@/components/FlagContext";
 import WebVitals from "@/components/WebVitals";
 import ConsoleLogger from "@/components/ConsoleLogger";
 
@@ -59,7 +60,9 @@ export default function RootLayout({
         <WebVitals />
         <ConsoleLogger />
         <SessionProvider>
-          <ViewerProvider>{children}</ViewerProvider>
+          <ViewerProvider>
+            <FlagProvider>{children}</FlagProvider>
+          </ViewerProvider>
         </SessionProvider>
       </body>
     </html>

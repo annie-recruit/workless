@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Goal } from '@/types';
 import PixelIcon from './PixelIcon';
+import ProcessingLoader from './ProcessingLoader';
+import PixelGradientBanner from './PixelGradientBanner';
 
 interface Insights {
   summary: string;
@@ -94,9 +96,10 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
   }
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto font-galmuri11">
       {/* 상단 배너 - 메인 헤더와 단차 맞추기 */}
-      <div className="bg-gradient-to-br from-orange-500 via-orange-400 to-indigo-600 px-6 py-12 text-white">
+      <div className="relative isolate overflow-hidden px-6 py-12 text-white">
+        <PixelGradientBanner />
         <div className="mb-3">
           <div className="text-sm opacity-90 mb-1">
             {new Date().toLocaleDateString('ko-KR', { 
@@ -134,7 +137,7 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
             <PixelIcon name="summary" size={16} />
             요약
           </h3>
-          <p className="text-gray-700 leading-relaxed text-sm">
+          <p className="text-gray-700 leading-relaxed text-xs">
             {insights.summary}
           </p>
         </div>
@@ -183,7 +186,7 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
             </h3>
             <ul className="space-y-2">
               {insights.suggestions.map((suggestion, idx) => (
-                <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
+                <li key={idx} className="text-xs text-gray-700 flex items-start gap-2">
                   <span className="mt-0.5">✓</span>
                   <span>{suggestion}</span>
                 </li>
@@ -236,7 +239,7 @@ function GoalsSection() {
     return (
       <div className="bg-white p-4 border border-gray-300">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">🎯 진행 중인 목표</h3>
-        <p className="text-xs text-gray-500">로딩 중...</p>
+        <ProcessingLoader variant="inline" tone="indigo" label="로딩 중..." />
       </div>
     );
   }

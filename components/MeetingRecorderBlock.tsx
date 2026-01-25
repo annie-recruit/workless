@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { CanvasBlock, MeetingRecorderBlockConfig } from '@/types';
 import PixelIcon from './PixelIcon';
+import LottiePlayer from './LottiePlayer';
+import ProcessingLoader from './ProcessingLoader';
 
 interface MeetingRecorderBlockProps {
   blockId: string;
@@ -17,6 +19,7 @@ interface MeetingRecorderBlockProps {
   isClicked?: boolean;
   zIndex?: number;
   onPointerDown?: (e: React.PointerEvent) => void;
+  isHighlighted?: boolean;
 }
 
 export default function MeetingRecorderBlock({
@@ -32,6 +35,7 @@ export default function MeetingRecorderBlock({
   isClicked = false,
   zIndex = 10,
   onPointerDown,
+  isHighlighted = false,
 }: MeetingRecorderBlockProps) {
   const [isRecording, setIsRecording] = useState(config.isRecording || false);
   const [isPaused, setIsPaused] = useState(config.isPaused || false);
@@ -348,9 +352,21 @@ export default function MeetingRecorderBlock({
     };
   }, []);
 
+  // 상태 결정
+  const state: 'processing' | 'recording' | 'idle' = isProcessing
+    ? 'processing'
+    : isRecording
+      ? 'recording'
+      : 'idle';
+  const isStateRecording = !isProcessing && isRecording;
+  const isStateProcessing = isProcessing;
+
   return (
     <div
-      className="absolute bg-white rounded-lg shadow-lg border-[3px] border-black overflow-hidden"
+      data-meeting-recorder-block={blockId}
+      className={`absolute bg-white border-[3px] border-black overflow-hidden ${
+        isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
+      }`}
       style={{
         transform: `translate3d(${x}px, ${y}px, 0)`,
         width: `${width}px`,
@@ -361,11 +377,14 @@ export default function MeetingRecorderBlock({
         willChange: isDragging ? 'transform' : 'auto',
         pointerEvents: isDragging ? 'none' : 'auto',
         contain: 'layout style paint',
+        ...(isHighlighted
+          ? { backgroundImage: 'linear-gradient(rgba(99, 102, 241, 0.06), rgba(99, 102, 241, 0.06))' }
+          : null),
       }}
       onPointerDown={onPointerDown}
     >
       {/* 헤더 */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+      <div className="flex items-center justify-between px-3 py-2 border-b-[3px] border-black bg-white">
         <div className="flex items-center gap-1.5">
           <PixelIcon name="meeting-recorder" size={18} />
           <span className="text-xs font-semibold text-gray-700">미팅 레코더</span>
@@ -384,157 +403,167 @@ export default function MeetingRecorderBlock({
 
       {/* 메인 컨텐츠 */}
       <div className="flex h-[calc(100%-40px)]">
-        {/* 녹음 컨트롤 패널 */}
-        <div className="w-1/2 border-r border-gray-200 p-6 flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 relative overflow-hidden">
-          {/* 배경 장식 */}
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute top-10 left-10 w-32 h-32 bg-blue-400 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-10 right-10 w-40 h-40 bg-indigo-400 rounded-full blur-3xl"></div>
-          </div>
-          
-          {/* 오디오 파형 시각화 */}
-          <div className="relative mb-6 w-full max-w-xs">
-            <div className="h-24 flex items-end justify-center gap-1.5 px-4">
-              {audioLevels.map((level, index) => (
+        {/* 녹음 컨트롤 패널 - 상태 중심 디자인 */}
+        <div className="w-1/2 border-r-[3px] border-black p-8 flex flex-col items-center justify-center bg-white relative overflow-hidden">
+          {/* 중앙 아이콘 영역 - 애니메이션을 배경 레이어로 */}
+          <div className="relative flex flex-col items-center" style={{ minHeight: '200px' }}>
+            {/* 버튼과 애니메이션을 감싸는 컨테이너 */}
+            <div className="relative flex items-center justify-center" style={{ width: '160px', height: '160px' }}>
+              {/* Lottie 애니메이션 배경 레이어 - 녹음 중일 때만 표시 (원형 마스킹) */}
+              {isStateRecording && !isPaused && (
                 <div
-                  key={index}
-                  className="flex-1 bg-gradient-to-t from-indigo-500 via-blue-400 to-cyan-300 rounded-t transition-all duration-75 ease-out"
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none"
                   style={{
-                    height: `${Math.max(4, level * 100)}%`,
-                    minHeight: '4px',
-                    opacity: isRecording && !isPaused ? 0.7 + level * 0.3 : 0.3,
-                    boxShadow: isRecording && !isPaused && level > 0.3 
-                      ? `0 -2px 8px rgba(99, 102, 241, ${level * 0.5})` 
-                      : 'none',
+                    width: '160px',
+                    height: '160px',
+                    opacity: 1,
                   }}
-                />
-              ))}
+                >
+                  <div
+                    className="relative w-full h-full overflow-hidden"
+                    style={{
+                      borderRadius: '50%',
+                      filter: 'brightness(0)',
+                    }}
+                  >
+                    <LottiePlayer
+                      path="/lottie/audio-wave.json"
+                      loop={true}
+                      autoplay={true}
+                      className="w-full h-full"
+                      style={{
+                        transform: 'scale(1.8)',
+                        transformOrigin: 'center',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Lottie 애니메이션 배경 레이어 - 일시정지 시 (opacity 30%) */}
+              {isStateRecording && isPaused && (
+                <div
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                  style={{
+                    width: '160px',
+                    height: '160px',
+                    opacity: 0.3,
+                  }}
+                >
+                  <div
+                    className="relative w-full h-full overflow-hidden"
+                    style={{
+                      borderRadius: '50%',
+                      filter: 'brightness(0)',
+                    }}
+                  >
+                    <LottiePlayer
+                      path="/lottie/audio-wave.json"
+                      loop={false}
+                      autoplay={false}
+                      stillFrame={0}
+                      className="w-full h-full"
+                      style={{
+                        transform: 'scale(1.8)',
+                        transformOrigin: 'center',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 네모 버튼 - 녹음 시작/일시정지 (애니메이션 위에 배치) */}
+              <div className="relative z-10">
+                {state === 'idle' ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startRecording();
+                    }}
+                    className="w-20 h-20 border-[3px] border-black bg-white hover:bg-gray-50 flex items-center justify-center transition-colors"
+                    title="녹음 시작"
+                  >
+                    <img
+                      src="/assets/icons/mic_pixel.png"
+                      width={40}
+                      height={40}
+                      alt=""
+                      aria-hidden="true"
+                      draggable={false}
+                      style={{ imageRendering: 'pixelated' }}
+                    />
+                  </button>
+                ) : isStateRecording ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isPaused) {
+                        resumeRecording();
+                      } else {
+                        pauseRecording();
+                      }
+                    }}
+                    className="w-20 h-20 border-[3px] border-black bg-white hover:bg-gray-50 flex items-center justify-center transition-colors"
+                    title={isPaused ? '재개' : '일시정지'}
+                  >
+                    {isPaused ? (
+                      <PixelIcon name="play" size={40} className="text-black" />
+                    ) : (
+                      <PixelIcon name="pause" size={40} className="text-black" />
+                    )}
+                  </button>
+                ) : null}
+              </div>
             </div>
-            {/* 마이크 아이콘 (클릭 가능) */}
-            {!isRecording && !isProcessing ? (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  startRecording();
-                }}
-                className="absolute inset-0 flex items-center justify-center cursor-pointer group"
-                title="녹음 시작"
-              >
-                {/* 네모 버튼 + 픽셀 아이콘(마이크) */}
-                <div
-                  className="w-16 h-16 border-[3px] border-black bg-white hover:bg-gray-50 flex items-center justify-center shadow-xl transition-transform group-hover:scale-105 active:scale-95"
-                  style={{ boxShadow: '0 8px 24px rgba(0, 0, 0, 0.18)' }}
-                >
-                  <PixelIcon name="microphone" size={28} className="text-black" />
-                </div>
-              </button>
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div
-                  className={`w-16 h-16 border-[3px] border-black flex items-center justify-center shadow-lg transition-transform ${
-                    isRecording && !isPaused ? 'bg-black scale-105' : 'bg-white scale-100'
-                  }`}
-                  style={{ boxShadow: '0 6px 18px rgba(0, 0, 0, 0.16)' }}
-                >
-                  <PixelIcon
-                    name="microphone"
-                    size={28}
-                    className={isRecording && !isPaused ? 'text-white' : 'text-black'}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
 
-          {/* 컨트롤 버튼들 */}
-          <div className="flex flex-col items-center gap-4 relative z-10">
-            {isProcessing ? (
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center shadow-xl">
-                <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            ) : (isRecording || isPaused) ? (
-              <div className="flex items-center gap-3">
-                {/* 일시정지/재개 버튼 */}
-                {isPaused ? (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      resumeRecording();
-                    }}
-                    className="w-14 h-14 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-                    title="재개"
-                    style={{
-                      boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.2)',
-                    }}
-                  >
-                    <svg className="w-7 h-7 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </button>
-                ) : (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      pauseRecording();
-                    }}
-                    className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-                    title="일시정지"
-                    style={{
-                      boxShadow: '0 6px 20px rgba(245, 158, 11, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.2)',
-                    }}
-                  >
-                    <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-                    </svg>
-                  </button>
-                )}
-
-                {/* 완료 버튼 */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    completeRecording();
-                  }}
-                  className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-                  title="완료"
-                  style={{
-                    boxShadow: '0 6px 20px rgba(59, 130, 246, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.2)',
-                  }}
-                >
-                  <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                  </svg>
-                </button>
-              </div>
-            ) : null}
-
-            {/* 녹음 시간 */}
-            {(isRecording || isPaused) && (
-              <div className="text-3xl font-mono font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">
+            {/* 타이머 - 애니메이션 아래에 표시 (보조 정보) */}
+            {isStateRecording && (
+              <div className="text-sm font-mono text-gray-500 mt-4 relative z-10">
                 {formatTime(recordingTime)}
               </div>
             )}
 
-            {/* 상태 표시 */}
-            {isProcessing && (
-              <div className="text-sm font-medium text-gray-600 bg-white/60 px-4 py-2 rounded-full">
-                처리 중...
+            {/* Processing 상태 표시 */}
+            {isStateProcessing && (
+              <div className="mt-4 relative z-10">
+                <ProcessingLoader
+                  size={32}
+                  variant="panel"
+                  tone="orange"
+                  label="처리 중..."
+                />
               </div>
             )}
           </div>
+
+          {/* 주황색 버튼 - 우측 하단에 작게 배치 (현재 크기의 1/9) */}
+          {isStateRecording && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                completeRecording();
+              }}
+              className="absolute bottom-4 right-4 w-[calc(64px/3)] h-[calc(64px/3)] border-[2px] border-black bg-orange-500 hover:bg-orange-600 flex items-center justify-center transition-colors z-20"
+              title="녹음 종료"
+              style={{ minWidth: '18px', minHeight: '18px' }}
+            >
+              <PixelIcon name="stop" size={8} className="text-white" />
+            </button>
+          )}
         </div>
 
         {/* 노트패드 (스크립트/요약) */}
-        <div className="w-1/2 p-4 overflow-y-auto bg-gradient-to-br from-amber-50 to-yellow-50">
+        <div className="w-1/2 p-4 overflow-y-auto bg-white">
           <div className="h-full">
             {script || summary ? (
               <div className="space-y-4">
                 {summary && (
                   <div>
                     <h3 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                      <span>📋</span> 회의 요약
+                      <PixelIcon name="clipboard" size={16} className="text-gray-600" />
+                      회의 요약
                     </h3>
-                    <div className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap bg-white p-3 rounded border border-amber-200 shadow-sm">
+                    <div className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap bg-white p-3 border-[2px] border-black">
                       {summary}
                     </div>
                   </div>
@@ -542,9 +571,10 @@ export default function MeetingRecorderBlock({
                 {script && (
                   <div>
                     <h3 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                      <span>📝</span> 전체 스크립트
+                      <PixelIcon name="file" size={16} className="text-gray-600" />
+                      전체 스크립트
                     </h3>
-                    <div className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap bg-white p-3 rounded border border-amber-200 shadow-sm max-h-48 overflow-y-auto">
+                    <div className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap bg-white p-3 border-[2px] border-black max-h-48 overflow-y-auto">
                       {script}
                     </div>
                   </div>
@@ -552,14 +582,18 @@ export default function MeetingRecorderBlock({
               </div>
             ) : (
               <div className="h-full flex items-center justify-center text-gray-400 text-sm">
-                {isRecording || isPaused ? (
+                {isStateRecording ? (
                   <div className="text-center">
                     <div className="mb-2 flex justify-center">
                       <PixelIcon name="meeting-recorder" size={32} className="text-gray-400" />
                     </div>
                     <div>녹음 중...</div>
-                    <div className="text-xs mt-1">완료 버튼을 누르면</div>
+                    <div className="text-xs mt-1">종료 버튼을 누르면</div>
                     <div className="text-xs">자동으로 변환됩니다</div>
+                  </div>
+                ) : isStateProcessing ? (
+                  <div className="text-center">
+                    <ProcessingLoader size={32} variant="panel" tone="orange" label="음성을 텍스트로 변환 중..." />
                   </div>
                 ) : (
                   <div className="text-center">

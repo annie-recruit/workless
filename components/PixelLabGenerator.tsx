@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import PixelIcon from './PixelIcon';
+import ProcessingLoader from './ProcessingLoader';
 
 interface PixelLabGeneratorProps {
   onImageGenerated?: (imageUrl: string, metadata: any) => void;
@@ -209,7 +210,7 @@ export default function PixelLabGenerator({ onImageGenerated }: PixelLabGenerato
       >
         {loading ? (
           <>
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <ProcessingLoader size={16} variant="inline" tone="indigo" />
             생성 중...
           </>
         ) : (

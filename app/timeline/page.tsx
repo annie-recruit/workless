@@ -5,6 +5,7 @@ import { Memory } from '@/types';
 import { format, startOfDay, endOfDay, subDays, eachDayOfInterval } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import Link from 'next/link';
+import ProcessingLoader from '@/components/ProcessingLoader';
 
 export default function TimelinePage() {
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -97,7 +98,7 @@ export default function TimelinePage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-400">로딩 중...</div>
+        <ProcessingLoader variant="overlay" tone="indigo" label="로딩 중..." />
       </div>
     );
   }

@@ -55,11 +55,11 @@ export default function Minimap({
   blobAreas
 }: MinimapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
+
   // 위젯 모드 여부 확인
   const isWidgetMode = containerWidth !== undefined && containerHeight !== undefined;
   const minimapWidth = isWidgetMode ? containerWidth : MINIMAP_WIDTH;
-  
+
   // 카드 크기 정보
   const cardDims = CARD_DIMENSIONS[cardSize];
 
@@ -72,7 +72,7 @@ export default function Minimap({
         .filter(pair => positions[pair.from] && positions[pair.to])
         .map(pair => ({ from: pair.from, to: pair.to }));
     }
-    
+
     // 기존 로직: 메모리 데이터에서 연결 추출
     const pairs: { from: string; to: string }[] = [];
     const visited = new Set<string>();
@@ -95,7 +95,7 @@ export default function Minimap({
     if (blobAreas && blobAreas.length > 0) {
       return blobAreas.map(blob => blob.memoryIds);
     }
-    
+
     // 기존 로직: 연결 기반 그룹 계산
     const adj = new Map<string, string[]>();
     realConnections.forEach(({ from, to }) => {
@@ -127,7 +127,7 @@ export default function Minimap({
     });
     return groups;
   }, [realConnections, positions, blobAreas]);
-  
+
   // 연결 그룹별 색상 매핑 (connectionPairs의 색상 사용)
   const groupColors = useMemo(() => {
     const colorMap = new Map<string, string>();
@@ -142,65 +142,75 @@ export default function Minimap({
     return colorMap;
   }, [connectionPairs]);
 
-  // 3. 보드 전체 기준 Bounding Box & 창 크기 계산
+  // 3. 실제 콘텐츠 기준 Bounding Box & 창 크기 계산
   const bounds = useMemo(() => {
-    const boardWidth = boardSize?.width ?? 1600;
-    const boardHeight = boardSize?.height ?? 1200;
+    // 실제 콘텐츠가 있는 영역 계산
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    let hasContent = false;
 
-    if (!boardWidth || !boardHeight) {
-      const defaultHeight = isWidgetMode && containerHeight ? containerHeight : 150;
-      return { minX: 0, minY: 0, scale: 1, h: defaultHeight };
+    // 메모리/블록 위치 순회
+    Object.entries(positions).forEach(([id, pos]) => {
+      // blocks에 있거나 memories에 있는 항목만 고려
+      const block = blocks.find(b => b.id === id);
+      // positions 키에 해당하는 memory가 실제로 memories 배열에 있는지 확인은 비용이 들지만
+      // positions는 filteredMemories 기반으로 업데이트되므로 신뢰 가능
+      // 하지만 안전을 위해 blocks 체크 후 없으면 cardDims 사용
+
+      hasContent = true;
+      // TS Error Fix: Explicitly type as number to allow assignment of both literal types and general numbers
+      let width: number = cardDims.width;
+      let height: number = cardDims.height;
+
+      if (block) {
+        width = block.width || 350;
+        height = block.height || 300;
+      }
+
+      minX = Math.min(minX, pos.x);
+      minY = Math.min(minY, pos.y);
+      maxX = Math.max(maxX, pos.x + width);
+      maxY = Math.max(maxY, pos.y + height);
+    });
+
+    // 콘텐츠가 없으면 기본값 사용
+    if (!hasContent) {
+      minX = 0;
+      minY = 0;
+      maxX = 1600;
+      maxY = 1200;
     }
 
-    // 보드 전체에 패딩을 준 뒤, 미니맵 영역에 맞게 스케일링
-    const paddedWidth = boardWidth + CONTENT_PADDING * 2;
-    const paddedHeight = boardHeight + CONTENT_PADDING * 2;
+    // 패딩 추가
+    const padding = CONTENT_PADDING * 2; // 여유 있게
+    minX -= padding;
+    minY -= padding;
+    maxX += padding;
+    maxY += padding;
 
-    // 패딩을 포함한 좌표계 기준 값들
-    const minX = -CONTENT_PADDING;
-    const minY = -CONTENT_PADDING;
-    const maxX = boardWidth + CONTENT_PADDING;
-    const maxY = boardHeight + CONTENT_PADDING;
-    const contentW = paddedWidth;
-    const contentH = paddedHeight;
-    
-    // 위젯 모드일 때는 컨테이너 크기에 맞춤
+    const contentW = maxX - minX;
+    const contentH = maxY - minY;
+
+    // 위젯 모드일 때는 컨테이너 크기에 맞춤 (Contain)
     if (isWidgetMode && containerWidth && containerHeight) {
-      // 가로와 세로 비율을 모두 고려하여 더 작은 scale 사용
       const scaleX = containerWidth / contentW;
       const scaleY = containerHeight / contentH;
       const scale = Math.min(scaleX, scaleY);
-      const result = {
+
+      // 중앙 정렬을 위한 오프셋 (선택사항, 일단은 좌상단 기준)
+      return {
         minX,
         minY,
         scale,
         h: containerHeight,
+        contentW,
+        contentH
       };
-      
-      // 디버깅 로그
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[Minimap bounds] 위젯 모드 계산:', {
-          positionsCount: Object.keys(positions).length,
-          blocksCount: blocks.length,
-          minX,
-          minY,
-          maxX,
-          maxY,
-          contentW,
-          contentH,
-          scaleX,
-          scaleY,
-          scale,
-          containerWidth,
-          containerHeight,
-          bounds: result,
-        });
-      }
-      
-      return result;
     }
-    
-    // 일반 모드: 고정된 미니맵 가로 폭에 보드 전체를 맞춤
+
+    // 일반 모드: 가로 폭 고정
     const scale = minimapWidth / contentW;
     const dynamicHeight = contentH * scale;
 
@@ -209,8 +219,10 @@ export default function Minimap({
       minY,
       scale,
       h: dynamicHeight,
+      contentW,
+      contentH
     };
-  }, [boardSize, containerWidth, containerHeight, minimapWidth, isWidgetMode]);
+  }, [positions, blocks, cardDims, containerWidth, containerHeight, minimapWidth, isWidgetMode]);
 
   // 4. 캔버스 렌더링 (배경, 블롭, 연결선)
   useEffect(() => {
@@ -222,31 +234,31 @@ export default function Minimap({
     // 배경 그리기
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
+
     // 블롭 그리기 - 연결된 메모리카드가 모여있는 영역을 블롭으로 처리 (각 점이 아니라 영역)
     if (blobAreas && blobAreas.length > 0) {
       // 실제 보드의 blobAreas 사용 (각 그룹의 영역을 하나의 블롭으로)
       blobAreas.forEach(blob => {
         const { bounds: blobBounds, color: blobColor } = blob;
-        
+
         // 블롭 bounds를 미니맵 좌표로 변환
         const minX = (blobBounds.minX - bounds.minX) * bounds.scale;
         const minY = (blobBounds.minY - bounds.minY) * bounds.scale;
         const maxX = (blobBounds.maxX - bounds.minX) * bounds.scale;
         const maxY = (blobBounds.maxY - bounds.minY) * bounds.scale;
-        
+
         const centerX = (minX + maxX) / 2;
         const centerY = (minY + maxY) / 2;
         const radiusX = (maxX - minX) / 2;
         const radiusY = (maxY - minY) / 2;
         const radius = Math.max(radiusX, radiusY);
-        
+
         // 그라데이션 블롭 (영역 전체를 하나의 블롭으로) - 더 진하게
         const grad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
         grad.addColorStop(0, `${blobColor}80`);
         grad.addColorStop(0.5, `${blobColor}50`);
         grad.addColorStop(1, 'transparent');
-        
+
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
@@ -260,19 +272,19 @@ export default function Minimap({
         if (group.length >= 2 && connectionPairs) {
           const firstId = group[0];
           const secondId = group[1];
-          const foundPair = connectionPairs.find(p => 
-            (p.from === firstId && p.to === secondId) || 
+          const foundPair = connectionPairs.find(p =>
+            (p.from === firstId && p.to === secondId) ||
             (p.from === secondId && p.to === firstId)
           );
           if (foundPair) groupColor = foundPair.color;
         }
-        
+
         // 그룹의 전체 bounds 계산 (각 점이 아니라 영역)
         const groupPositions = group
           .map(id => {
             const pos = positions[id];
             if (!pos) return null;
-            
+
             const block = blocks.find(b => b.id === id);
             if (block) {
               const blockWidth = block.width || 350;
@@ -293,34 +305,34 @@ export default function Minimap({
             }
           })
           .filter((p): p is NonNullable<typeof p> => p !== null);
-        
+
         if (groupPositions.length === 0) return;
-        
+
         // 그룹의 전체 bounding box 계산
         const padding = 40;
         const groupMinX = Math.min(...groupPositions.map(p => p.minX)) - padding;
         const groupMinY = Math.min(...groupPositions.map(p => p.minY)) - padding;
         const groupMaxX = Math.max(...groupPositions.map(p => p.maxX)) + padding;
         const groupMaxY = Math.max(...groupPositions.map(p => p.maxY)) + padding;
-        
+
         // 미니맵 좌표로 변환
         const minX = (groupMinX - bounds.minX) * bounds.scale;
         const minY = (groupMinY - bounds.minY) * bounds.scale;
         const maxX = (groupMaxX - bounds.minX) * bounds.scale;
         const maxY = (groupMaxY - bounds.minY) * bounds.scale;
-        
+
         const centerX = (minX + maxX) / 2;
         const centerY = (minY + maxY) / 2;
         const radiusX = (maxX - minX) / 2;
         const radiusY = (maxY - minY) / 2;
         const radius = Math.max(radiusX, radiusY);
-        
+
         // 그룹 전체를 하나의 블롭으로 그리기 - 더 진하게
         const grad = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
         grad.addColorStop(0, `${groupColor}80`);
         grad.addColorStop(0.5, `${groupColor}50`);
         grad.addColorStop(1, 'transparent');
-        
+
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
@@ -337,7 +349,7 @@ export default function Minimap({
         if (!pairMap.has(key)) pairMap.set(key, []);
         pairMap.get(key)!.push(pair);
       });
-      
+
       // 노드 중심점 계산 헬퍼 함수
       const getNodeCenter = (id: string, pos: { x: number; y: number }) => {
         const block = blocks.find(b => b.id === id);
@@ -355,36 +367,36 @@ export default function Minimap({
           };
         }
       };
-      
+
       pairMap.forEach((pairs, key) => {
         const totalConnections = pairs.length;
         pairs.forEach((pair, idx) => {
           const p1 = positions[pair.from];
           const p2 = positions[pair.to];
           if (!p1 || !p2) return;
-          
+
           const fromCenter = getNodeCenter(pair.from, p1);
           const toCenter = getNodeCenter(pair.to, p2);
           const fromX = fromCenter.x;
           const fromY = fromCenter.y;
           const toX = toCenter.x;
           const toY = toCenter.y;
-          
+
           // 오프셋 적용 (병렬 연결선)
           const dx = toX - fromX;
           const dy = toY - fromY;
           const len = Math.sqrt(dx * dx + dy * dy);
           if (len === 0) return;
-          
+
           const perpX = -dy / len;
           const perpY = dx / len;
           const offset = (idx - (totalConnections - 1) / 2) * 3 * bounds.scale;
-          
+
           const offsetFromX = fromX + perpX * offset;
           const offsetFromY = fromY + perpY * offset;
           const offsetToX = toX + perpX * offset;
           const offsetToY = toY + perpY * offset;
-          
+
           // 연결선 그리기
           ctx.strokeStyle = pair.color || '#C4B5FD';
           ctx.lineWidth = 1.5 * bounds.scale;
@@ -403,10 +415,10 @@ export default function Minimap({
         const p1 = positions[from];
         const p2 = positions[to];
         if (!p1 || !p2) return;
-        
+
         const block1 = blocks.find(b => b.id === from);
         const block2 = blocks.find(b => b.id === to);
-        const fromX = block1 
+        const fromX = block1
           ? (p1.x + (block1.width || 350) / 2 - bounds.minX) * bounds.scale
           : (p1.x + cardDims.width / 2 - bounds.minX) * bounds.scale;
         const fromY = block1
@@ -418,7 +430,7 @@ export default function Minimap({
         const toY = block2
           ? (p2.y + (block2.height || 300) / 2 - bounds.minY) * bounds.scale
           : (p2.y + cardDims.height / 2 - bounds.minY) * bounds.scale;
-        
+
         ctx.beginPath();
         ctx.moveTo(fromX, fromY);
         ctx.lineTo(toX, toY);
@@ -428,21 +440,21 @@ export default function Minimap({
   }, [connectedGroups, bounds, positions, realConnections, cardColorMap, connectionPairs, cardDims, blocks, blobAreas]);
 
   return (
-    <div 
+    <div
       className={isWidgetMode ? "relative w-full h-full bg-white overflow-hidden" : "fixed bottom-6 right-6 bg-white rounded-lg border border-gray-200 shadow-xl overflow-hidden"}
-      style={{ 
-        width: isWidgetMode ? '100%' : minimapWidth, 
-        height: isWidgetMode ? '100%' : bounds.h, 
-        transition: isWidgetMode ? 'none' : 'height 0.3s ease' 
+      style={{
+        width: isWidgetMode ? '100%' : minimapWidth,
+        height: isWidgetMode ? '100%' : bounds.h,
+        transition: isWidgetMode ? 'none' : 'height 0.3s ease'
       }}
     >
-      <canvas 
+      <canvas
         ref={canvasRef}
         width={minimapWidth}
         height={bounds.h}
         className="absolute inset-0"
       />
-      
+
       {/* 노드 점 (원본 색상과 크기 반영) - 실제 렌더링되는 메모리/블록만 표시 */}
       {Object.entries(positions)
         .filter(([id]) => {
@@ -452,79 +464,78 @@ export default function Minimap({
           return block || memory;
         })
         .map(([id, pos]) => {
-        const block = blocks.find(b => b.id === id);
-        const isBlock = !!block;
-        
-        let colors;
-        let dotSize;
-        let centerX, centerY;
-        
-        if (isBlock && block) {
-          // 블록의 경우
-          const blockWidth = block.width || 350;
-          const blockHeight = block.height || 300;
-          
-          // 블록 타입별 색상
-          const blockColors = {
-            viewer: { dot: '#A78BFA', border: '#C4B5FD', bg: '#F5F3FF' },
-            calendar: { dot: '#60A5FA', border: '#93C5FD', bg: '#DBEAFE' },
-            database: { dot: '#34D399', border: '#6EE7B7', bg: '#D1FAE5' },
-            'meeting-recorder': { dot: '#F472B6', border: '#F9A8D4', bg: '#FCE7F3' },
-            default: { dot: '#94A3B8', border: '#CBD5E1', bg: '#F1F5F9' },
-          };
-          colors = blockColors[block.type as keyof typeof blockColors] || blockColors.default;
-          
-          dotSize = Math.max(
-            8,
-            Math.min(blockWidth, blockHeight) * 0.22 * bounds.scale
-          );
-          
-          centerX = (pos.x + blockWidth / 2 - bounds.minX) * bounds.scale;
-          centerY = (pos.y + blockHeight / 2 - bounds.minY) * bounds.scale;
-        } else {
-          // 메모리 카드의 경우
-          // viewportBounds 안에 있으면 파란색으로 표시 (현재 위치와 대응)
-          const isInViewport = viewportBounds.width > 0 && viewportBounds.height > 0 &&
-            pos.x >= viewportBounds.left &&
-            pos.x + cardDims.width <= viewportBounds.left + viewportBounds.width &&
-            pos.y >= viewportBounds.top &&
-            pos.y + cardDims.height <= viewportBounds.top + viewportBounds.height;
-          
-          if (isInViewport) {
-            // 파란 박스 색상과 일치: blue-500 계열
-            colors = { dot: '#3B82F6', border: '#2563EB', bg: '#DBEAFE' };
+          const block = blocks.find(b => b.id === id);
+          const isBlock = !!block;
+
+          let colors;
+          let dotSize;
+          let centerX, centerY;
+
+          if (isBlock && block) {
+            // 블록의 경우
+            const blockWidth = block.width || 350;
+            const blockHeight = block.height || 300;
+
+            // 블록 타입별 색상
+            const blockColors = {
+              viewer: { dot: '#A78BFA', border: '#C4B5FD', bg: '#F5F3FF' },
+              calendar: { dot: '#60A5FA', border: '#93C5FD', bg: '#DBEAFE' },
+              database: { dot: '#34D399', border: '#6EE7B7', bg: '#D1FAE5' },
+              'meeting-recorder': { dot: '#F472B6', border: '#F9A8D4', bg: '#FCE7F3' },
+              default: { dot: '#94A3B8', border: '#CBD5E1', bg: '#F1F5F9' },
+            };
+            colors = blockColors[block.type as keyof typeof blockColors] || blockColors.default;
+
+            dotSize = Math.max(
+              8,
+              Math.min(blockWidth, blockHeight) * 0.22 * bounds.scale
+            );
+
+            centerX = (pos.x + blockWidth / 2 - bounds.minX) * bounds.scale;
+            centerY = (pos.y + blockHeight / 2 - bounds.minY) * bounds.scale;
           } else {
-            const colorType = cardColorMap[id] || 'purple';
-            colors = CARD_COLORS[colorType];
+            // 메모리 카드의 경우
+            // viewportBounds 안에 있으면 파란색으로 표시 (현재 위치와 대응)
+            const isInViewport = viewportBounds.width > 0 && viewportBounds.height > 0 &&
+              pos.x >= viewportBounds.left &&
+              pos.x + cardDims.width <= viewportBounds.left + viewportBounds.width &&
+              pos.y >= viewportBounds.top &&
+              pos.y + cardDims.height <= viewportBounds.top + viewportBounds.height;
+
+            if (isInViewport) {
+              // 파란 박스 색상과 일치: blue-500 계열
+              colors = { dot: '#3B82F6', border: '#2563EB', bg: '#DBEAFE' };
+            } else {
+              const colorType = cardColorMap[id] || 'purple';
+              colors = CARD_COLORS[colorType];
+            }
+
+            // 점 크기 줄이기 (0.22 -> 0.12, 최소값 8 -> 4)
+            dotSize = Math.max(
+              4,
+              Math.min(cardDims.width, cardDims.height) * 0.12 * bounds.scale
+            );
+
+            centerX = (pos.x + cardDims.width / 2 - bounds.minX) * bounds.scale;
+            centerY = (pos.y + cardDims.height / 2 - bounds.minY) * bounds.scale;
           }
-          
-          // 점 크기 줄이기 (0.22 -> 0.12, 최소값 8 -> 4)
-          dotSize = Math.max(
-            4,
-            Math.min(cardDims.width, cardDims.height) * 0.12 * bounds.scale
+
+          return (
+            <div
+              key={id}
+              className="absolute -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
+              style={{
+                left: centerX,
+                top: centerY,
+                width: `${dotSize}px`,
+                height: `${dotSize}px`,
+                backgroundColor: colors.dot,
+                border: `${isBlock ? 3 : 2.5}px solid ${colors.border}`,
+                boxShadow: `0 0 0 ${dotSize * 0.25}px ${colors.bg}40`,
+              }}
+            />
           );
-          
-          centerX = (pos.x + cardDims.width / 2 - bounds.minX) * bounds.scale;
-          centerY = (pos.y + cardDims.height / 2 - bounds.minY) * bounds.scale;
-        }
-        
-        return (
-          <div
-            key={id}
-            className="absolute -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
-            style={{
-              left: centerX,
-              top: centerY,
-              width: `${dotSize}px`,
-              height: `${dotSize}px`,
-              borderRadius: '50%',
-              backgroundColor: colors.dot,
-              border: `${isBlock ? 3 : 2.5}px solid ${colors.border}`,
-              boxShadow: `0 0 0 ${dotSize * 0.25}px ${colors.bg}40`,
-            }}
-          />
-        );
-      })}
+        })}
 
       {/* 뷰포트 네비게이팅 박스 */}
       {viewportBounds.width > 0 && viewportBounds.height > 0 && (() => {
@@ -535,17 +546,17 @@ export default function Minimap({
         const viewportTop = (viewportBounds.top - bounds.minY) * bounds.scale;
         const viewportWidth = viewportBounds.width * bounds.scale;
         const viewportHeight = viewportBounds.height * bounds.scale;
-        
+
         const maxWidth = isWidgetMode && containerWidth ? containerWidth : minimapWidth;
         const maxHeight = bounds.h;
-        
-        // 뷰포트 박스가 미니맵 영역 내에 있도록 제한
-        // 뷰포트 박스가 미니맵 경계를 벗어나지 않도록 clamp
-        const finalLeft = Math.max(0, Math.min(viewportLeft, maxWidth - viewportWidth));
-        const finalTop = Math.max(0, Math.min(viewportTop, maxHeight - viewportHeight));
-        const finalWidth = Math.min(viewportWidth, maxWidth - finalLeft);
-        const finalHeight = Math.min(viewportHeight, maxHeight - finalTop);
-        
+
+        // 뷰포트 박스가 미니맵 경계를 벗어나더라도 크기와 위치를 유지하도록 clamping 제거
+        // overflow-hidden 처리된 컨테이너가 자연스럽게 잘래내도록 함
+        const finalLeft = viewportLeft;
+        const finalTop = viewportTop;
+        const finalWidth = viewportWidth;
+        const finalHeight = viewportHeight;
+
         // 디버깅 로그
         if (process.env.NODE_ENV === 'development') {
           // positions의 실제 범위 계산 (blocks 포함)
@@ -566,7 +577,7 @@ export default function Minimap({
               actualMaxY = Math.max(actualMaxY, pos.y + cardDims.height);
             }
           });
-          
+
           console.log('[Minimap viewportBounds] 렌더링:', {
             viewportBounds,
             bounds,
@@ -627,9 +638,9 @@ export default function Minimap({
             },
           });
         }
-        
+
         return (
-          <div 
+          <div
             className="absolute border-2 border-blue-500 bg-blue-500/10 pointer-events-none z-10"
             style={{
               left: `${finalLeft}px`,

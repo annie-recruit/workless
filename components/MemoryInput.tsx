@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { Memory } from '@/types';
 import PixelIcon from './PixelIcon';
+import ProcessingLoader from './ProcessingLoader';
 
 interface MemoryInputProps {
-  onMemoryCreated: () => void;
+  onMemoryCreated: (memory?: Memory) => void;
 }
 
 export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
@@ -30,6 +31,7 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<Set<string>>(new Set());
   const [showConnectionModal, setShowConnectionModal] = useState(false);
   const [newMemoryId, setNewMemoryId] = useState<string | null>(null);
+  const [newMemory, setNewMemory] = useState<Memory | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | null; message?: string }>({ type: null });
   const voiceRecorderRef = useRef<{ start: () => void; stop: () => void } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -98,7 +100,7 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude, accuracy } = position.coords;
-          
+
           // 역지오코딩으로 주소 가져오기 (선택)
           try {
             const response = await fetch(
@@ -106,7 +108,7 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
             );
             const data = await response.json();
             const address = data.display_name || `${data.address?.road || ''} ${data.address?.city || data.address?.town || ''}`.trim();
-            
+
             setLocation({
               latitude,
               longitude,
@@ -125,7 +127,7 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
         (error: GeolocationPositionError) => {
           // GeolocationPositionError의 code와 message를 사용하여 더 자세한 에러 정보 제공
           let errorMessage = '위치 정보를 가져올 수 없습니다';
-          
+
           if (error) {
             switch (error.code) {
               case error.PERMISSION_DENIED:
@@ -154,7 +156,7 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
               console.warn('위치 정보 가져오기 실패: 알 수 없는 에러');
             }
           }
-          
+
           setLocationError(errorMessage);
         },
         {
@@ -245,7 +247,7 @@ ${summary}`;
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus'
       });
-      
+
       const audioChunks: Blob[] = [];
       let timer: NodeJS.Timeout | null = null;
       let currentTime = 0;
@@ -259,7 +261,7 @@ ${summary}`;
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         await transcribeAudio(audioBlob);
-        
+
         stream.getTracks().forEach(track => track.stop());
         if (timer) clearInterval(timer);
       };
@@ -276,7 +278,7 @@ ${summary}`;
 
       // 중지 함수 저장
       voiceRecorderRef.current = {
-        start: () => {},
+        start: () => { },
         stop: () => {
           if (mediaRecorder.state === 'recording') {
             mediaRecorder.stop();
@@ -294,7 +296,7 @@ ${summary}`;
 
   const transcribeAudio = async (audioBlob: Blob) => {
     setIsProcessing(true);
-    
+
     try {
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.webm');
@@ -497,12 +499,12 @@ ${summary}`;
       }
       formData.append('content', htmlContent);
       formData.append('relatedMemoryIds', JSON.stringify(extractMentionIds(htmlContent)));
-      
+
       // 위치 정보 추가
       if (location) {
         formData.append('location', JSON.stringify(location));
       }
-      
+
       // 파일 추가
       files.forEach(file => {
         formData.append('files', file);
@@ -518,17 +520,18 @@ ${summary}`;
         setTitle('');
         updateEditorHtml('');
         setFiles([]);
-        
+
         // 연결 제안이 있으면 토스트 표시
         if (data.connectionSuggestions && data.connectionSuggestions.length > 0) {
           setConnectionSuggestions(data.connectionSuggestions);
           setSelectedConnectionIds(new Set(data.connectionSuggestions.map((s: any) => s.id)));
           setNewMemoryId(data.memory.id);
+          setNewMemory(data.memory);
           setShowConnectionModal(true);
         } else {
           // 성공 토스트 표시
           setToast({ type: 'success', message: '기억이 저장되었습니다!' });
-          onMemoryCreated();
+          onMemoryCreated(data.memory);
           // 2초 후 토스트 닫기
           setTimeout(() => {
             setToast({ type: null });
@@ -545,8 +548,8 @@ ${summary}`;
 
   const mentionMatches = isMentionPanelOpen
     ? memories
-        .filter(m => stripHtmlClient(m.content || '').toLowerCase().includes(mentionSearch.toLowerCase()))
-        .slice(0, 6)
+      .filter(m => stripHtmlClient(m.content || '').toLowerCase().includes(mentionSearch.toLowerCase()))
+      .slice(0, 6)
     : [];
 
   return (
@@ -560,8 +563,8 @@ ${summary}`;
           placeholder="제목 (선택)"
           className="w-full px-3 py-1.5 text-sm font-medium border-b-2 border-gray-200 focus:outline-none focus:border-indigo-500 transition-colors mb-2"
         />
-        
-        <div 
+
+        <div
           ref={containerRef}
           className="relative"
           onDragEnter={handleDragEnter}
@@ -570,11 +573,10 @@ ${summary}`;
           onDrop={handleDrop}
         >
           <div
-            className={`w-full border transition-all flex flex-col ${
-              isDragging 
-                ? 'border-indigo-500 bg-indigo-50 border-dashed' 
-                : 'border-gray-200 focus-within:border-indigo-500'
-            }`}
+            className={`w-full border transition-all flex flex-col ${isDragging
+              ? 'border-indigo-500 bg-indigo-50 border-dashed'
+              : 'border-gray-200 focus-within:border-indigo-500'
+              }`}
             style={{ minHeight: `${editorHeight}px` }}
           >
             {/* 툴바 */}
@@ -651,7 +653,7 @@ ${summary}`;
                 onBlur={() => setIsEditorFocused(false)}
                 suppressContentEditableWarning
               />
-              
+
               {/* 하단 버튼 영역 */}
               <div className="flex items-center justify-between px-3 py-2 border-t border-gray-100 bg-gray-50/50 rounded-b-xl">
                 <div className="flex items-center gap-1.5">
@@ -698,7 +700,7 @@ ${summary}`;
                       disabled
                       className="px-2 py-1 text-xs text-gray-400 rounded flex items-center gap-1"
                     >
-                      <PixelIcon name="clock" size={14} className="animate-spin" />
+                      <ProcessingLoader size={14} variant="inline" tone="indigo" />
                     </button>
                   )}
                 </div>
@@ -713,7 +715,7 @@ ${summary}`;
                 </button>
               </div>
             </div>
-            
+
             {/* 리사이즈 핸들 */}
             <div
               onMouseDown={(e) => {
@@ -764,7 +766,7 @@ ${summary}`;
               </div>
             </div>
           )}
-          
+
           {/* 드래그 오버레이 */}
           {isDragging && (
             <div className="absolute inset-0 flex items-center justify-center bg-indigo-50/90 border border-indigo-500 border-dashed pointer-events-none">
@@ -844,7 +846,7 @@ ${summary}`;
                 <p className="text-sm text-gray-600 mb-3">
                   AI가 찾은 관련 기록들입니다. 원하는 것만 선택하세요.
                 </p>
-                
+
                 <div className="bg-gradient-to-br from-orange-50 to-indigo-50 border border-indigo-200 p-3 mb-4 max-h-64 overflow-y-auto">
                   <div className="space-y-2">
                     {connectionSuggestions.map((suggestion) => (
@@ -884,7 +886,7 @@ ${summary}`;
                     onClick={() => {
                       setShowConnectionModal(false);
                       setConnectionSuggestions([]);
-                      onMemoryCreated();
+                      onMemoryCreated(newMemory || undefined);
                     }}
                     className="flex-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
                   >
@@ -895,14 +897,14 @@ ${summary}`;
                       if (selectedConnectionIds.size === 0 || !newMemoryId) {
                         setShowConnectionModal(false);
                         setConnectionSuggestions([]);
-                        onMemoryCreated();
+                        onMemoryCreated(newMemory || undefined);
                         return;
                       }
 
                       try {
                         // 선택된 기록들과 링크만 생성
                         const selectedIds = Array.from(selectedConnectionIds);
-                        
+
                         // 각 선택된 기록과 링크 생성 (AI 제안이므로 isAIGenerated=true)
                         for (const relatedId of selectedIds) {
                           const linkRes = await fetch('/api/memories/link', {
@@ -929,7 +931,7 @@ ${summary}`;
                         alert('연결 생성에 실패했습니다');
                         setShowConnectionModal(false);
                         setConnectionSuggestions([]);
-                        onMemoryCreated();
+                        onMemoryCreated(newMemory || undefined);
                       }
                     }}
                     className="flex-1 px-3 py-2 text-sm bg-indigo-500 text-white border border-indigo-600 hover:bg-indigo-600 transition-colors"
@@ -942,7 +944,7 @@ ${summary}`;
                 onClick={() => {
                   setShowConnectionModal(false);
                   setConnectionSuggestions([]);
-                  onMemoryCreated();
+                  onMemoryCreated(newMemory || undefined);
                 }}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >

@@ -21,7 +21,7 @@ const ICON_MAP: Record<string, string> = {
   'memory': 'pixelarticons:clipboard',
   'memo': 'pixelarticons:clipboard',
   'note': 'pixelarticons:clipboard',
-  
+
   // 일반 아이콘
   'microphone': 'pixelarticons:audio-device',
   'recorder': 'pixelarticons:audio-device',
@@ -45,7 +45,7 @@ const ICON_MAP: Record<string, string> = {
   'star': 'pixelarticons:star',
   'heart': 'pixelarticons:heart',
   'bookmark': 'pixelarticons:bookmark',
-  
+
   // 추가 아이콘
   'link': 'pixelarticons:link',
   'folder': 'pixelarticons:folder',
@@ -66,6 +66,7 @@ const ICON_MAP: Record<string, string> = {
   'menu': 'pixelarticons:menu',
   'filter': 'pixelarticons:filter',
   'sort': 'pixelarticons:sort',
+  'list': 'pixelarticons:list',
   'pin': 'pixelarticons:pin',
   'unpin': 'pixelarticons:pin-off',
   'play': 'pixelarticons:play',
@@ -123,7 +124,7 @@ export default function PixelIcon({
 
         const manifest = await response.json();
         const iconPath = manifest[name];
-        
+
         if (!iconPath) {
           // manifest.json에 아이콘이 없으면 Iconify 사용
           setUseIconify(true);

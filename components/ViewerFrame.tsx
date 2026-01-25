@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import ProcessingLoader from '@/components/ProcessingLoader';
 
 interface ViewerFrameProps {
   children?: React.ReactNode;
@@ -62,7 +63,7 @@ export default function ViewerFrame({
     return (
       <div className={`relative ${className}`} style={style}>
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-sm text-gray-400">로딩 중...</div>
+          <ProcessingLoader variant="panel" tone="indigo" label="로딩 중..." />
         </div>
         {children}
       </div>

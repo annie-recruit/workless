@@ -21,6 +21,7 @@ interface CalendarBlockProps {
   onLinkMemory: (memoryId: string) => void;
   isDragging: boolean;
   isClicked: boolean;
+  isHighlighted?: boolean;
   onPointerDown: (e: React.PointerEvent) => void;
   onClick?: () => void;
   zIndex?: number;
@@ -41,6 +42,7 @@ export default function CalendarBlock({
   onLinkMemory,
   isDragging,
   isClicked,
+  isHighlighted = false,
   onPointerDown,
   onClick,
   zIndex = 10,
@@ -115,7 +117,9 @@ export default function CalendarBlock({
   return (
     <div
       data-calendar-block={blockId}
-      className="absolute bg-white rounded-lg shadow-lg border-[3px] border-black p-4 cursor-move"
+      className={`absolute bg-white rounded-lg shadow-lg border-[3px] border-black p-4 cursor-move ${
+        isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
+      }`}
       style={{
         transform: `translate3d(${x}px, ${y}px, 0)`,
         width: `${width}px`,
@@ -126,6 +130,9 @@ export default function CalendarBlock({
         willChange: isDragging ? 'transform' : 'auto',
         pointerEvents: isDragging ? 'none' : 'auto',
         contain: 'layout style paint',
+        ...(isHighlighted
+          ? { backgroundImage: 'linear-gradient(rgba(99, 102, 241, 0.06), rgba(99, 102, 241, 0.06))' }
+          : null),
       }}
       onPointerDown={onPointerDown}
       onClick={(e) => {

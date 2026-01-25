@@ -9,7 +9,7 @@ const getBaseUrl = () => {
   }
   // 개발 환경에서 자동 감지
   if (process.env.NODE_ENV === 'development') {
-    return process.env.VERCEL_URL 
+    return process.env.VERCEL_URL
       ? `https://${process.env.VERCEL_URL}`
       : 'http://localhost:3000';
   }
@@ -33,11 +33,18 @@ if (!process.env.NEXTAUTH_SECRET) {
   console.warn('⚠️ 프로덕션 환경에서는 반드시 NEXTAUTH_SECRET을 설정해주세요.');
 }
 
-const authOptions: NextAuthOptions = {
+export const nextAuthOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || 'dummy',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'dummy',
+      authorization: {
+        params: {
+          scope: 'openid email profile https://www.googleapis.com/auth/gmail.readonly',
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
     }),
   ],
   callbacks: {
@@ -47,10 +54,20 @@ const authOptions: NextAuthOptions = {
         const userId = account.providerAccountId || user.id || user.email || '';
         userDb.upsert(
           userId,
-          user.email,
+          user.email || '',
           user.name || undefined,
           user.image || undefined
         );
+
+        // 토큰 저장 (Gmail API 사용을 위함)
+        if (account.access_token) {
+          userDb.updateTokens(
+            userId,
+            account.access_token,
+            account.refresh_token || undefined,
+            account.expires_at ? account.expires_at * 1000 : undefined // NextAuth expires_at is seconds
+          );
+        }
       }
       return true;
     },
@@ -97,8 +114,8 @@ const authOptions: NextAuthOptions = {
   // 쿠키 설정 (프로덕션 환경에서 보안 강화)
   cookies: {
     sessionToken: {
-      name: process.env.NODE_ENV === 'production' 
-        ? '__Secure-next-auth.session-token' 
+      name: process.env.NODE_ENV === 'production'
+        ? '__Secure-next-auth.session-token'
         : 'next-auth.session-token',
       options: {
         httpOnly: true,
@@ -110,6 +127,6 @@ const authOptions: NextAuthOptions = {
   },
 };
 
-const handler = NextAuth(authOptions);
+const handler = NextAuth(nextAuthOptions);
 
 export { handler as GET, handler as POST };

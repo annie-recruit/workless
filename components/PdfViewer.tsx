@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import PixelIcon from './PixelIcon';
+import ProcessingLoader from './ProcessingLoader';
 
 interface PdfViewerProps {
   url: string;
@@ -249,8 +250,7 @@ export default function PdfViewer({
   if (isLoading || !Document || !Page) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mb-2"></div>
-        <p className="text-purple-600 text-xs font-medium">PDF 라이브러리 로딩 중...</p>
+        <ProcessingLoader size={32} variant="panel" tone="indigo" label="PDF 라이브러리 로딩 중..." />
       </div>
     );
   }
@@ -259,8 +259,7 @@ export default function PdfViewer({
   if (!pdfUrl) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mb-2"></div>
-        <p className="text-purple-600 text-xs font-medium">PDF 파일 로딩 중...</p>
+        <ProcessingLoader size={32} variant="panel" tone="indigo" label="PDF 파일 로딩 중..." />
         {loadError && (
           <p className="text-rose-500 text-xs mt-2">{loadError}</p>
         )}
@@ -300,8 +299,7 @@ export default function PdfViewer({
         }}
         loading={
           <div className="flex flex-col items-center justify-center h-full">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mb-2"></div>
-            <p className="text-purple-600 text-xs font-medium">PDF 파싱 중...</p>
+            <ProcessingLoader size={32} variant="panel" tone="orange" label="PDF 파싱 중..." />
           </div>
         }
         error={

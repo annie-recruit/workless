@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { ViewerSource, ViewerBlockConfig } from '@/types';
 import { useViewer } from './ViewerContext';
 import PixelIcon from './PixelIcon';
+import ProcessingLoader from './ProcessingLoader';
 
 // 기본 모니터 프레임: public 아래(ASCII 파일명)로 고정
 // (리눅스/도커 빌드에서 유니코드 파일명 정적 import가 깨질 수 있어서 URL 참조로 처리)
@@ -394,10 +395,7 @@ export default function ViewerBlock({
                         style={{ imageRendering: 'auto' as const }}
                       />
                       <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm">
-                        <div className="text-center">
-                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
-                          <p className="text-purple-600 text-sm font-medium">로딩 중...</p>
-                        </div>
+                        <ProcessingLoader size={48} variant="overlay" tone="indigo" label="로딩 중..." />
                       </div>
                     </>
                   ) : isPdf ? (
@@ -426,10 +424,7 @@ export default function ViewerBlock({
                       onLoadError={onDocumentLoadError}
                     />
                   ) : (
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto mb-4"></div>
-                      <p className="text-purple-600 text-sm font-medium">로딩 중...</p>
-                    </div>
+                    <ProcessingLoader size={48} variant="overlay" tone="indigo" label="로딩 중..." />
                   )}
                 </div>
               )}
