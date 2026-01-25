@@ -21,6 +21,7 @@ logs/
 
 # 일반
 .env.local
+.env.local.bak
 .env
 node_modules/
 .next/
