@@ -67,6 +67,7 @@ function safeLog(message: string, data?: unknown) {
 
 export async function POST(req: NextRequest) {
     const startTime = Date.now();
+    console.log('[Universal Send] inbox called');
 
     // 1. API 키 검증
     const auth = validateSendApiAuth(req);
@@ -296,6 +297,14 @@ export async function POST(req: NextRequest) {
             { status: 500 }
         );
     }
+}
+
+// GET 요청은 405로 응답 (POST 전용)
+export async function GET() {
+    return NextResponse.json(
+        { error: 'Method Not Allowed', message: 'Use POST /api/inbox' },
+        { status: 405, headers: { Allow: 'POST, OPTIONS' } }
+    );
 }
 
 // OPTIONS 요청 처리 (CORS preflight)
