@@ -174,6 +174,12 @@ db.exec(`
     updatedAt INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS user_api_keys (
+    userId TEXT PRIMARY KEY,
+    apiKey TEXT NOT NULL UNIQUE,
+    createdAt INTEGER NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_memories_clusterTag ON memories(clusterTag);
   CREATE INDEX IF NOT EXISTS idx_memories_topic ON memories(topic);
   CREATE INDEX IF NOT EXISTS idx_groups_isAIGenerated ON groups(isAIGenerated);
@@ -183,6 +189,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_memory_links_memoryId1 ON memory_links(memoryId1);
   CREATE INDEX IF NOT EXISTS idx_memory_links_memoryId2 ON memory_links(memoryId2);
   CREATE INDEX IF NOT EXISTS idx_ingest_items_user_dedupeKey ON ingest_items(userId, dedupeKey);
+  CREATE INDEX IF NOT EXISTS idx_user_api_keys_apiKey ON user_api_keys(apiKey);
 `);
 
 // ingest_items: (userId, dedupeKey) 유니크 (dedupeKey가 있을 때만)

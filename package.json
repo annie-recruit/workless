@@ -41,6 +41,7 @@
     "pdfjs-dist": "^5.4.530",
     "pixelarticons": "^1.8.1",
     "puppeteer": "^24.35.0",
+    "qrcode": "^1.5.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-pdf": "^10.3.0",
