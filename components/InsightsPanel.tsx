@@ -5,6 +5,7 @@ import { Goal } from '@/types';
 import PixelIcon from './PixelIcon';
 import ProcessingLoader from './ProcessingLoader';
 import PixelGradientBanner from './PixelGradientBanner';
+import PersonaSelector from './PersonaSelector';
 
 interface Insights {
   summary: string;
@@ -16,9 +17,10 @@ interface Insights {
 
 interface InsightsPanelProps {
   personaId: string | null;
+  onPersonaChange?: (personaId: string | null) => void;
 }
 
-export default function InsightsPanel({ personaId }: InsightsPanelProps) {
+export default function InsightsPanel({ personaId, onPersonaChange }: InsightsPanelProps) {
   const [insights, setInsights] = useState<Insights | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,11 +120,18 @@ export default function InsightsPanel({ personaId }: InsightsPanelProps) {
 
       {/* 콘텐츠 영역 */}
       <div className="space-y-6 p-6">
-        {/* 새로고침 버튼 */}
-        <div className="flex justify-end">
+        {/* 페르소나 선택 및 새로고침 버튼 */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-shrink-0">
+            <PersonaSelector
+              selectedPersonaId={personaId}
+              onPersonaChange={onPersonaChange || (() => {})}
+              data-tutorial-target="persona-selector"
+            />
+          </div>
           <button
             onClick={fetchInsights}
-            className="text-sm text-indigo-500 hover:text-indigo-600 flex items-center gap-1"
+            className="text-sm text-indigo-500 hover:text-indigo-600 flex items-center gap-1 flex-shrink-0"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />

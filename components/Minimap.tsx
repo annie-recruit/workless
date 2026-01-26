@@ -24,17 +24,20 @@ interface MinimapProps {
   }>;
 }
 
+// localStorage 키
+const MINIMAP_POSITION_KEY = 'workless-minimap-position';
+
 const CARD_DIMENSIONS = {
   s: { width: 200, height: 160 },
   m: { width: 240, height: 180 },
   l: { width: 280, height: 200 },
 } as const;
 
-// 원본 카드 색상 매핑
+// 원본 카드 색상 매핑 - 모두 연한 회색으로 통일
 const CARD_COLORS = {
-  green: { bg: '#FFF7ED', border: '#FDBA74', dot: '#FB923C' }, // orange 계열
-  pink: { bg: '#EEF2FF', border: '#A5B4FC', dot: '#818CF8' }, // indigo 계열
-  purple: { bg: '#F5F3FF', border: '#C4B5FD', dot: '#A78BFA' }, // purple 계열
+  green: { bg: '#F9FAFB', border: '#D1D5DB', dot: '#9CA3AF' }, // gray 계열
+  pink: { bg: '#F9FAFB', border: '#D1D5DB', dot: '#9CA3AF' }, // gray 계열
+  purple: { bg: '#F9FAFB', border: '#D1D5DB', dot: '#9CA3AF' }, // gray 계열
 } as const;
 
 const MINIMAP_WIDTH = 220; // 미니맵 가로 폭 고정 (위젯 모드가 아닐 때)
@@ -55,10 +58,81 @@ export default function Minimap({
   blobAreas
 }: MinimapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // 위젯 모드 여부 확인
   const isWidgetMode = containerWidth !== undefined && containerHeight !== undefined;
   const minimapWidth = isWidgetMode ? containerWidth : MINIMAP_WIDTH;
+
+  // 드래그 상태 및 위치
+  const [isDragging, setIsDragging] = useState(false);
+  const [position, setPosition] = useState<{ right: number; bottom: number }>({ right: 24, bottom: 24 });
+  const dragStartRef = useRef<{ x: number; y: number; startRight: number; startBottom: number } | null>(null);
+
+  // localStorage에서 위치 복원
+  useEffect(() => {
+    if (isWidgetMode) return; // 위젯 모드에서는 드래그 불가
+    
+    try {
+      const saved = localStorage.getItem(MINIMAP_POSITION_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setPosition(parsed);
+      }
+    } catch (e) {
+      console.error('Failed to load minimap position:', e);
+    }
+  }, [isWidgetMode]);
+
+  // 드래그 핸들러
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (isWidgetMode) return; // 위젯 모드에서는 드래그 불가
+    
+    // 캔버스나 내부 요소를 클릭한 경우에만 드래그 시작
+    setIsDragging(true);
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      startRight: position.right,
+      startBottom: position.bottom,
+    };
+  };
+
+  useEffect(() => {
+    if (!isDragging || isWidgetMode) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragStartRef.current) return;
+
+      const deltaX = dragStartRef.current.x - e.clientX; // 오른쪽 기준이므로 반대
+      const deltaY = dragStartRef.current.y - e.clientY; // 아래쪽 기준이므로 반대
+
+      const newRight = Math.max(0, Math.min(window.innerWidth - minimapWidth, dragStartRef.current.startRight + deltaX));
+      const newBottom = Math.max(0, Math.min(window.innerHeight - (bounds.h || 200), dragStartRef.current.startBottom + deltaY));
+
+      setPosition({ right: newRight, bottom: newBottom });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      dragStartRef.current = null;
+
+      // localStorage에 위치 저장
+      try {
+        localStorage.setItem(MINIMAP_POSITION_KEY, JSON.stringify(position));
+      } catch (e) {
+        console.error('Failed to save minimap position:', e);
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, position, minimapWidth, isWidgetMode]);
 
   // 카드 크기 정보
   const cardDims = CARD_DIMENSIONS[cardSize];
@@ -231,6 +305,9 @@ export default function Minimap({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // 픽셀아트 효과를 위해 anti-aliasing 끄기
+    ctx.imageSmoothingEnabled = false;
+
     // 배경 그리기
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -340,7 +417,7 @@ export default function Minimap({
       });
     }
 
-    // 연결선 그리기 (connectionPairs의 색상 사용)
+    // 연결선 그리기 - 픽셀아트 스타일
     if (connectionPairs) {
       // 같은 연결 쌍 그룹화 (병렬 연결선 처리)
       const pairMap = new Map<string, typeof connectionPairs>();
@@ -368,6 +445,33 @@ export default function Minimap({
         }
       };
 
+      // 픽셀 계단식 선 그리기 함수
+      const drawPixelLine = (x1: number, y1: number, x2: number, y2: number, color: string, lineWidth: number) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.lineCap = 'square';
+        ctx.lineJoin = 'miter';
+
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        
+        // 픽셀 계단 효과: 수평 우선 → 수직 → 수평 (3단계)
+        ctx.beginPath();
+        ctx.moveTo(Math.round(x1), Math.round(y1));
+        
+        // 1단계: 수평으로 1/3 이동
+        const midX1 = Math.round(x1 + dx / 3);
+        ctx.lineTo(midX1, Math.round(y1));
+        
+        // 2단계: 수직으로 전체 이동
+        ctx.lineTo(midX1, Math.round(y2));
+        
+        // 3단계: 수평으로 나머지 이동
+        ctx.lineTo(Math.round(x2), Math.round(y2));
+        
+        ctx.stroke();
+      };
+
       pairMap.forEach((pairs, key) => {
         const totalConnections = pairs.length;
         pairs.forEach((pair, idx) => {
@@ -382,7 +486,7 @@ export default function Minimap({
           const toX = toCenter.x;
           const toY = toCenter.y;
 
-          // 오프셋 적용 (병렬 연결선)
+          // 오프셋 적용 (병렬 연결선) - 더 넓게
           const dx = toX - fromX;
           const dy = toY - fromY;
           const len = Math.sqrt(dx * dx + dy * dy);
@@ -390,27 +494,43 @@ export default function Minimap({
 
           const perpX = -dy / len;
           const perpY = dx / len;
-          const offset = (idx - (totalConnections - 1) / 2) * 3 * bounds.scale;
+          const offset = (idx - (totalConnections - 1) / 2) * 5 * bounds.scale; // 3 -> 5로 증가
 
           const offsetFromX = fromX + perpX * offset;
           const offsetFromY = fromY + perpY * offset;
           const offsetToX = toX + perpX * offset;
           const offsetToY = toY + perpY * offset;
 
-          // 연결선 그리기
-          ctx.strokeStyle = pair.color || '#C4B5FD';
-          ctx.lineWidth = 1.5 * bounds.scale;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(offsetFromX, offsetFromY);
-          ctx.lineTo(offsetToX, offsetToY);
-          ctx.stroke();
+          // 픽셀 계단식 연결선 그리기 (더 굵게, 최소 두께 보장)
+          const lineWidth = Math.max(2, 3 * bounds.scale); // 최소 2px 보장
+          drawPixelLine(offsetFromX, offsetFromY, offsetToX, offsetToY, pair.color || '#C4B5FD', lineWidth);
         });
       });
     } else {
-      // connectionPairs가 없을 때 기본 연결선
-      ctx.strokeStyle = '#E2E8F0';
-      ctx.lineWidth = 1.5 * bounds.scale;
+      // connectionPairs가 없을 때 기본 연결선 - 픽셀 스타일
+      const lineWidth = Math.max(2, 3 * bounds.scale); // 최소 2px 보장
+      
+      const drawPixelLine = (x1: number, y1: number, x2: number, y2: number) => {
+        ctx.strokeStyle = '#94A3B8'; // 더 진한 회색으로 변경
+        ctx.lineWidth = lineWidth;
+        ctx.lineCap = 'square';
+        ctx.lineJoin = 'miter';
+
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        
+        ctx.beginPath();
+        ctx.moveTo(Math.round(x1), Math.round(y1));
+        
+        // 픽셀 계단 효과: 수평 → 수직 → 수평
+        const midX1 = Math.round(x1 + dx / 3);
+        ctx.lineTo(midX1, Math.round(y1));
+        ctx.lineTo(midX1, Math.round(y2));
+        ctx.lineTo(Math.round(x2), Math.round(y2));
+        
+        ctx.stroke();
+      };
+
       realConnections.forEach(({ from, to }) => {
         const p1 = positions[from];
         const p2 = positions[to];
@@ -431,21 +551,24 @@ export default function Minimap({
           ? (p2.y + (block2.height || 300) / 2 - bounds.minY) * bounds.scale
           : (p2.y + cardDims.height / 2 - bounds.minY) * bounds.scale;
 
-        ctx.beginPath();
-        ctx.moveTo(fromX, fromY);
-        ctx.lineTo(toX, toY);
-        ctx.stroke();
+        drawPixelLine(fromX, fromY, toX, toY);
       });
     }
   }, [connectedGroups, bounds, positions, realConnections, cardColorMap, connectionPairs, cardDims, blocks, blobAreas]);
 
   return (
     <div
-      className={isWidgetMode ? "relative w-full h-full bg-white overflow-hidden" : "fixed bottom-6 right-6 bg-white rounded-lg border border-gray-200 shadow-xl overflow-hidden"}
+      ref={containerRef}
+      onMouseDown={handleMouseDown}
+      className={isWidgetMode ? "relative w-full h-full bg-white overflow-hidden" : "fixed bg-white rounded-lg border border-gray-200 shadow-xl overflow-hidden"}
       style={{
         width: isWidgetMode ? '100%' : minimapWidth,
         height: isWidgetMode ? '100%' : bounds.h,
-        transition: isWidgetMode ? 'none' : 'height 0.3s ease'
+        transition: isDragging ? 'none' : (isWidgetMode ? 'none' : 'height 0.3s ease'),
+        cursor: isWidgetMode ? 'default' : (isDragging ? 'grabbing' : 'grab'),
+        right: isWidgetMode ? undefined : `${position.right}px`,
+        bottom: isWidgetMode ? undefined : `${position.bottom}px`,
+        userSelect: 'none',
       }}
     >
       <canvas

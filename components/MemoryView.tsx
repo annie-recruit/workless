@@ -25,7 +25,6 @@ import { useBoardPersistence } from '@/hooks/board/useBoardPersistence';
 import { useGroupsPanel, type BoardToastState } from '@/hooks/groups/useGroupsPanel';
 import { useBoardFlags } from '@/hooks/flags/useBoardFlags';
 import { useBoardBlocks } from '@/hooks/blocks/useBoardBlocks';
-import { GmailImportButton } from './GmailImportButton';
 
 // 큰 컴포넌트들을 동적 import로 로드 (초기 번들 크기 감소)
 const CalendarBlock = dynamic(() => import('./CalendarBlock'), {
@@ -1628,11 +1627,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const cardSizeClass = cardSize === 's' ? 'w-[260px]' : cardSize === 'l' ? 'w-[360px]' : 'w-[320px]';
   const cardSizeCenter = { x: cardSizeData.centerX, y: cardSizeData.centerY };
 
-  const cardColorClass = cardColor === 'green'
-    ? 'bg-orange-50'
-    : cardColor === 'pink'
-      ? 'bg-indigo-50'
-      : 'bg-indigo-50';
+  const cardColorClass = 'bg-gray-50';
 
   // 연결 그룹을 찾아서 색상 할당
   const connectionPairsWithColor = useMemo(() => {
@@ -1640,20 +1635,46 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     const pairs: Array<{ from: string; to: string }> = [];
     const visibleIds = new Set(filteredMemories.map(m => m.id));
     const allMemoryIds = new Set(localMemories.map(m => m.id));
+    const invalidConnections: Array<{ memoryId: string; invalidRelatedId: string }> = [];
+
+    console.log('🔗 연결선 생성 시작:', {
+      totalLocalMemories: localMemories.length,
+      filteredMemories: filteredMemories.length,
+      visibleIds: Array.from(visibleIds),
+    });
 
     // 연결 쌍 수집 (localMemories 전체를 기반으로, visibleIds에 있는 것만 필터링)
     localMemories.forEach(memory => {
       const related = memory.relatedMemoryIds || [];
+      if (related.length > 0) {
+        console.log('📌 메모리 연결 정보:', {
+          memoryId: memory.id,
+          content: memory.content.substring(0, 50),
+          relatedMemoryIds: related,
+          isVisible: visibleIds.has(memory.id),
+        });
+      }
       related.forEach(relatedId => {
         // 양쪽 모두 localMemories에 있고, visibleIds에 있는 것만 표시
-        if (!allMemoryIds.has(relatedId)) return;
-        if (!visibleIds.has(memory.id) || !visibleIds.has(relatedId)) return;
+        if (!allMemoryIds.has(relatedId)) {
+          console.log('⚠️ 연결된 메모리가 localMemories에 없음:', relatedId, '- DB 정리 필요');
+          // 유효하지 않은 연결 정보를 수집 (실제 정리는 useEffect에서 처리)
+          invalidConnections.push({ memoryId: memory.id, invalidRelatedId: relatedId });
+          return;
+        }
+        if (!visibleIds.has(memory.id) || !visibleIds.has(relatedId)) {
+          console.log('⚠️ 연결된 메모리가 필터링됨:', { memoryId: memory.id, relatedId, memoryVisible: visibleIds.has(memory.id), relatedVisible: visibleIds.has(relatedId) });
+          return;
+        }
         const key = [memory.id, relatedId].sort().join(':');
         if (set.has(key)) return;
         set.add(key);
         pairs.push({ from: memory.id, to: relatedId });
+        console.log('✅ 연결 쌍 추가:', { from: memory.id, to: relatedId });
       });
     });
+
+    console.log('🔗 총 연결 쌍:', pairs.length, pairs);
 
     // 연결 그룹 찾기 (독립적인 연결 네트워크별로 그룹화)
     // 각 그룹은 서로 연결된 노드들의 집합
@@ -1754,8 +1775,45 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       pairsWithColor,
       connectionGroups: validGroups,
       nodeToGroup,
+      invalidConnections,
     };
   }, [localMemories, filteredMemories, linkInfo, getLinkKey]);
+
+  // 유효하지 않은 연결 정리 (부작용을 useEffect로 분리)
+  useEffect(() => {
+    const { invalidConnections } = connectionPairsWithColor;
+    if (!invalidConnections || invalidConnections.length === 0) return;
+
+    // 중복 제거를 위한 Set 사용
+    const cleanupSet = new Set<string>();
+    invalidConnections.forEach(({ memoryId, invalidRelatedId }) => {
+      cleanupSet.add(`${memoryId}:${invalidRelatedId}`);
+    });
+
+    // 디바운싱: 너무 자주 호출되지 않도록 타이머 사용
+    const timer = setTimeout(() => {
+      // 각 유효하지 않은 연결을 정리 (백그라운드에서 조용히 실행)
+      cleanupSet.forEach(key => {
+        const [memoryId, invalidRelatedId] = key.split(':');
+        fetch('/api/memories/cleanup-relations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ memoryId, invalidRelatedId }),
+        })
+          .then(res => {
+            if (!res.ok) {
+              console.warn('연결 정리 응답 실패:', res.status);
+            }
+          })
+          .catch(err => {
+            // 에러를 조용히 처리 (백그라운드 작업이므로)
+            console.warn('연결 정리 요청 실패 (무시됨):', err.message);
+          });
+      });
+    }, 1000); // 1초 디바운싱
+
+    return () => clearTimeout(timer);
+  }, [connectionPairsWithColor.invalidConnections?.length, localMemories.length]);
 
   // 간단한 시드 기반 랜덤 함수 (groupId 기반 고정 랜덤)
   const seededRandom = useCallback((seed: number) => {
@@ -2076,31 +2134,6 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
             );
           })()}
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">크기</span>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCardSize('s')}
-                className={`px-2 py-1 text-xs rounded-lg ${cardSize === 's' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-              >
-                작게
-              </button>
-              <button
-                onClick={() => setCardSize('m')}
-                className={`px-2 py-1 text-xs rounded-lg ${cardSize === 'm' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-              >
-                보통
-              </button>
-              <button
-                onClick={() => setCardSize('l')}
-                className={`px-2 py-1 text-xs rounded-lg ${cardSize === 'l' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-              >
-                크게
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* 그룹 설명 */}
@@ -2168,11 +2201,6 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   {isAutoArranging ? '배열 중...' : '맞춤 배열'}
                 </button>
 
-                <GmailImportButton onImportComplete={(count) => {
-                  if (count > 0) {
-                    onMemoryDeleted?.(); // Refresh memories
-                  }
-                }} />
                 <button
                   onClick={handleCreateCalendarBlock}
                   className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-1"
@@ -3264,11 +3292,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 {visibleMemories.map((memory, memoryIndex) => {
                   const position = positions[memory.id] || { x: 0, y: 0 };
                   const memoryColor = cardColorMap[memory.id] || cardColor;
-                  const memoryColorClass = memoryColor === 'green'
-                    ? 'bg-orange-50'
-                    : memoryColor === 'pink'
-                      ? 'bg-indigo-50'
-                      : 'bg-indigo-50';
+                  const memoryColorClass = 'bg-gray-50';
                   const isSelected = selectedMemoryIds.has(memory.id);
                   const isDragging = draggingId === memory.id || (isSelected && draggingId && selectedMemoryIds.has(draggingId));
 

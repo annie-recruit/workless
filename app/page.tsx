@@ -15,7 +15,6 @@ import Tutorial, { TutorialStep } from '@/components/Tutorial';
 import GlobalSearch from '@/components/GlobalSearch';
 import PixelIcon from '@/components/PixelIcon';
 import ProcessingLoader from '@/components/ProcessingLoader';
-import QuickAdd from '@/components/QuickAdd';
 import { Memory, CanvasBlock } from '@/types';
 
 export default function Home() {
@@ -33,7 +32,6 @@ export default function Home() {
   const contentMaxWidth = showInsights ? 'calc(100vw - 420px)' : 'calc(100vw - 40px)';
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const lastActiveElementRef = useRef<HTMLElement | null>(null);
-  const [showQuickAdd, setShowQuickAdd] = useState(false);
 
   const fetchMemories = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -269,13 +267,8 @@ export default function Home() {
 
           {/* 상단 메뉴바 */}
           <div className="mb-6 flex items-center justify-between border-b border-gray-200 pb-2">
-            {/* 왼쪽: 페르소나 선택기와 그룹 관리 */}
+            {/* 왼쪽: 그룹 관리 */}
             <div className="flex items-center gap-3">
-              <PersonaSelector
-                selectedPersonaId={selectedPersonaId}
-                onPersonaChange={setSelectedPersonaId}
-                data-tutorial-target="persona-selector"
-              />
               <button
                 onClick={() => setShowModal('groups')}
                 className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
@@ -313,16 +306,6 @@ export default function Home() {
 
             {/* 오른쪽: 사용자 정보 */}
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => setShowQuickAdd(true)}
-                className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors text-sm font-medium flex items-center gap-2"
-                title="빠른 추가"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                빠른 추가
-              </button>
               {session ? (
                 <div className="flex items-center gap-2">
                   {session.user?.image ? (
@@ -412,7 +395,12 @@ export default function Home() {
         className={`bg-white border-l border-gray-200 shadow-lg overflow-y-auto transition-all duration-300 ease-in-out ${showInsights ? 'w-[360px]' : 'w-0'
           }`}
       >
-        {showInsights && <InsightsPanel personaId={selectedPersonaId} />}
+        {showInsights && (
+          <InsightsPanel 
+            personaId={selectedPersonaId} 
+            onPersonaChange={setSelectedPersonaId}
+          />
+        )}
       </div>
 
       {/* 기억 관리 패널 (토스트 스타일, Non-blocking) */}
@@ -484,9 +472,9 @@ export default function Home() {
             {
               id: 'persona-selector',
               title: '페르소나 선택',
-              description: '페르소나를 선택하면 AI가 그 스타일로 응답합니다. 예를 들어 "친구" 페르소나는 친근하게, "선생님" 페르소나는 전문적으로 답변합니다.',
+              description: '오른쪽 패널의 페르소나를 선택하면 AI가 그 스타일로 응답합니다. 예를 들어 "친구" 페르소나는 친근하게, "선생님" 페르소나는 전문적으로 답변합니다.',
               targetSelector: 'button[data-tutorial-target="persona-selector"]',
-              position: 'bottom',
+              position: 'left',
             },
             {
               id: 'group-manager',
@@ -522,14 +510,6 @@ export default function Home() {
       )}
 
       {/* 타임라인은 별도 페이지로 */}
-
-      {/* Quick Add 모달 */}
-      {showQuickAdd && (
-        <QuickAdd
-          onMemoryCreated={handleMemoryCreated}
-          onClose={() => setShowQuickAdd(false)}
-        />
-      )}
     </main>
   );
 }

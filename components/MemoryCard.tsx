@@ -517,17 +517,16 @@ const MemoryCard = memo(
           {variant === 'board' && (
             <>
               <span className="ml-auto" />
-              <div className="flex items-center gap-1" data-tutorial-target="ai-features">
+              <div className="flex items-center gap-0.5" data-tutorial-target="ai-features">
                 {([
                   { id: 'green', class: 'bg-orange-300' },
-                  { id: 'pink', class: 'bg-indigo-300' },
                   { id: 'purple', class: 'bg-indigo-400' },
                 ] as const).map((item) => (
                   <button
                     key={item.id}
                     onClick={() => onCardColorChange?.(item.id)}
                     className={`w-4 h-4 border ${item.class} border-white`}
-                    title={`${item.id === 'green' ? '주황' : item.id === 'pink' ? '인디고' : '인디고'} 카드`}
+                    title={`${item.id === 'green' ? '주황' : '인디고'} 카드`}
                   />
                 ))}
               </div>
