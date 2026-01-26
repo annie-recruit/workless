@@ -37,7 +37,7 @@ if (typeof window !== 'undefined') {
     Document = mod.Document;
     Page = mod.Page;
     pdfjs = mod.pdfjs;
-    
+
     // PDF.js worker 설정
     if (!pdfjs.GlobalWorkerOptions.workerSrc) {
       pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
@@ -92,7 +92,7 @@ export default function ViewerBlock({
   const [pdfPage, setPdfPage] = useState<number>(1);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [frameImageFailed, setFrameImageFailed] = useState(false);
-  
+
   // props의 config가 변경되었을 때 로컬 state 동기화 (외부에서 config를 변경한 경우)
   useEffect(() => {
     if (config.currentSource !== undefined && JSON.stringify(config.currentSource) !== JSON.stringify(currentSource)) {
@@ -108,17 +108,17 @@ export default function ViewerBlock({
 
   // Viewer 등록/해제
   const historyIndexRef = useRef(historyIndex);
-  
+
   useEffect(() => {
     historyIndexRef.current = historyIndex;
   }, [historyIndex]);
-  
+
   const updateSource = useCallback((source: ViewerSource) => {
     console.log('ViewerBlock: updateSource called with:', source);
     setCurrentSource(source);
     setState('loading');
     setError(null);
-    
+
     // 히스토리에 추가
     setHistory(prev => {
       const currentIndex = historyIndexRef.current;
@@ -128,7 +128,7 @@ export default function ViewerBlock({
     });
     setHistoryIndex(prev => prev + 1);
   }, []);
-  
+
   useEffect(() => {
     registerViewer(blockId, updateSource);
     return () => unregisterViewer(blockId);
@@ -145,16 +145,16 @@ export default function ViewerBlock({
       pixelArtFrame: config.pixelArtFrame,
       pixelArtBackground: config.pixelArtBackground,
     };
-    
+
     // 이전 config와 비교하여 실제로 변경되었을 때만 업데이트
     const prevConfig = prevConfigRef.current;
-    const hasChanged = 
+    const hasChanged =
       JSON.stringify(prevConfig.currentSource) !== JSON.stringify(newConfig.currentSource) ||
       JSON.stringify(prevConfig.history) !== JSON.stringify(newConfig.history) ||
       prevConfig.historyIndex !== newConfig.historyIndex ||
       prevConfig.pixelArtFrame !== newConfig.pixelArtFrame ||
       prevConfig.pixelArtBackground !== newConfig.pixelArtBackground;
-    
+
     if (hasChanged) {
       prevConfigRef.current = newConfig;
       onUpdate(blockId, { config: newConfig });
@@ -232,16 +232,16 @@ export default function ViewerBlock({
   // 소스 변경 시 state 업데이트
   useEffect(() => {
     if (currentSource) {
-      const isImage = currentSource.kind === 'file' && 
+      const isImage = currentSource.kind === 'file' &&
         currentSource.mimeType?.startsWith('image/');
-      const isPdf = currentSource.kind === 'file' && 
+      const isPdf = currentSource.kind === 'file' &&
         currentSource.mimeType === 'application/pdf';
-      const isDocx = currentSource.kind === 'file' && 
+      const isDocx = currentSource.kind === 'file' &&
         (currentSource.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-         currentSource.mimeType === 'application/msword' ||
-         currentSource.fileName?.toLowerCase().endsWith('.docx') ||
-         currentSource.fileName?.toLowerCase().endsWith('.doc'));
-      
+          currentSource.mimeType === 'application/msword' ||
+          currentSource.fileName?.toLowerCase().endsWith('.docx') ||
+          currentSource.fileName?.toLowerCase().endsWith('.doc'));
+
       if (isImage || isPdf || isDocx) {
         console.log('Source changed, setting state to loading:', { isImage, isPdf, isDocx, url: currentSource.url });
         setState('loading');
@@ -260,15 +260,15 @@ export default function ViewerBlock({
   }, [currentSource]);
 
   // 소스 타입 확인
-  const isImage = currentSource?.kind === 'file' && 
+  const isImage = currentSource?.kind === 'file' &&
     currentSource.mimeType?.startsWith('image/');
-  const isPdf = currentSource?.kind === 'file' && 
+  const isPdf = currentSource?.kind === 'file' &&
     currentSource.mimeType === 'application/pdf';
-  const isDocx = currentSource?.kind === 'file' && 
+  const isDocx = currentSource?.kind === 'file' &&
     (currentSource.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-     currentSource.mimeType === 'application/msword' ||
-     currentSource.fileName?.toLowerCase().endsWith('.docx') ||
-     currentSource.fileName?.toLowerCase().endsWith('.doc'));
+      currentSource.mimeType === 'application/msword' ||
+      currentSource.fileName?.toLowerCase().endsWith('.docx') ||
+      currentSource.fileName?.toLowerCase().endsWith('.doc'));
 
   const frameSrc = config.pixelArtFrame || DEFAULT_VIEWER_FRAME_SRC;
   const screenStyle: CSSProperties = {
@@ -283,11 +283,11 @@ export default function ViewerBlock({
 
   const backgroundStyle = config.pixelArtBackground
     ? {
-        backgroundImage: `url(${config.pixelArtBackground})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-      }
+      backgroundImage: `url(${config.pixelArtBackground})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+    }
     : {};
 
   return (
@@ -394,8 +394,8 @@ export default function ViewerBlock({
                         className="max-w-full max-h-full object-contain"
                         style={{ imageRendering: 'auto' as const }}
                       />
-                      <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-sm">
-                        <ProcessingLoader size={48} variant="overlay" tone="indigo" label="로딩 중..." />
+                      <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
+                        <ProcessingLoader size={24} variant="overlay" tone="indigo" label="로딩 중..." />
                       </div>
                     </>
                   ) : isPdf ? (

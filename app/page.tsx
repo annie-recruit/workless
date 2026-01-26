@@ -204,7 +204,7 @@ export default function Home() {
   if (status === 'loading') {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <ProcessingLoader size={64} variant="overlay" tone="indigo" label="로딩 중..." />
+        <ProcessingLoader size={32} variant="overlay" tone="indigo" label="로딩 중..." />
       </main>
     );
   }
@@ -212,7 +212,7 @@ export default function Home() {
   if (!session) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <ProcessingLoader size={64} variant="overlay" tone="indigo" label="로그인 페이지로 이동 중..." />
+        <ProcessingLoader size={32} variant="overlay" tone="indigo" label="로그인 페이지로 이동 중..." />
       </main>
     );
   }
@@ -396,8 +396,8 @@ export default function Home() {
           }`}
       >
         {showInsights && (
-          <InsightsPanel 
-            personaId={selectedPersonaId} 
+          <InsightsPanel
+            personaId={selectedPersonaId}
             onPersonaChange={setSelectedPersonaId}
           />
         )}

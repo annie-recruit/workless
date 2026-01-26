@@ -48,14 +48,14 @@ export default function ProcessingLoader({
   // variant별 기본 사이즈
   const defaultSizes: Record<ProcessingLoaderVariant, number> = {
     inline: 16,
-    panel: 28,
-    overlay: 48,
+    panel: 14,
+    overlay: 24,
   };
 
   const baseHeight = Math.max(1, Math.round(size ?? defaultSizes[variant]));
   const clampedScale = Math.max(1, Math.round(scale));
 
-  const minBarHeight = variant === 'panel' || variant === 'overlay' ? 70 : 0; // 기본 존재감 확보
+  const minBarHeight = variant === 'panel' || variant === 'overlay' ? 35 : 0; // 기본 존재감 확보
   const barHeight = Math.max(minBarHeight, baseHeight * clampedScale);
   const barWidth = Math.round((barHeight * 100) / 35); // 원본 비율(100x35) 유지
 

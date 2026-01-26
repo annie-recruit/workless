@@ -64,7 +64,7 @@ export default function IntegrationsPage() {
 
   const regenerateApiKey = async () => {
     if (!confirm('기존 API 키가 무효화됩니다. 계속하시겠습니까?')) return;
-    
+
     setGenerating(true);
     try {
       const res = await fetch('/api/user/api-key', { method: 'PUT' });
@@ -92,8 +92,8 @@ export default function IntegrationsPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-indigo-50 flex items-center justify-center">
-        <ProcessingLoader size={64} variant="overlay" tone="indigo" label="로딩 중..." />
+      <main className="min-h-screen bg-white flex items-center justify-center">
+        <ProcessingLoader size={32} variant="overlay" tone="indigo" label="로딩 중..." />
       </main>
     );
   }
@@ -275,7 +275,7 @@ URL="${apiUrl}"
 6. URL 콘텐츠 가져오기 (POST)
    - Authorization: Bearer [API_KEY]
    - Body: 위 사전`;
-                    
+
                     navigator.clipboard.writeText(config);
                     alert('설정이 클립보드에 복사되었습니다!');
                   }}
