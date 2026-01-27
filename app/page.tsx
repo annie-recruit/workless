@@ -102,8 +102,8 @@ export default function LandingPage() {
                 시작하기
               </span>
             </Link>
-            <p className="text-white/50 text-xs">
-              시작하면 <Link href="/terms" className="underline hover:text-white/70">서비스 약관</Link> 및 <Link href="/privacy" className="underline hover:text-white/70">개인정보처리방침</Link>에 동의하게 됩니다
+            <p className="text-white/70 text-xs">
+              시작하면 <Link href="/terms" className="underline hover:text-white">서비스 약관</Link> 및 <Link href="/privacy" className="underline hover:text-white">개인정보처리방침</Link>에 동의하게 됩니다
             </p>
           </div>
 
