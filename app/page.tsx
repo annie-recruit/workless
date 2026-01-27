@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import PixelIcon from "@/components/PixelIcon";
+import PixelGradientBanner from '@/components/PixelGradientBanner';
+import OnboardingWhiteboard from '@/components/OnboardingWhiteboard';
+import PixelIcon from '@/components/PixelIcon';
 
 export default function LandingPage() {
   const { data: session, status } = useSession();
@@ -34,194 +36,206 @@ export default function LandingPage() {
   if (status === 'authenticated' && session) {
     return null;
   }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-indigo-50">
-      {/* 헤더 */}
-      <header className="bg-indigo-600 border-b-2 border-indigo-500">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-black text-white mb-2 tracking-tighter uppercase" style={{ letterSpacing: '-0.05em' }}>
+    <main className="min-h-screen flex flex-col relative overflow-hidden font-galmuri11">
+      {/* 픽셀 그라데이션 배경 */}
+      <div className="absolute inset-0 z-0">
+        <PixelGradientBanner className="opacity-100" />
+        {/* 오버레이로 색감 조절 */}
+        <div className="absolute inset-0 bg-indigo-900/10 backdrop-blur-[2px]"></div>
+      </div>
+
+      {/* 상단: 타이틀 + 버튼 + 3개 박스 */}
+      <div className="relative z-10 flex items-center justify-center p-8">
+        <div className="max-w-6xl w-full space-y-8 py-8">
+          {/* 타이틀 */}
+          <div className="text-center space-y-4">
+            <div className="space-y-2">
+              <h1 className="text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ letterSpacing: '-0.05em' }}>
                 Workless
               </h1>
-              <p className="text-white/90 text-sm font-light">
-                사고의 흐름을 보는 비정형 워크스페이스
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/privacy"
-                  className="text-white hover:text-white/80 text-sm font-medium underline transition-colors"
-                  title="개인정보처리방침"
-                >
-                  개인정보처리방침
-                </Link>
-                <span className="text-white/60">|</span>
-                <Link
-                  href="/terms"
-                  className="text-white hover:text-white/80 text-sm font-medium underline transition-colors"
-                  title="서비스 약관"
-                >
-                  서비스 약관
-                </Link>
+              <div className="flex items-center justify-center gap-4">
+                <div className="h-0.5 w-12 bg-white"></div>
+                <p className="text-white/90 text-base font-light">
+                  사고의 흐름을 보는 비정형 워크스페이스
+                </p>
+                <div className="h-0.5 w-12 bg-white"></div>
               </div>
-              <Link
-                href="/auth/signin"
-                className="px-6 py-3 bg-white text-indigo-600 font-bold rounded-lg hover:bg-indigo-50 transition-colors shadow-lg"
-              >
-                시작하기
-              </Link>
             </div>
-          </div>
-        </div>
-      </header>
 
-      {/* 메인 콘텐츠 */}
-      <main className="container mx-auto px-4 py-16">
-        {/* 히어로 섹션 */}
-        <section className="text-center mb-20">
-          <h2 className="text-5xl font-black text-gray-900 mb-6">
-            Gmail을 메모로, 아이디어를 시각화로
-          </h2>
-          <p className="text-xl text-gray-700 mb-8 max-w-3xl mx-auto">
-            Workless는 Gmail 연동을 통해 이메일을 자동으로 메모로 변환하고, 
-            무한 캔버스에서 아이디어를 자유롭게 배치하고 연결할 수 있는 개인 비서입니다.
-          </p>
-          <div className="flex flex-col items-center gap-4">
+            <p className="text-white/80 text-sm tracking-wide">
+              맥락을 구체화. 비정형 애자일 워크스페이스
+            </p>
+          </div>
+
+          {/* CTA 버튼 */}
+          <div className="flex justify-center">
             <Link
               href="/auth/signin"
-              className="inline-block px-8 py-4 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-lg text-lg"
+              className="group relative w-full max-w-md flex items-center justify-center gap-4 px-8 py-5 bg-white/10 hover:bg-white/20 border border-white/30 transition-all duration-300 backdrop-blur-sm"
             >
-              Google 계정으로 시작하기
+              {/* 버튼 내부 장식 */}
+              <div className="absolute inset-0 border border-white/0 group-hover:border-white/40 transition-all duration-300"></div>
+
+              <div className="bg-white p-2 rounded-sm group-hover:scale-110 transition-transform duration-300">
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                  />
+                </svg>
+              </div>
+              <span className="text-white text-lg font-bold tracking-wider">
+                시작하기
+              </span>
             </Link>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span>시작하기 전에</span>
-              <Link href="/privacy" className="text-indigo-600 hover:text-indigo-800 font-semibold underline">
-                개인정보처리방침
-              </Link>
-              <span>및</span>
-              <Link href="/terms" className="text-indigo-600 hover:text-indigo-800 font-semibold underline">
-                서비스 약관
-              </Link>
-              <span>을 확인하세요.</span>
+          </div>
+
+          {/* 3개 박스: 가로 배치 */}
+          <div className="grid md:grid-cols-3 gap-4">
+            {/* 연동 서비스 */}
+            <div className="space-y-3 bg-white/5 backdrop-blur-sm border border-white/20 p-5">
+              <h3 className="text-white font-bold text-base mb-2 flex items-center gap-2">
+                <PixelIcon name="link" size={20} className="text-orange-400" />
+                <span>연동 가능한 서비스</span>
+              </h3>
+              <div className="space-y-2 text-white/80 text-xs">
+                <div className="flex items-start gap-2">
+                  <PixelIcon name="file" size={16} className="text-white/70 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-white">Gmail</div>
+                    <div className="text-white/60">"Workless" 라벨 이메일 자동 캔버스화</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <PixelIcon name="settings" size={16} className="text-white/70 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-white">AI 어시스턴트</div>
+                    <div className="text-white/60">메모 연관성 분석 및 인사이트</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 핵심 기능 */}
+            <div className="space-y-3 bg-white/5 backdrop-blur-sm border border-white/20 p-5">
+              <h3 className="text-white font-bold text-base mb-2 flex items-center gap-2">
+                <PixelIcon name="apps" size={20} className="text-indigo-400" />
+                <span>핵심 기능</span>
+              </h3>
+              <div className="space-y-2 text-white/80 text-xs">
+                <div className="flex items-start gap-2">
+                  <PixelIcon name="apps" size={16} className="text-white/70 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-white">무한 캔버스</div>
+                    <div className="text-white/60">끝없는 2D 공간에서 자유롭게 사고</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <PixelIcon name="tag" size={16} className="text-white/70 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-white">비정형 구조</div>
+                    <div className="text-white/60">폴더 없이 태그와 맥락으로 연결</div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <PixelIcon name="tag" size={16} className="text-white/70 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-white">맥락 시각화</div>
+                    <div className="text-white/60">태깅으로 관계 자동 분석</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 유저 가치 */}
+            <div className="space-y-3 bg-gradient-to-br from-orange-500/20 to-indigo-500/20 backdrop-blur-sm border border-white/30 p-5">
+              <h3 className="text-white font-bold text-base mb-2 flex items-center gap-2">
+                <PixelIcon name="star" size={20} className="text-yellow-300" />
+                <span>제공하는 가치</span>
+              </h3>
+              <div className="space-y-2 text-white/90 text-xs leading-relaxed">
+                <p>
+                  <span className="font-bold text-orange-300">틀에 박힌 워크플로우는 이제 그만.</span> 
+                  <br/>당신의 사고방식대로 자유롭게
+                </p>
+                <p>
+                  <span className="font-bold text-indigo-300">흩어진 정보를 하나로.</span>
+                  <br/>공간적 맥락과 태그로 연결
+                </p>
+                <p>
+                  <span className="font-bold text-pink-300">아이디어를 시각화.</span>
+                  <br/>생각의 흐름이 보이면 일이 쉬워짐
+                </p>
+              </div>
             </div>
           </div>
-        </section>
 
-        {/* 주요 기능 */}
-        <section className="mb-20">
-          <h3 className="text-3xl font-bold text-gray-900 mb-12 text-center">주요 기능</h3>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white p-8 rounded-lg shadow-lg border-2 border-gray-200">
-              <div className="w-16 h-16 bg-indigo-100 rounded-lg flex items-center justify-center mb-4">
-                <PixelIcon name="file" size={32} className="text-indigo-600" />
-              </div>
-              <h4 className="text-xl font-bold text-gray-900 mb-3">Gmail 자동 연동</h4>
-              <p className="text-gray-700">
-                Gmail에서 받은 이메일을 자동으로 메모로 변환합니다. 
-                "Workless" 라벨이 지정된 이메일만 읽어서 개인 비서로 활용할 수 있습니다.
-              </p>
-            </div>
-
-            <div className="bg-white p-8 rounded-lg shadow-lg border-2 border-gray-200">
-              <div className="w-16 h-16 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-                <PixelIcon name="apps" size={32} className="text-purple-600" />
-              </div>
-              <h4 className="text-xl font-bold text-gray-900 mb-3">무한 캔버스</h4>
-              <p className="text-gray-700">
-                메모와 아이디어를 무한 캔버스에 자유롭게 배치하고, 
-                태깅(@) 기능으로 서로 연결하여 생각의 흐름을 시각화합니다.
-              </p>
-            </div>
-
-            <div className="bg-white p-8 rounded-lg shadow-lg border-2 border-gray-200">
-              <div className="w-16 h-16 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
-                <PixelIcon name="lightbulb" size={32} className="text-orange-600" />
-              </div>
-              <h4 className="text-xl font-bold text-gray-900 mb-3">AI 기반 분석</h4>
-              <p className="text-gray-700">
-                AI가 이메일과 메모를 분석하여 관련된 내용을 자동으로 연결하고, 
-                프로젝트와 목표를 제안합니다.
-              </p>
-            </div>
+          {/* Google 심사 필수: 데이터 사용 명시 */}
+          <div className="bg-white/10 backdrop-blur-sm border border-white/30 p-4 text-xs text-white/80 leading-relaxed">
+            <p className="mb-2">
+              <strong className="text-white">📧 Gmail 데이터 사용:</strong> "Workless" 라벨이 지정된 이메일만 <strong>읽기 전용</strong>으로 접근하며, 
+              이메일을 메모로 변환하는 데만 사용됩니다. 이메일을 보내거나 수정하지 않습니다.
+            </p>
+            <p>
+              <strong className="text-white">🔒 개인정보 보호:</strong> 수집된 데이터는 서비스 제공 목적으로만 사용되며 제3자에게 판매하지 않습니다.
+            </p>
           </div>
-        </section>
 
-        {/* 데이터 사용 목적 */}
-        <section className="mb-20 bg-white p-12 rounded-lg shadow-lg border-2 border-gray-200">
-          <h3 className="text-3xl font-bold text-gray-900 mb-8">데이터 사용 목적</h3>
-          <div className="space-y-6 text-gray-700">
-            <div>
-              <h4 className="text-xl font-semibold text-gray-900 mb-2">1. Google 계정 정보</h4>
-              <p>
-                Google OAuth를 통해 이메일, 이름, 프로필 사진을 수집합니다. 
-                이 정보는 사용자 인증 및 계정 관리 목적으로만 사용됩니다.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-xl font-semibold text-gray-900 mb-2">2. Gmail 데이터 (선택적)</h4>
-              <p>
-                사용자가 Gmail 연동을 선택한 경우에만, "Workless" 라벨이 지정된 이메일의 
-                <strong> 읽기 전용</strong> 권한을 요청합니다. 이메일을 읽어서 메모로 변환하는 데만 사용되며, 
-                이메일을 보내거나 수정하지 않습니다.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-xl font-semibold text-gray-900 mb-2">3. 사용자 생성 콘텐츠</h4>
-              <p>
-                사용자가 생성한 메모, 프로젝트, 목표 등은 서비스 제공 및 개선 목적으로만 사용됩니다.
-              </p>
-            </div>
-            <div className="bg-indigo-50 p-4 rounded-lg border-l-4 border-indigo-500">
-              <p className="text-sm">
-                <strong>중요:</strong> Workless는 사용자의 데이터를 제3자에게 판매하지 않으며, 
-                서비스 제공 목적으로만 사용합니다. 자세한 내용은{" "}
-                <Link href="/privacy" className="text-indigo-600 hover:text-indigo-800 font-semibold underline">
-                  개인정보처리방침
-                </Link>
-                을 참고하세요.
-              </p>
-            </div>
+          {/* 하단 링크 */}
+          <div className="flex justify-center gap-4 text-xs text-white/60">
+            <Link href="/privacy" className="hover:text-white transition-colors underline">
+              개인정보처리방침
+            </Link>
+            <span>·</span>
+            <Link href="/terms" className="hover:text-white transition-colors underline">
+              서비스 약관
+            </Link>
+            <span>·</span>
+            <a href="mailto:support@workless.app" className="hover:text-white transition-colors underline">
+              문의하기
+            </a>
           </div>
-        </section>
 
-        {/* CTA 섹션 */}
-        <section className="text-center bg-indigo-600 rounded-lg p-12 text-white">
-          <h3 className="text-3xl font-bold mb-4">지금 시작하세요</h3>
-          <p className="text-lg mb-8 text-white/90">
-            Google 계정으로 로그인하여 Workless를 무료로 체험해보세요
-          </p>
-          <Link
-            href="/auth/signin"
-            className="inline-block px-8 py-4 bg-white text-indigo-600 font-bold rounded-lg hover:bg-indigo-50 transition-colors shadow-lg text-lg"
-          >
-            시작하기
-          </Link>
-        </section>
-      </main>
-
-      {/* 푸터 */}
-      <footer className="bg-gray-900 text-gray-300 py-8 mt-20">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="mb-4 md:mb-0">
-              <p className="text-sm">© 2026 Workless. All rights reserved.</p>
-            </div>
-            <div className="flex gap-6">
-              <Link href="/privacy" className="text-sm hover:text-white transition-colors">
-                개인정보처리방침
-              </Link>
-              <Link href="/terms" className="text-sm hover:text-white transition-colors">
-                서비스 약관
-              </Link>
-              <a href="mailto:support@workless.app" className="text-sm hover:text-white transition-colors">
-                문의하기
-              </a>
-            </div>
+          {/* 하단 데코레이션 */}
+          <div className="flex justify-center gap-2 opacity-30">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="w-2 h-2 bg-white rounded-none"></div>
+            ))}
           </div>
         </div>
-      </footer>
-    </div>
+      </div>
+
+      {/* 하단: 온보딩 미니보드 (전체 너비) */}
+      <div className="relative z-10 flex items-center justify-center p-8">
+        <div className="w-full max-w-6xl h-[600px] bg-white/95 backdrop-blur-sm rounded-lg overflow-hidden shadow-2xl border-[3px] border-gray-800">
+          {/* 온보딩 헤더 */}
+          <div className="bg-white px-6 py-4 border-b-[3px] border-gray-800">
+            <h2 className="text-xl font-bold mb-1 text-gray-900">애자일 워크스페이스를 체험해보세요!</h2>
+            <p className="text-sm text-gray-700">
+              로그인 없이 미리 체험해보세요! 드래그하여 자유롭게 배치할 수 있습니다.
+            </p>
+          </div>
+
+          {/* 미니 화이트보드 */}
+          <div className="h-[calc(100%-80px)]">
+            <OnboardingWhiteboard />
+          </div>
+        </div>
+      </div>
+    </main>
   );
 }
