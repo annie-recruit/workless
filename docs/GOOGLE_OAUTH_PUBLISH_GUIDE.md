@@ -128,19 +128,45 @@ Gmail API를 사용하므로 개인정보처리방침이 **필수**입니다.
 ### 3. 프로덕션 환경 변수
 게시 후에도 다음 환경 변수들이 올바르게 설정되어 있는지 확인:
 
+**Railway 환경 변수 설정:**
+1. Railway 대시보드 > 프로젝트 > Variables 탭
+2. 다음 환경 변수들이 설정되어 있는지 확인:
+
 ```env
 GOOGLE_CLIENT_ID=your_client_id
 GOOGLE_CLIENT_SECRET=your_client_secret
-GOOGLE_REDIRECT_URI=https://your-domain.com/api/auth/callback/google
-NEXTAUTH_URL=https://your-domain.com
+NEXTAUTH_URL=https://workless-production.up.railway.app
+NEXTAUTH_SECRET=your_secret_key
 ```
 
-### 4. 리디렉션 URI 확인
-- Google Cloud Console > **API 및 서비스** > **사용자 인증 정보**
-- OAuth 2.0 클라이언트 ID 선택
-- **승인된 리디렉션 URI**에 프로덕션 URL 추가:
+**중요:** 
+- `NEXTAUTH_URL`은 Railway 프로덕션 URL과 정확히 일치해야 합니다
+- NextAuth는 자동으로 `${NEXTAUTH_URL}/api/auth/callback/google` 경로를 사용합니다
+- `GOOGLE_REDIRECT_URI`는 별도로 설정할 필요 없습니다 (NextAuth가 자동 처리)
+
+### 4. 리디렉션 URI 확인 및 등록
+**Google Cloud Console에서 확인:**
+
+1. [Google Cloud Console](https://console.cloud.google.com/) 접속
+2. **API 및 서비스** > **사용자 인증 정보** 메뉴로 이동
+3. OAuth 2.0 클라이언트 ID 선택
+4. **승인된 리디렉션 URI** 섹션 확인
+
+**다음 URI가 등록되어 있어야 합니다:**
+```
+https://workless-production.up.railway.app/api/auth/callback/google
+```
+
+**등록되지 않은 경우:**
+1. **+ URI 추가** 버튼 클릭
+2. 위 URL을 정확히 입력
+3. **저장** 클릭
+
+**확인 방법:**
+- Railway 로그에서 다음 메시지 확인:
   ```
-  https://your-domain.com/api/auth/callback/google
+  📌 NEXTAUTH_URL: https://workless-production.up.railway.app
+  📌 예상 리디렉션 URI: https://workless-production.up.railway.app/api/auth/callback/google
   ```
 
 ---
