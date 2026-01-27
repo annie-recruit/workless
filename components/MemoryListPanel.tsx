@@ -24,6 +24,7 @@ export default function MemoryListPanel({
 }: MemoryListPanelProps) {
     const [activeTab, setActiveTab] = useState<'all' | 'memory' | 'block'>('all');
     const [searchQuery, setSearchQuery] = useState('');
+    const [visibleCount, setVisibleCount] = useState(30);
 
     const filteredItems = useMemo(() => {
         const query = searchQuery.toLowerCase().trim();
@@ -67,6 +68,15 @@ export default function MemoryListPanel({
             .sort((a, b) => b.createdAt - a.createdAt);
     }, [memories, blocks, activeTab, searchQuery]);
 
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const target = e.currentTarget;
+        if (target.scrollHeight - target.scrollTop <= target.clientHeight + 100) {
+            setVisibleCount(prev => Math.min(prev + 20, filteredItems.length));
+        }
+    };
+
+    const visibleItems = filteredItems.slice(0, visibleCount);
+
     return (
         <div className="fixed bottom-6 right-6 z-[9000] w-[400px] h-[500px] bg-white border-[3px] border-black flex flex-col overflow-hidden animate-slide-up font-galmuri11">
             {/* Header */}
@@ -87,21 +97,21 @@ export default function MemoryListPanel({
             <div className="p-3 border-b-[3px] border-black space-y-3 bg-white">
                 <div className="flex border-[2px] border-black">
                     <button
-                        onClick={() => setActiveTab('all')}
+                        onClick={() => { setActiveTab('all'); setVisibleCount(30); }}
                         className={`flex-1 py-1.5 text-xs font-medium transition-all border-r-[2px] border-black ${activeTab === 'all' ? 'bg-gradient-to-r from-orange-100 to-indigo-100 text-gray-900' : 'bg-white text-gray-500 hover:bg-gray-50'
                             }`}
                     >
                         전체 ({memories.length + blocks.length})
                     </button>
                     <button
-                        onClick={() => setActiveTab('memory')}
+                        onClick={() => { setActiveTab('memory'); setVisibleCount(30); }}
                         className={`flex-1 py-1.5 text-xs font-medium transition-all border-r-[2px] border-black ${activeTab === 'memory' ? 'bg-gradient-to-r from-orange-100 to-indigo-100 text-gray-900' : 'bg-white text-gray-500 hover:bg-gray-50'
                             }`}
                     >
                         기억 ({memories.length})
                     </button>
                     <button
-                        onClick={() => setActiveTab('block')}
+                        onClick={() => { setActiveTab('block'); setVisibleCount(30); }}
                         className={`flex-1 py-1.5 text-xs font-medium transition-all ${activeTab === 'block' ? 'bg-gradient-to-r from-orange-100 to-indigo-100 text-gray-900' : 'bg-white text-gray-500 hover:bg-gray-50'
                             }`}
                     >
@@ -113,7 +123,7 @@ export default function MemoryListPanel({
                         type="text"
                         placeholder="검색..."
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={(e) => { setSearchQuery(e.target.value); setVisibleCount(30); }}
                         className="w-full pl-9 pr-3 py-2 text-sm bg-white border-[2px] border-black focus:outline-none focus:border-indigo-500 transition-all"
                     />
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -123,15 +133,15 @@ export default function MemoryListPanel({
             </div>
 
             {/* List */}
-            <div className="flex-1 overflow-y-auto p-2 bg-gray-50">
-                {filteredItems.length === 0 ? (
+            <div className="flex-1 overflow-y-auto p-2 bg-gray-50" onScroll={handleScroll}>
+                {visibleItems.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2">
                         <PixelIcon name="search" size={32} className="opacity-20" />
                         <p className="text-xs">항목이 없습니다</p>
                     </div>
                 ) : (
                     <div className="space-y-2">
-                        {filteredItems.map((item) => (
+                        {visibleItems.map((item) => (
                             <div
                                 key={`${item.type}-${item.id}`}
                                 className="bg-white p-3 border-[2px] border-black hover:border-indigo-500 transition-all group flex items-start gap-3"

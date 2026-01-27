@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, useDeferredValue, forwardRef, useImperativeHandle } from 'react';
 import type { PointerEvent as ReactPointerEvent, FocusEvent as ReactFocusEvent } from 'react';
-import { Memory, Group, CanvasBlock, CalendarBlockConfig, ViewerBlockConfig, MeetingRecorderBlockConfig, DatabaseBlockConfig } from '@/types';
+import { Memory, Group, CanvasBlock, CalendarBlockConfig, ViewerBlockConfig, MeetingRecorderBlockConfig, DatabaseBlockConfig, ActionProject } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import LinkManager from './LinkManager';
@@ -17,6 +17,7 @@ import MemoryCard from './MemoryCard';
 import ShineHighlight from '@/src/components/highlight/ShineHighlight';
 import GroupToasts from './groups/GroupToasts';
 import { BOARD_PADDING, CARD_DIMENSIONS, sanitizeHtml, stripHtmlClient } from '@/board/boardUtils';
+import { ActionProjectCard } from './ActionProjectCard';
 import { useBoardSelection } from '@/hooks/useBoardSelection';
 import { useConnectionLayer } from '@/hooks/useConnectionLayer';
 import { useDragEngine, type DraggableEntity } from '@/hooks/useDragEngine';
@@ -263,6 +264,185 @@ function BlobLayer({
   );
 }
 
+// 픽셀 아트 스타일 연결선 레이어 (Canvas 기반)
+const PixelConnectionLayer = forwardRef(({
+  connectionPairs,
+  getLivePos,
+  cardSize,
+  boardSize,
+  isPaused,
+  isEnabled,
+  hoveredBlobId,
+  blobAreas,
+}: {
+  connectionPairs: any[];
+  getLivePos: (id: string) => { x: number; y: number } | undefined;
+  cardSize: 's' | 'm' | 'l';
+  boardSize: { width: number; height: number };
+  isPaused: boolean;
+  isEnabled: boolean;
+  hoveredBlobId: string | null;
+  blobAreas: any[];
+}, ref) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const requestRef = useRef<number | undefined>(undefined);
+
+  const renderOnce = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d', { alpha: true });
+    if (!ctx || !isEnabled) return;
+
+    const parent = canvas.parentElement;
+    if (parent) {
+      const dpr = window.devicePixelRatio || 1;
+      const boardW = boardSize.width;
+      const boardH = boardSize.height;
+
+      // 캔버스 물리 해상도 설정 (Retina 대응)
+      if (canvas.width !== boardW * dpr || canvas.height !== boardH * dpr) {
+        canvas.width = boardW * dpr;
+        canvas.height = boardH * dpr;
+        canvas.style.width = `${boardW}px`;
+        canvas.style.height = `${boardH}px`;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const PIXEL_SIZE = 4;
+
+    const drawPixelLine = (x1: number, y1: number, x2: number, y2: number, color: string, alpha: number) => {
+      let x1p = Math.floor(x1 / PIXEL_SIZE);
+      let y1p = Math.floor(y1 / PIXEL_SIZE);
+      const x2p = Math.floor(x2 / PIXEL_SIZE);
+      const y2p = Math.floor(y2 / PIXEL_SIZE);
+
+      const dx = Math.abs(x2p - x1p);
+      const dy = Math.abs(y2p - y1p);
+      const sx = x1p < x2p ? 1 : -1;
+      const sy = y1p < y2p ? 1 : -1;
+      let err = dx - dy;
+
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+
+      while (true) {
+        ctx.fillRect(x1p * PIXEL_SIZE, y1p * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+        if (x1p === x2p && y1p === y2p) break;
+        const e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x1p += sx; }
+        if (e2 < dx) { err += dx; y1p += sy; }
+      }
+    };
+
+    const drawArrowhead = (tx: number, ty: number, angle: number, color: string, alpha: number) => {
+      ctx.save();
+      const snapX = Math.floor(tx / PIXEL_SIZE) * PIXEL_SIZE;
+      const snapY = Math.floor(ty / PIXEL_SIZE) * PIXEL_SIZE;
+      ctx.translate(snapX, snapY);
+      ctx.rotate(angle);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+      const ps = PIXEL_SIZE;
+      ctx.fillRect(-ps, -ps / 2, ps, ps);
+      ctx.fillRect(-ps * 2, -ps, ps, ps * 2);
+      ctx.restore();
+    };
+
+    connectionPairs.forEach(pair => {
+      const from = getLivePos(pair.from);
+      const to = getLivePos(pair.to);
+      if (!from || !to) return;
+
+      const isInBlobGroup = blobAreas.some(blob =>
+        blob.memoryIds.includes(pair.from) && blob.memoryIds.includes(pair.to)
+      );
+
+      const offsetIndex = (pair as any).offsetIndex || 0;
+      const totalConnections = (pair as any).totalConnections || 1;
+      const lineOffset = totalConnections > 1 ? (offsetIndex - (totalConnections - 1) / 2) * 12 : 0;
+
+      const { centerX, centerY } = CARD_DIMENSIONS[cardSize];
+
+      // 시작점과 끝점은 절대 픽셀 스냅하지 않음 (카드 위치와 1:1 동기화)
+      const fromX = from.x + centerX;
+      const fromY = from.y + centerY;
+      const toX = to.x + centerX;
+      const toY = to.y + centerY;
+
+      const dx_full = toX - fromX;
+      const dy_full = toY - fromY;
+      const len = Math.max(1, Math.sqrt(dx_full * dx_full + dy_full * dy_full));
+      const perpX = -dy_full / (len || 1);
+      const perpY = dx_full / (len || 1);
+
+      const aFromX = fromX + perpX * lineOffset;
+      const aFromY = fromY + perpY * lineOffset;
+      const aToX = toX + perpX * lineOffset;
+      const aToY = toY + perpY * lineOffset;
+
+      const midX = (aFromX + aToX) / 2;
+      const midY = (aFromY + aToY) / 2;
+      const curveOffset = Math.min(45, len * 0.18);
+      const cx = midX - (dy_full / (len || 1)) * curveOffset;
+      const cy = midY + (dx_full / (len || 1)) * curveOffset;
+
+      const isLineHovered = hoveredBlobId && blobAreas.some(blob =>
+        blob.id === hoveredBlobId && blob.memoryIds.includes(pair.from) && blob.memoryIds.includes(pair.to)
+      );
+      const alpha = isInBlobGroup ? (isLineHovered ? 0.7 : 0.4) : 1.0;
+
+      const steps = Math.max(10, Math.floor(len / 8));
+      let lx = aFromX;
+      let ly = aFromY;
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const currX = (1 - t) * (1 - t) * aFromX + 2 * (1 - t) * t * cx + t * t * aToX;
+        const currY = (1 - t) * (1 - t) * aFromY + 2 * (1 - t) * t * cy + t * t * aToY;
+        drawPixelLine(lx, ly, currX, currY, pair.color, alpha);
+        lx = currX;
+        ly = currY;
+      }
+
+      if (!isInBlobGroup) {
+        const angle = Math.atan2(aToY - cy, aToX - cx);
+        drawArrowhead(aToX, aToY, angle, pair.color, alpha);
+      }
+    });
+  }, [connectionPairs, getLivePos, cardSize, boardSize, isEnabled, hoveredBlobId, blobAreas]);
+
+  useImperativeHandle(ref, () => ({
+    redraw: () => {
+      renderOnce();
+    }
+  }), [renderOnce]);
+
+  useEffect(() => {
+    let animationId: number | undefined;
+    const renderLoop = () => {
+      renderOnce();
+      if (!isPaused) {
+        animationId = requestAnimationFrame(renderLoop);
+      }
+    };
+    renderLoop();
+    return () => {
+      if (animationId) cancelAnimationFrame(animationId);
+    };
+  }, [isPaused, renderOnce]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 pointer-events-none"
+      style={{ zIndex: 1, opacity: isEnabled ? 1 : 0 }}
+    />
+  );
+});
+PixelConnectionLayer.displayName = 'PixelConnectionLayer';
+
 interface MemoryViewProps {
   memories: Memory[];
   onMemoryDeleted?: () => void;
@@ -407,6 +587,25 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     handleCancelGroup,
     handleConfirmGroup,
   } = useGroupsPanel({ selectedGroupId, setSelectedGroupId, setToast });
+
+  const [localProjects, setLocalProjects] = useState<ActionProject[]>([]);
+  const [projectPrompt, setProjectPrompt] = useState('');
+
+  // 프로젝트 데이터 불러오기
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch('/api/projects');
+        if (res.ok) {
+          const data = await res.json();
+          setLocalProjects(data.projects || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch projects:', error);
+      }
+    };
+    fetchProjects();
+  }, []);
 
   const [isHighlightMode, setIsHighlightMode] = useState(false);
   const isHighlightModeRef = useRef(false);
@@ -841,13 +1040,17 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const dragPositionRef = useRef<Record<string, { x: number; y: number }>>({});
 
   const connectionPairsArrayRef = useRef<Array<{ from: string; to: string; color: string; groupIndex?: number; offsetIndex?: number; totalConnections?: number; isAIGenerated?: boolean }>>([]);
-  const { connectionPathRefs, getLivePos, updateConnectionPaths } = useConnectionLayer({
+  const { connectionPathRefs, connectionLabelRefs, getLivePos, updateConnectionPaths } = useConnectionLayer({
     positions,
     positionsRef,
     dragPositionRef,
     cardSize,
     connectionPairsArrayRef,
+    projects: localProjects,
   });
+
+  // 픽셀 연결선 레이어 제어용 ref
+  const pixelLayerRef = useRef<{ redraw: () => void }>(null);
 
   useEffect(() => {
     selectionBoxRef.current = selectionBox;
@@ -1084,7 +1287,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     if (filteredMemories.length === 0) return [];
 
     // 뷰포트 경계 계산 (여유 공간 추가)
-    const padding = 200; // 카드가 완전히 사라지기 전에 미리 렌더링
+    const padding = 200;
     const viewLeft = viewportBounds.left - padding;
     const viewTop = viewportBounds.top - padding;
     const viewRight = viewportBounds.left + viewportBounds.width + padding;
@@ -1099,7 +1302,6 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       const cardTop = position.y;
       const cardBottom = position.y + cardDims.height;
 
-      // 뷰포트와 겹치는지 확인
       return !(cardRight < viewLeft || cardLeft > viewRight || cardBottom < viewTop || cardTop > viewBottom);
     });
   }, [filteredMemories, positions, viewportBounds, cardSize]);
@@ -1254,6 +1456,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     setIsSelecting,
   });
 
+
+
   useDragEngine({
     draggingEntity,
     boardRef,
@@ -1262,6 +1466,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     dragOffset,
     blocks,
     localMemories,
+    localProjects,
     positionsRef,
     dragStartPositionsRef,
     selectedMemoryIdsRef,
@@ -1272,11 +1477,13 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     handleBlockUpdate,
     setBlocks,
     setPositions,
+    setLocalProjects,
     setDraggingEntity,
     isSelecting,
     setIsSelecting,
     setSelectionBox,
     updateConnectionPaths,
+    pixelLayerRef,
   });
 
   const handleAutoArrange = async () => {
@@ -2244,6 +2451,16 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 </button>
 
                 <button
+                  onClick={() => setToast({ type: 'confirm', data: { type: 'create-project' } })}
+                  disabled={selectedMemoryIds.size === 0}
+                  className="px-2 py-1 text-xs rounded border-2 border-indigo-500 bg-indigo-50 text-indigo-700 font-bold hover:bg-indigo-100 disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed flex items-center gap-1 transition-all"
+                  title={selectedMemoryIds.size === 0 ? "기억들을 선택한 후 프로젝트를 생성하세요" : "선택한 기억들로 실천 계획 생성"}
+                >
+                  <PixelIcon name="success" size={16} className="text-indigo-600" />
+                  <span>액션프로젝트</span>
+                </button>
+
+                <button
                   onClick={() => setIsHighlightMode((prev) => !prev)}
                   className={`px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 flex items-center gap-1 ${isHighlightMode ? 'text-indigo-700' : 'text-gray-700'
                     }`}
@@ -2918,134 +3135,49 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 })}
 
                 {connectionPairsArray.length > 0 && (
-                  <svg
-                    className="absolute inset-0 pointer-events-none"
-                    width={boardSize.width}
-                    height={boardSize.height}
-                    style={{ zIndex: 1 }}
-                  >
-                    <defs>
-                      {/* 각 색상별 화살표 마커 생성 (색상별로 하나만) */}
-                      {Array.from(new Set(connectionPairsArray.map(pair => pair.color))).map((color) => {
-                        const markerId = `arrowhead-${color.replace('#', '')}`;
-                        return (
-                          <marker
-                            key={markerId}
-                            id={markerId}
-                            markerWidth="10"
-                            markerHeight="10"
-                            refX="8"
-                            refY="3"
-                            orient="auto"
-                            markerUnits="strokeWidth"
+                  <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
+                    {/* 선 자체는 Canvas 레이어로 이동하고, 텍스트 라벨만 SVG로 유지 가능 */}
+                    <svg
+                      className="absolute inset-0 pointer-events-none"
+                      width={boardSize.width}
+                      height={boardSize.height}
+                    >
+                      {connectionPairsArray.map(pair => {
+                        const from = getLivePos(pair.from);
+                        const to = getLivePos(pair.to);
+                        if (!from || !to) return null;
+
+                        const dx = to.x - from.x;
+                        const dy = to.y - from.y;
+                        const len = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+                        const midX = (from.x + to.x) / 2 + CARD_DIMENSIONS[cardSize].centerX;
+                        const midY = (from.y + to.y) / 2 + CARD_DIMENSIONS[cardSize].centerY;
+                        const curveOffset = Math.min(45, len * 0.18);
+                        const cx = midX - (dy / len) * curveOffset;
+                        const cy = midY + (dx / len) * curveOffset;
+
+                        const linkKey = getLinkKey(pair.from, pair.to);
+                        const note = linkNotes[linkKey];
+                        const pathKey = `${pair.from}-${pair.to}-${(pair as any).offsetIndex || 0}`;
+
+                        return note ? (
+                          <text
+                            key={`text-${pathKey}`}
+                            data-connection-label-key={pathKey}
+                            x={cx}
+                            y={cy - 6}
+                            textAnchor="middle"
+                            fill="#475569"
+                            fontSize="11"
+                            fontWeight="500"
+                            style={{ userSelect: 'none' }}
                           >
-                            <path d="M0,0 L0,6 L9,3 z" fill={color} />
-                          </marker>
-                        );
+                            {note.length > 18 ? `${note.slice(0, 18)}...` : note}
+                          </text>
+                        ) : null;
                       })}
-                    </defs>
-                    {connectionPairsArray.map(pair => {
-                      // 라이브 좌표 사용: 드래그 중이면 dragPositionRef에서, 아니면 positions에서
-                      const from = getLivePos(pair.from);
-                      const to = getLivePos(pair.to);
-                      if (!from || !to) {
-                        console.log('⚠️ 연결선 위치 없음:', pair, { from, to });
-                        return null;
-                      }
-
-                      // 면이 생긴 그룹 내부의 선인지 확인 (면이 주인공, 선은 힌트)
-                      const isInBlobGroup = blobAreas.some(blob =>
-                        blob.memoryIds.includes(pair.from) && blob.memoryIds.includes(pair.to)
-                      );
-
-                      // 같은 두 카드 사이의 여러 연결선을 병렬로 표시하기 위한 오프셋 계산
-                      const offsetIndex = (pair as any).offsetIndex || 0;
-                      const totalConnections = (pair as any).totalConnections || 1;
-                      // 여러 연결이 있으면 병렬로 표시 (간격 12px)
-                      const lineOffset = totalConnections > 1 ? (offsetIndex - (totalConnections - 1) / 2) * 12 : 0;
-
-                      const fromX = from.x + CARD_DIMENSIONS[cardSize].centerX;
-                      const fromY = from.y + CARD_DIMENSIONS[cardSize].centerY;
-                      const toX = to.x + CARD_DIMENSIONS[cardSize].centerX;
-                      const toY = to.y + CARD_DIMENSIONS[cardSize].centerY;
-
-                      // 오프셋 적용 (수직 방향으로 약간 이동)
-                      const dx = toX - fromX;
-                      const dy = toY - fromY;
-                      const len = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-                      const perpX = -dy / len;
-                      const perpY = dx / len;
-
-                      const adjustedFromX = fromX + perpX * lineOffset;
-                      const adjustedFromY = fromY + perpY * lineOffset;
-                      const adjustedToX = toX + perpX * lineOffset;
-                      const adjustedToY = toY + perpY * lineOffset;
-
-                      const midX = (adjustedFromX + adjustedToX) / 2;
-                      const midY = (adjustedFromY + adjustedToY) / 2;
-                      const offset = 40;
-                      const cx = midX - (dy / len) * offset;
-                      const cy = midY + (dx / len) * offset;
-
-                      const linkKey = getLinkKey(pair.from, pair.to);
-                      const note = linkNotes[linkKey];
-                      // pair에 이미 isAIGenerated 정보가 있으면 사용, 없으면 linkInfo에서 가져오기
-                      const isAIGenerated = (pair as any).isAIGenerated !== undefined
-                        ? (pair as any).isAIGenerated
-                        : (linkInfo[linkKey]?.isAIGenerated || false);
-                      const markerId = `arrowhead-${pair.color.replace('#', '')}`;
-
-                      // 면이 생긴 그룹의 선은 더 약하게 (면이 주인공, 선은 힌트)
-                      // hover 시에만 선을 다시 진하게 보이게
-                      const isLineHovered = hoveredBlobId && blobAreas.some(blob =>
-                        blob.id === hoveredBlobId && blob.memoryIds.includes(pair.from) && blob.memoryIds.includes(pair.to)
-                      );
-                      const lineOpacity = isInBlobGroup
-                        ? (isLineHovered ? 0.5 : 0.2) // 기본 0.2, hover 시 0.5
-                        : 0.9;
-                      const lineWidth = isInBlobGroup ? 2 : 3;
-
-                      const pathKey = `${pair.from}-${pair.to}-${offsetIndex}`;
-
-                      return (
-                        <g key={pathKey}>
-                          <path
-                            ref={(el) => {
-                              if (el) {
-                                connectionPathRefs.current.set(pathKey, el);
-                              } else {
-                                connectionPathRefs.current.delete(pathKey);
-                              }
-                            }}
-                            data-connection-key={pathKey}
-                            d={`M ${adjustedFromX} ${adjustedFromY} Q ${cx} ${cy} ${adjustedToX} ${adjustedToY}`}
-                            stroke={pair.color}
-                            strokeWidth={lineWidth}
-                            strokeDasharray={isAIGenerated ? '5,5' : 'none'}  // AI 연결은 점선
-                            fill="none"
-                            markerEnd={isInBlobGroup ? undefined : `url(#${markerId})`}
-                            opacity={lineOpacity}
-                            style={{
-                              transition: 'opacity 0.3s ease-out, stroke-width 0.3s ease-out',
-                            }}
-                          />
-                          {note && (
-                            <text
-                              x={cx}
-                              y={cy - 6}
-                              textAnchor="middle"
-                              fill="#475569"
-                              fontSize="11"
-                              fontWeight="500"
-                              style={{ userSelect: 'none' }}
-                            >
-                              {note.length > 18 ? `${note.slice(0, 18)}...` : note}
-                            </text>
-                          )}
-                        </g>
-                      );
-                    })}
-                  </svg>
+                    </svg>
+                  </div>
                 )}
 
                 {/* 드래그 선택 박스 */}
@@ -3077,7 +3209,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 {selectedMemoryIds.size > 0 && (
                   <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-indigo-500 text-white px-4 py-2 border border-indigo-600 flex items-center gap-2 z-30">
                     <span className="text-sm font-medium">
-                      {selectedMemoryIds.size}개 카드 선택됨 (드래그 또는 Ctrl/Cmd + 클릭으로 선택)
+                      {selectedMemoryIds.size}개 카드 선택됨
                     </span>
                     <button
                       onClick={() => setSelectedMemoryIds(new Set())}
@@ -3420,6 +3552,75 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   );
                 })}
 
+                {/* 액션 프로젝트 카드들 */}
+                {localProjects.map((project) => {
+                  const isDragging = draggingEntity?.type === 'project' && draggingEntity.id === project.id;
+
+                  return (
+                    <div
+                      key={project.id}
+                      data-project-card={project.id}
+                      style={{
+                        transform: `translate3d(${project.x}px, ${project.y}px, 0)`,
+                        zIndex: isDragging ? 10000 : 50,
+                      }}
+                      className="absolute cursor-grab active:cursor-grabbing"
+                      onPointerDown={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (
+                          target.closest('button') ||
+                          target.closest('input') ||
+                          target.closest('textarea') ||
+                          target.closest('[data-interactive="true"]')
+                        ) return;
+
+                        if (!boardRef.current) return;
+                        e.preventDefault();
+                        const rect = boardRef.current.getBoundingClientRect();
+                        const scale = zoomRef.current;
+
+                        setDraggingEntity({ type: 'project', id: project.id });
+                        setDragOffset({
+                          x: (e.clientX - rect.left) / scale - project.x,
+                          y: (e.clientY - rect.top) / scale - project.y,
+                        });
+                        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                      }}
+                    >
+                      <ActionProjectCard
+                        project={project}
+                        isDragging={isDragging}
+                        onUpdate={(id, updates) => {
+                          setLocalProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+                          fetch('/api/projects', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id, ...updates }),
+                          }).catch(err => console.error(err));
+                        }}
+                        onDelete={async (id) => {
+                          if (confirm('프로젝트를 삭제하시겠습니까?')) {
+                            setLocalProjects(prev => prev.filter(p => p.id !== id));
+                            await fetch(`/api/projects?id=${id}`, { method: 'DELETE' });
+                          }
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+
+                <PixelConnectionLayer
+                  ref={pixelLayerRef}
+                  connectionPairs={connectionPairsArray}
+                  getLivePos={getLivePos}
+                  cardSize={cardSize}
+                  boardSize={boardSize}
+                  isPaused={!draggingEntity && hoveredBlobId === null}
+                  isEnabled={true}
+                  hoveredBlobId={hoveredBlobId}
+                  blobAreas={blobAreas}
+                />
+
                 <BlobLayer
                   blobAreas={blobAreas}
                   hoveredBlobId={hoveredBlobId}
@@ -3634,6 +3835,80 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         </div>
       )}
 
+      {toast.type === 'confirm' && toast.data?.type === 'create-project' && (
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
+          <div className="bg-white border-4 border-gray-800 p-6 min-w-[400px] shadow-[12px_12px_0px_0px_rgba(0,0,0,0.1)]">
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-12 h-12 bg-indigo-100 border-2 border-indigo-600 flex items-center justify-center text-2xl">
+                🚀
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-black text-gray-900 mb-1 uppercase tracking-tight">액션 프로젝트 생성</h3>
+                <p className="text-sm text-gray-600 font-medium">선택한 {selectedMemoryIds.size}개의 기록을 바탕으로 계획을 세웁니다.</p>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-xs font-black text-gray-500 mb-1.5 uppercase tracking-widest">
+                어떤 프로젝트를 생성할까요?
+              </label>
+              <textarea
+                value={projectPrompt}
+                onChange={(e) => setProjectPrompt(e.target.value)}
+                placeholder="예: 안티 그라비티 학습 프로젝트, 2주 습관 만들기 등"
+                className="w-full h-24 p-3 bg-gray-50 border-2 border-gray-800 text-sm font-medium focus:ring-0 focus:border-indigo-500 transition-colors resize-none"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setToast({ type: null });
+                  setProjectPrompt('');
+                }}
+                className="flex-1 px-4 py-3 text-sm font-black border-2 border-gray-800 hover:bg-gray-100 transition-colors uppercase tracking-widest"
+              >
+                취소
+              </button>
+              <button
+                disabled={!projectPrompt.trim()}
+                onClick={async () => {
+                  try {
+                    setToast({ type: 'loading', data: { message: 'AI가 실천 계획을 세우는 중...' } });
+
+                    const res = await fetch('/api/projects', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        sourceMemoryIds: Array.from(selectedMemoryIds),
+                        userPrompt: projectPrompt,
+                        x: 100, // TODO: 중앙 정렬 또는 적절한 위치
+                        y: 100,
+                        color: 'indigo'
+                      }),
+                    });
+
+                    if (res.ok) {
+                      const data = await res.json();
+                      setLocalProjects(prev => [data.project, ...prev]);
+                      setToast({ type: 'success', data: { message: '액션 프로젝트가 생성되었습니다!' } });
+                      setSelectedMemoryIds(new Set());
+                      setProjectPrompt('');
+                    } else {
+                      setToast({ type: 'error', data: { message: '프로젝트 생성 실패' } });
+                    }
+                  } catch (error) {
+                    setToast({ type: 'error', data: { message: '오류가 발생했습니다' } });
+                  }
+                }}
+                className="flex-1 px-4 py-3 text-sm font-black bg-indigo-500 text-white border-2 border-gray-800 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors uppercase tracking-widest"
+              >
+                프로젝트 생성
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast.type === 'error' && (
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">

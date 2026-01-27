@@ -113,6 +113,37 @@ export interface Goal {
   completedAt?: number;
 }
 
+// 프로젝트 액션 단위
+export interface ProjectAction {
+  id: string;
+  text: string;
+  duration?: string;      // 예상 소요 시간 (예: "1h", "30m")
+  completed: boolean;
+}
+
+// 프로젝트 마일스톤 (단계별 묶음)
+export interface ProjectMilestone {
+  id: string;
+  title: string;          // 단계 제목 (예: "1단계: 준비")
+  actions: ProjectAction[];
+}
+
+// 액션 프로젝트 (특수 카드)
+export interface ActionProject {
+  id: string;
+  userId: string;
+  title: string;            // AI가 생성한 제목
+  summary: string;          // 프로젝트 요약 설명
+  expectedDuration: string;  // 전체 예상 기간 (예: "20day plan")
+  milestones: ProjectMilestone[];
+  sourceMemoryIds: string[]; // 근거가 된 기억들
+  x: number;
+  y: number;
+  color: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 // AI 분류 결과
 export interface AIClassification {
   topic: string;

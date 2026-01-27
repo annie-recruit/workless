@@ -323,13 +323,8 @@ const MemoryCard = memo(
           if (isEditing) return;
           onDragEnd?.();
         }}
-        className={`group relative p-2 border-[3px] border-black rounded-lg transition-all scroll-mt-4 h-full flex flex-col ${isEditing ? 'cursor-default' : 'cursor-move'
-          } ${cardClassName} ${isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''}`}
-        style={
-          isHighlighted
-            ? { backgroundImage: 'linear-gradient(rgba(99, 102, 241, 0.06), rgba(99, 102, 241, 0.06))' }
-            : undefined
-        }
+        className={`group relative p-5 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] transition-all scroll-mt-4 h-full flex flex-col ${isEditing ? 'cursor-default' : 'cursor-move'
+          } ${cardClassName} ${isHighlighted ? 'ring-4 ring-indigo-400 ring-offset-2' : ''}`}
         onPointerDown={(e) => {
           if (isEditing) {
             // 편집 모드에서는 드래그 시작 방지
@@ -337,6 +332,11 @@ const MemoryCard = memo(
           }
         }}
       >
+        {/* 장식용 코너 포인트 */}
+        <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
+        <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
+        <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
+        <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
         {/* 드래그 아이콘 */}
         <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-30 transition-opacity pointer-events-none">
           <svg
@@ -923,7 +923,8 @@ const MemoryCard = memo(
       prevProps.colorClass === nextProps.colorClass &&
       prevProps.variant === nextProps.variant &&
       prevProps.personaId === nextProps.personaId &&
-      JSON.stringify(prevProps.linkNotes) === JSON.stringify(nextProps.linkNotes)
+      prevProps.isHighlighted === nextProps.isHighlighted &&
+      Object.keys(prevProps.linkNotes || {}).length === Object.keys(nextProps.linkNotes || {}).length
     );
   }
 );

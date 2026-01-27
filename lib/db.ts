@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { Memory, Cluster, Attachment, Group, Goal, CanvasBlock, IngestItem } from '@/types';
+import { Memory, Cluster, Attachment, Group, Goal, CanvasBlock, IngestItem, ActionProject } from '@/types';
 import { nanoid } from 'nanoid';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
@@ -142,6 +142,21 @@ db.exec(`
     isAIGenerated INTEGER NOT NULL DEFAULT 0,
     updatedAt INTEGER NOT NULL,
     PRIMARY KEY (userId, memoryId1, memoryId2)
+  );
+
+  CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    title TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    expectedDuration TEXT NOT NULL,
+    milestones TEXT NOT NULL,
+    sourceMemoryIds TEXT NOT NULL,
+    x REAL NOT NULL,
+    y REAL NOT NULL,
+    color TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL
   );
 
   CREATE TABLE IF NOT EXISTS personas (
@@ -1295,6 +1310,100 @@ export const boardBlocksDb = {
   delete(id: string, userId: string): void {
     const stmt = db.prepare('DELETE FROM board_blocks WHERE id = ? AND userId = ?');
     stmt.run(id, userId);
+  },
+};
+
+// Action Project CRUD
+export const projectDb = {
+  // 생성
+  create(userId: string, project: Omit<ActionProject, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): ActionProject {
+    const id = nanoid();
+    const now = Date.now();
+    const newProject: ActionProject = {
+      id,
+      userId,
+      ...project,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const stmt = db.prepare(`
+      INSERT INTO projects (id, userId, title, summary, expectedDuration, milestones, sourceMemoryIds, x, y, color, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      id,
+      userId,
+      project.title,
+      project.summary,
+      project.expectedDuration,
+      JSON.stringify(project.milestones),
+      JSON.stringify(project.sourceMemoryIds),
+      project.x,
+      project.y,
+      project.color,
+      now,
+      now
+    );
+
+    return newProject;
+  },
+
+  // 모든 프로젝트 조회
+  getAll(userId: string): ActionProject[] {
+    const stmt = db.prepare('SELECT * FROM projects WHERE userId = ? ORDER BY createdAt DESC');
+    const rows = stmt.all(userId) as any[];
+    return rows.map(row => this.parseRow(row));
+  },
+
+  // ID로 조회
+  getById(id: string, userId: string): ActionProject | null {
+    const stmt = db.prepare('SELECT * FROM projects WHERE id = ? AND userId = ?');
+    const row = stmt.get(id, userId) as any;
+    if (!row) return null;
+    return this.parseRow(row);
+  },
+
+  // 업데이트
+  update(id: string, userId: string, updates: Partial<Omit<ActionProject, 'id' | 'userId' | 'createdAt'>>): void {
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (key !== 'id' && key !== 'userId' && key !== 'createdAt') {
+        fields.push(`${key} = ?`);
+        if (key === 'milestones' || key === 'sourceMemoryIds') {
+          values.push(JSON.stringify(value));
+        } else {
+          values.push(value);
+        }
+      }
+    });
+
+    if (fields.length === 0) return;
+
+    fields.push('updatedAt = ?');
+    values.push(Date.now());
+    values.push(id, userId);
+
+    const stmt = db.prepare(`UPDATE projects SET ${fields.join(', ')} WHERE id = ? AND userId = ?`);
+    stmt.run(...values);
+  },
+
+  // 삭제
+  delete(id: string, userId: string): void {
+    const stmt = db.prepare('DELETE FROM projects WHERE id = ? AND userId = ?');
+    stmt.run(id, userId);
+  },
+
+  // 헬퍼: row 파싱
+  parseRow(row: any): ActionProject {
+    return {
+      ...row,
+      milestones: JSON.parse(row.milestones),
+      sourceMemoryIds: JSON.parse(row.sourceMemoryIds),
+    };
   },
 };
 
