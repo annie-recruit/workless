@@ -1,6 +1,5 @@
 'use client';
 
-import type { Metadata } from "next";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -14,9 +13,27 @@ export default function LandingPage() {
   // 로그인한 사용자는 대시보드로 리디렉션
   useEffect(() => {
     if (status === 'authenticated' && session) {
-      router.push('/dashboard');
+      router.replace('/dashboard');
+      return;
     }
   }, [status, session, router]);
+
+  // 로딩 중이거나 이미 로그인한 경우 로딩 화면 표시
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 로그인한 사용자는 리디렉션 중이므로 아무것도 표시하지 않음
+  if (status === 'authenticated' && session) {
+    return null;
+  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-indigo-50">
       {/* 헤더 */}
