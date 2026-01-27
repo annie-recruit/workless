@@ -49,12 +49,23 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <Link
-                href="/privacy"
-                className="text-white/90 hover:text-white text-sm underline transition-colors"
-              >
-                개인정보처리방침
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/privacy"
+                  className="text-white hover:text-white/80 text-sm font-medium underline transition-colors"
+                  title="개인정보처리방침"
+                >
+                  개인정보처리방침
+                </Link>
+                <span className="text-white/60">|</span>
+                <Link
+                  href="/terms"
+                  className="text-white hover:text-white/80 text-sm font-medium underline transition-colors"
+                  title="서비스 약관"
+                >
+                  서비스 약관
+                </Link>
+              </div>
               <Link
                 href="/auth/signin"
                 className="px-6 py-3 bg-white text-indigo-600 font-bold rounded-lg hover:bg-indigo-50 transition-colors shadow-lg"
@@ -84,17 +95,17 @@ export default function LandingPage() {
             >
               Google 계정으로 시작하기
             </Link>
-            <p className="text-sm text-gray-600">
-              시작하기 전에{" "}
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span>시작하기 전에</span>
               <Link href="/privacy" className="text-indigo-600 hover:text-indigo-800 font-semibold underline">
                 개인정보처리방침
               </Link>
-              {" "}및{" "}
+              <span>및</span>
               <Link href="/terms" className="text-indigo-600 hover:text-indigo-800 font-semibold underline">
                 서비스 약관
               </Link>
-              을 확인하세요.
-            </p>
+              <span>을 확인하세요.</span>
+            </div>
           </div>
         </section>
 
