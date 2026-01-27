@@ -28,6 +28,7 @@ import { useBoardFlags } from '@/hooks/flags/useBoardFlags';
 import { useBoardBlocks } from '@/hooks/blocks/useBoardBlocks';
 import WidgetMenuBar from './WidgetMenuBar';
 import WidgetCreateButton from './WidgetCreateButton';
+import { GmailImportButton } from './GmailImportButton';
 
 // 큰 컴포넌트들을 동적 import로 로드 (초기 번들 크기 감소)
 const CalendarBlock = dynamic(() => import('./CalendarBlock'), {
@@ -2415,6 +2416,16 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 >
                   {isAutoArranging ? '배열 중...' : '맞춤 배열'}
                 </button>
+
+                <GmailImportButton 
+                  onImportComplete={(count) => {
+                    console.log(`Gmail에서 ${count}개의 이메일을 가져왔습니다.`);
+                    // 메모리 새로고침은 부모에서 처리
+                    if (onMemoryDeleted) {
+                      onMemoryDeleted();
+                    }
+                  }}
+                />
 
                 <WidgetCreateButton
                   isOpen={isWidgetMenuOpen}
