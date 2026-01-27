@@ -93,11 +93,20 @@ export function useConnectionLayer(params: {
         const toPos = getLivePos(pair.to);
         if (!fromPos || !toPos) return;
 
-        const { centerX, centerY } = CARD_DIMENSIONS[cardSize];
-        const fromX = fromPos.x + centerX;
-        const fromY = fromPos.y + centerY;
-        const toX = toPos.x + centerX;
-        const toY = toPos.y + centerY;
+        // 엔티티 타입별 중심점 계산
+        const getDimensions = (id: string) => {
+          const project = projects?.find(p => p.id === id);
+          if (project) return { centerX: 180, centerY: 60 };
+          return CARD_DIMENSIONS[cardSize];
+        };
+
+        const fromDim = getDimensions(pair.from);
+        const toDim = getDimensions(pair.to);
+
+        const fromX = fromPos.x + fromDim.centerX;
+        const fromY = fromPos.y + fromDim.centerY;
+        const toX = toPos.x + toDim.centerX;
+        const toY = toPos.y + toDim.centerY;
 
         const dx = toX - fromX;
         const dy = toY - fromY;
@@ -117,8 +126,7 @@ export function useConnectionLayer(params: {
         const midX = (adjustedFromX + adjustedToX) / 2;
         const midY = (adjustedFromY + adjustedToY) / 2;
 
-        // PixelConnectionLayer와 일치시킴: curveOffset = Math.min(45, len * 0.18)
-        const curveOffset = Math.min(45, len * 0.18);
+        const curveOffset = Math.min(80, len * 0.25);
         const cx = midX - (dy / len) * curveOffset;
         const cy = midY + (dx / len) * curveOffset;
 
@@ -132,7 +140,7 @@ export function useConnectionLayer(params: {
         }
       });
     },
-    [cardSize, connectionPairsArrayRef, connectionPathRefs, connectionLabelRefs, dragPositionRef, getLivePos]
+    [cardSize, connectionPairsArrayRef, connectionPathRefs, connectionLabelRefs, dragPositionRef, getLivePos, projects]
   );
 
   return { connectionPathRefs, connectionLabelRefs, getLivePos, updateConnectionPaths };

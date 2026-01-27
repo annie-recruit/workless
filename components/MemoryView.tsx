@@ -274,6 +274,7 @@ const PixelConnectionLayer = forwardRef(({
   isEnabled,
   hoveredBlobId,
   blobAreas,
+  projects = [],
 }: {
   connectionPairs: any[];
   getLivePos: (id: string) => { x: number; y: number } | undefined;
@@ -283,6 +284,7 @@ const PixelConnectionLayer = forwardRef(({
   isEnabled: boolean;
   hoveredBlobId: string | null;
   blobAreas: any[];
+  projects?: ActionProject[];
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number | undefined>(undefined);
@@ -311,13 +313,15 @@ const PixelConnectionLayer = forwardRef(({
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const PIXEL_SIZE = 4;
+    // 연결선 전용 픽셀 크기 (더 세밀하게 표현)
+    const LINE_PIXEL_SIZE = 2;
+    const ARROW_PIXEL_SIZE = 4;
 
     const drawPixelLine = (x1: number, y1: number, x2: number, y2: number, color: string, alpha: number) => {
-      let x1p = Math.floor(x1 / PIXEL_SIZE);
-      let y1p = Math.floor(y1 / PIXEL_SIZE);
-      const x2p = Math.floor(x2 / PIXEL_SIZE);
-      const y2p = Math.floor(y2 / PIXEL_SIZE);
+      let x1p = Math.round(x1 / LINE_PIXEL_SIZE);
+      let y1p = Math.round(y1 / LINE_PIXEL_SIZE);
+      const x2p = Math.round(x2 / LINE_PIXEL_SIZE);
+      const y2p = Math.round(y2 / LINE_PIXEL_SIZE);
 
       const dx = Math.abs(x2p - x1p);
       const dy = Math.abs(y2p - y1p);
@@ -329,7 +333,7 @@ const PixelConnectionLayer = forwardRef(({
       ctx.fillStyle = color;
 
       while (true) {
-        ctx.fillRect(x1p * PIXEL_SIZE, y1p * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+        ctx.fillRect(x1p * LINE_PIXEL_SIZE, y1p * LINE_PIXEL_SIZE, LINE_PIXEL_SIZE, LINE_PIXEL_SIZE);
         if (x1p === x2p && y1p === y2p) break;
         const e2 = 2 * err;
         if (e2 > -dy) { err -= dy; x1p += sx; }
@@ -339,13 +343,13 @@ const PixelConnectionLayer = forwardRef(({
 
     const drawArrowhead = (tx: number, ty: number, angle: number, color: string, alpha: number) => {
       ctx.save();
-      const snapX = Math.floor(tx / PIXEL_SIZE) * PIXEL_SIZE;
-      const snapY = Math.floor(ty / PIXEL_SIZE) * PIXEL_SIZE;
+      const ps = ARROW_PIXEL_SIZE;
+      const snapX = Math.round(tx / ps) * ps;
+      const snapY = Math.round(ty / ps) * ps;
       ctx.translate(snapX, snapY);
       ctx.rotate(angle);
       ctx.globalAlpha = alpha;
       ctx.fillStyle = color;
-      const ps = PIXEL_SIZE;
       ctx.fillRect(-ps, -ps / 2, ps, ps);
       ctx.fillRect(-ps * 2, -ps, ps, ps * 2);
       ctx.restore();
@@ -364,13 +368,21 @@ const PixelConnectionLayer = forwardRef(({
       const totalConnections = (pair as any).totalConnections || 1;
       const lineOffset = totalConnections > 1 ? (offsetIndex - (totalConnections - 1) / 2) * 12 : 0;
 
-      const { centerX, centerY } = CARD_DIMENSIONS[cardSize];
+      // 엔티티 타입별 중심점 계산
+      const getDimensions = (id: string) => {
+        const project = projects.find(p => p.id === id);
+        if (project) return { centerX: 180, centerY: 60 }; // 360/2, 상단 타이틀 부근
+        return CARD_DIMENSIONS[cardSize];
+      };
+
+      const fromDim = getDimensions(pair.from);
+      const toDim = getDimensions(pair.to);
 
       // 시작점과 끝점은 절대 픽셀 스냅하지 않음 (카드 위치와 1:1 동기화)
-      const fromX = from.x + centerX;
-      const fromY = from.y + centerY;
-      const toX = to.x + centerX;
-      const toY = to.y + centerY;
+      const fromX = from.x + fromDim.centerX;
+      const fromY = from.y + fromDim.centerY;
+      const toX = to.x + toDim.centerX;
+      const toY = to.y + toDim.centerY;
 
       const dx_full = toX - fromX;
       const dy_full = toY - fromY;
@@ -385,7 +397,8 @@ const PixelConnectionLayer = forwardRef(({
 
       const midX = (aFromX + aToX) / 2;
       const midY = (aFromY + aToY) / 2;
-      const curveOffset = Math.min(45, len * 0.18);
+      // 곡률 강화: 더 유려한 곡선 표현
+      const curveOffset = Math.min(80, len * 0.25);
       const cx = midX - (dy_full / (len || 1)) * curveOffset;
       const cy = midY + (dx_full / (len || 1)) * curveOffset;
 
@@ -411,7 +424,7 @@ const PixelConnectionLayer = forwardRef(({
         drawArrowhead(aToX, aToY, angle, pair.color, alpha);
       }
     });
-  }, [connectionPairs, getLivePos, cardSize, boardSize, isEnabled, hoveredBlobId, blobAreas]);
+  }, [connectionPairs, getLivePos, cardSize, boardSize, isEnabled, hoveredBlobId, blobAreas, projects]);
 
   useImperativeHandle(ref, () => ({
     redraw: () => {
@@ -3619,6 +3632,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   isEnabled={true}
                   hoveredBlobId={hoveredBlobId}
                   blobAreas={blobAreas}
+                  projects={localProjects}
                 />
 
                 <BlobLayer
