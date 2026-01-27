@@ -29,6 +29,7 @@ import { useBoardBlocks } from '@/hooks/blocks/useBoardBlocks';
 import WidgetMenuBar from './WidgetMenuBar';
 import WidgetCreateButton from './WidgetCreateButton';
 import { GmailImportButton } from './GmailImportButton';
+import OnboardingWhiteboard from './OnboardingWhiteboard';
 
 // 큰 컴포넌트들을 동적 import로 로드 (초기 번들 크기 감소)
 const CalendarBlock = dynamic(() => import('./CalendarBlock'), {
@@ -1824,8 +1825,20 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
   if (memories.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-400">
-        아직 기억이 없습니다
+      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-orange-50">
+        <div className="w-full max-w-5xl mx-auto px-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-800 mb-2">
+              환영합니다! 🎉
+            </h2>
+            <p className="text-gray-600">
+              첫 기억을 입력하거나 아래에서 연습해보세요
+            </p>
+          </div>
+          <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+            <OnboardingWhiteboard />
+          </div>
+        </div>
       </div>
     );
   }
