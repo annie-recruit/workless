@@ -7,7 +7,7 @@ aptPkgs = [
   "libcups2t64", 
   "libgbm1", 
   "libasound2t64", 
-  "libpangocairo-1.0-0t64", 
+  "libpangocairo-1.0-0", 
   "libxss1", 
   "libgtk-3-0t64", 
   "libxshmfence1", 
