@@ -1,22 +1,13 @@
-'use client';
-
 import type { Metadata } from "next";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import PixelIcon from "@/components/PixelIcon";
 
-export default function LandingPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
+export const metadata: Metadata = {
+  title: "Workless - 사고의 흐름을 보는 비정형 워크스페이스",
+  description: "Workless는 Gmail 연동을 통해 이메일을 자동으로 메모로 변환하고, 무한 캔버스에서 아이디어를 자유롭게 배치하고 연결할 수 있는 개인 비서입니다.",
+};
 
-  // 로그인한 사용자는 대시보드로 리디렉션
-  useEffect(() => {
-    if (status === 'authenticated' && session) {
-      router.push('/dashboard');
-    }
-  }, [status, session, router]);
+export default function LandingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-indigo-50">
       {/* 헤더 */}

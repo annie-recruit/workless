@@ -38,7 +38,7 @@ export default function SignInPage() {
 
           <div className="flex justify-center">
             <button
-              onClick={() => signIn('google', { callbackUrl: '/' })}
+              onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
               className="group relative w-full max-w-sm flex items-center justify-center gap-4 px-8 py-5 bg-white/10 hover:bg-white/20 border border-white/30 transition-all duration-300 backdrop-blur-sm"
             >
               {/* 버튼 내부 장식 */}

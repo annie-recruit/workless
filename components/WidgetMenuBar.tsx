@@ -77,7 +77,7 @@ export default function WidgetMenuBar({
         title={selectedMemoryIds.size === 0 ? "기억들을 선택한 후 프로젝트를 생성하세요" : "선택한 기억들로 실천 계획 생성"}
       >
         <PixelIcon name="success" size={16} className="text-indigo-600" />
-        <span>액션프로젝트</span>
+        <span>액션플랜</span>
       </button>
       <button
         onClick={onToggleBlob}

@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-8">
+    <div className="flex-1 bg-slate-950 text-slate-100 p-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <Link href="/" className="text-blue-400 hover:text-blue-300 inline-flex items-center gap-2">

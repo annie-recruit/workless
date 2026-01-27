@@ -5,10 +5,11 @@ import { ViewerProvider } from "@/components/ViewerContext";
 import { FlagProvider } from "@/components/FlagContext";
 import WebVitals from "@/components/WebVitals";
 import ConsoleLogger from "@/components/ConsoleLogger";
+import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
-  title: "Workless - 개인 비서",
-  description: "알아서 정리해주는 개인 비서",
+  title: "Workless - 사고의 흐름을 보는 비정형 워크스페이스",
+  description: "Workless는 Gmail 연동을 통해 이메일을 자동으로 메모로 변환하고, 무한 캔버스에서 아이디어를 자유롭게 배치하고 연결할 수 있는 개인 비서입니다.",
   manifest: "/manifest.json",
   themeColor: "#0f172a",
   appleWebApp: {
@@ -56,12 +57,17 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <link rel="stylesheet" as="style" crossOrigin="" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
       </head>
-      <body className="font-pretendard">
+      <body className="font-pretendard flex flex-col min-h-screen">
         <WebVitals />
         <ConsoleLogger />
         <SessionProvider>
           <ViewerProvider>
-            <FlagProvider>{children}</FlagProvider>
+            <FlagProvider>
+              <div className="flex-1">
+                {children}
+              </div>
+              <Footer />
+            </FlagProvider>
           </ViewerProvider>
         </SessionProvider>
       </body>
