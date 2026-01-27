@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import localFont from "next/font/local";
 import "./globals.css";
 import SessionProvider from "@/components/SessionProvider";
 import { ViewerProvider } from "@/components/ViewerContext";
@@ -6,6 +7,23 @@ import { FlagProvider } from "@/components/FlagContext";
 import WebVitals from "@/components/WebVitals";
 import ConsoleLogger from "@/components/ConsoleLogger";
 import Footer from "@/components/Footer";
+
+const galmuri = localFont({
+  src: [
+    {
+      path: "../public/fonts/galmuri/Galmuri11.woff2",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../public/fonts/galmuri/Galmuri11-Bold.woff2",
+      weight: "700",
+      style: "normal",
+    },
+  ],
+  variable: "--font-galmuri",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Workless - 사고의 흐름을 보는 비정형 워크스페이스",
@@ -52,7 +70,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" suppressHydrationWarning>
+    <html lang="ko" suppressHydrationWarning className={galmuri.variable}>
       <head>
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <link rel="stylesheet" as="style" crossOrigin="" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />

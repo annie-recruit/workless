@@ -227,14 +227,12 @@ export default function Minimap({
 
     // 메모리/블록 위치 순회
     Object.entries(positions).forEach(([id, pos]) => {
-      // blocks에 있거나 memories에 있는 항목만 고려
+      // 실제로 존재하는 메모리나 블록만 경계 계산에 포함
       const block = blocks.find(b => b.id === id);
-      // positions 키에 해당하는 memory가 실제로 memories 배열에 있는지 확인은 비용이 들지만
-      // positions는 filteredMemories 기반으로 업데이트되므로 신뢰 가능
-      // 하지만 안전을 위해 blocks 체크 후 없으면 cardDims 사용
+      const memory = memories.find(m => m.id === id);
+      if (!block && !memory) return;
 
       hasContent = true;
-      // TS Error Fix: Explicitly type as number to allow assignment of both literal types and general numbers
       let width: number = cardDims.width;
       let height: number = cardDims.height;
 
@@ -248,6 +246,15 @@ export default function Minimap({
       maxX = Math.max(maxX, pos.x + width);
       maxY = Math.max(maxY, pos.y + height);
     });
+
+    // 뷰포트 영역도 포함하여 계산 (사용자가 빈 공간을 보고 있어도 미니맵에 표시되도록)
+    if (viewportBounds.width > 0 && viewportBounds.height > 0) {
+      hasContent = true;
+      minX = Math.min(minX, viewportBounds.left);
+      minY = Math.min(minY, viewportBounds.top);
+      maxX = Math.max(maxX, viewportBounds.left + viewportBounds.width);
+      maxY = Math.max(maxY, viewportBounds.top + viewportBounds.height);
+    }
 
     // 콘텐츠가 없으면 기본값 사용
     if (!hasContent) {
@@ -296,7 +303,7 @@ export default function Minimap({
       contentW,
       contentH
     };
-  }, [positions, blocks, cardDims, containerWidth, containerHeight, minimapWidth, isWidgetMode]);
+  }, [positions, blocks, cardDims, containerWidth, containerHeight, minimapWidth, isWidgetMode, viewportBounds]);
 
   // 4. 캔버스 렌더링 (배경, 블롭, 연결선)
   useEffect(() => {

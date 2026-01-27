@@ -30,32 +30,37 @@ import WidgetMenuBar from './WidgetMenuBar';
 import WidgetCreateButton from './WidgetCreateButton';
 import { GmailImportButton } from './GmailImportButton';
 
+// 위젯 로딩 플레이스홀더
+const WidgetPlaceholder = () => (
+  <div className="w-full h-full bg-white/50 animate-pulse border-2 border-dashed border-gray-200" />
+);
+
 // 큰 컴포넌트들을 동적 import로 로드 (초기 번들 크기 감소)
 const CalendarBlock = dynamic(() => import('./CalendarBlock'), {
   ssr: false,
-  loading: () => null,
+  loading: () => <WidgetPlaceholder />,
 });
 
 const Minimap = dynamic(() => import('./Minimap'), {
   ssr: false,
-  loading: () => null,
+  loading: () => null, // Minimap은 작아서 null 유지해도 무방
 });
 
 // ViewerBlock을 dynamic import로 로드 (PDF.js가 서버 사이드에서 실행되지 않도록)
 const ViewerBlock = dynamic(() => import('./ViewerBlock'), {
   ssr: false,
-  loading: () => null,
+  loading: () => <WidgetPlaceholder />,
 });
 
 // MeetingRecorderBlock을 dynamic import로 로드
 const MeetingRecorderBlock = dynamic(() => import('./MeetingRecorderBlock'), {
   ssr: false,
-  loading: () => null,
+  loading: () => <WidgetPlaceholder />,
 });
 
 const DatabaseBlock = dynamic(() => import('./DatabaseBlock'), {
   ssr: false,
-  loading: () => null,
+  loading: () => <WidgetPlaceholder />,
 });
 
 
@@ -130,8 +135,9 @@ function BlobLayer({
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 픽셀 크기
+    // 픽셀 크기 및 해상도 최적화
     const PIXEL_SIZE = 4;
+    const SCALE_FACTOR = 2; // 캔버스 해상도를 1/2로 낮춤 (계산량 1/4로 감소)
 
     const render = () => {
       // 선택적 애니메이션: 호버 중(블롭 또는 메모리 카드)이거나 하이라이트 모드일 때만 움직임
@@ -140,16 +146,17 @@ function BlobLayer({
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // 전체 캔버스 스케일링 적용 (저해상도 렌더링 후 브라우저가 확대)
+      ctx.save();
+      ctx.scale(1 / SCALE_FACTOR, 1 / SCALE_FACTOR);
+
       blobAreas.forEach((blob) => {
-        // 색상 파서는 한 번만 실행되도록 최적화 가능하지만, 일단 로직 유지
         let r = 0, g = 0, b = 0;
-        if (blob.color.startsWith('#')) {
-          const hex = blob.color.substring(1);
-          if (hex.length === 6) {
-            r = parseInt(hex.substring(0, 2), 16);
-            g = parseInt(hex.substring(2, 4), 16);
-            b = parseInt(hex.substring(4, 6), 16);
-          }
+        const hex = blob.color.replace('#', '');
+        if (hex.length === 6) {
+          r = parseInt(hex.substring(0, 2), 16);
+          g = parseInt(hex.substring(2, 4), 16);
+          b = parseInt(hex.substring(4, 6), 16);
         }
 
         const isHovered = hoveredBlobId === blob.id;
@@ -160,72 +167,63 @@ function BlobLayer({
         const waveAmp = 4;
         const avgRadius = (blob.radius.x + blob.radius.y) / 2;
 
-        const padding = PIXEL_SIZE * 6;
-        const startXOriginal = blob.bounds.minX - padding;
-        const startYOriginal = blob.bounds.minY - padding;
-        const endXOriginal = blob.bounds.maxX + padding;
-        const endYOriginal = blob.bounds.maxY + padding;
-
-        // 실제 캔버스 경계 내로 제한
-        const startX = Math.max(0, Math.floor(startXOriginal / PIXEL_SIZE) * PIXEL_SIZE);
-        const startY = Math.max(0, Math.floor(startYOriginal / PIXEL_SIZE) * PIXEL_SIZE);
-        const endX = Math.min(canvas.width, Math.ceil(endXOriginal / PIXEL_SIZE) * PIXEL_SIZE);
-        const endY = Math.min(canvas.height, Math.ceil(endYOriginal / PIXEL_SIZE) * PIXEL_SIZE);
+        const padding = PIXEL_SIZE * 4;
+        const startX = Math.max(0, Math.floor((blob.bounds.minX - padding) / PIXEL_SIZE) * PIXEL_SIZE);
+        const startY = Math.max(0, Math.floor((blob.bounds.minY - padding) / PIXEL_SIZE) * PIXEL_SIZE);
+        const endX = Math.min(canvas.width * SCALE_FACTOR, Math.ceil((blob.bounds.maxX + padding) / PIXEL_SIZE) * PIXEL_SIZE);
+        const endY = Math.min(canvas.height * SCALE_FACTOR, Math.ceil((blob.bounds.maxY + padding) / PIXEL_SIZE) * PIXEL_SIZE);
 
         const width = endX - startX;
         const height = endY - startY;
 
-        if (width <= 0 || height <= 0) return; // Use 'return' to skip this blob, not the whole render.
+        if (width <= 0 || height <= 0) return;
+
+        // 루프 내 반복 계산 최적화
+        const centerX = blob.center.x;
+        const centerY = blob.center.y;
+        const radX2 = blob.radius.x * blob.radius.x;
+        const radY2 = blob.radius.y * blob.radius.y;
 
         for (let py = 0; py < height; py += PIXEL_SIZE) {
           const y = startY + py;
+          const dy = y - centerY;
+          const dy2 = dy * dy;
+
           for (let px = 0; px < width; px += PIXEL_SIZE) {
             const x = startX + px;
+            const dx = x - centerX;
 
-            const dx = x - blob.center.x;
-            const dy = y - blob.center.y;
-
+            const distBase = Math.sqrt((dx * dx) / radX2 + dy2 / radY2);
             const angle = Math.atan2(dy, dx);
             const noise = Math.sin(angle * 3 + time * 0.5) * 0.5 +
               Math.sin(angle * 7 - time * 0.3) * 0.3 +
               Math.sin(angle * 11 + time * 0.2) * 0.2;
 
-            const distBase = Math.sqrt((dx * dx) / (blob.radius.x * blob.radius.x) + (dy * dy) / (blob.radius.y * blob.radius.y));
             const effectiveDist = distBase - (noise * waveAmp) / avgRadius;
 
             if (effectiveDist <= 1.0) {
-              let keep = true;
               const falloffStart = 0.85;
+              let alpha = centerAlphaMin;
+
               if (effectiveDist > falloffStart) {
                 const outerT = (effectiveDist - falloffStart) / (1.0 - falloffStart);
-                const keepProb = 1.0 - outerT * 0.65;
+                alpha = centerAlphaMin + (edgeAlphaMax - centerAlphaMin) * Math.pow(outerT, gamma);
+                
+                // 디더링 최적화
                 const bx = Math.abs(Math.floor(x / PIXEL_SIZE)) % 2;
                 const by = Math.abs(Math.floor(y / PIXEL_SIZE)) % 2;
-                const bayer = ((bx + by * 2) + 0.5) / 4.0;
-                const ditherNoise = (Math.random() - 0.5) * 0.2;
-                if (keepProb < bayer + ditherNoise) keep = false;
+                if (1.0 - outerT * 0.65 < ((bx + by * 2) + 0.5) / 4.0) continue;
               }
 
-              if (keep) {
-                const bandNoise = Math.sin(angle * 10 + time) * 0.03;
-                const tClamped = Math.max(0, Math.min(1, effectiveDist + bandNoise * effectiveDist));
-                let alpha = centerAlphaMin + (edgeAlphaMax - centerAlphaMin) * Math.pow(tClamped, gamma);
-
-                // Dither
-                const xIdx = Math.floor(x / PIXEL_SIZE);
-                const yIdx = Math.floor(y / PIXEL_SIZE);
-                alpha += (xIdx + yIdx) % 2 === 0 ? 0.02 : -0.02;
-                alpha = Math.max(0, Math.min(1, alpha));
-
-                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-                ctx.fillRect(x, y, PIXEL_SIZE, PIXEL_SIZE);
-              }
+              ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+              ctx.fillRect(x, y, PIXEL_SIZE, PIXEL_SIZE);
             }
           }
         }
       });
 
-      // shouldAnimate가 true일 때만 다음 프레임 요청
+      ctx.restore();
+
       if (shouldAnimate) {
         requestRef.current = requestAnimationFrame(render);
       } else {

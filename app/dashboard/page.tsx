@@ -22,48 +22,45 @@ export default function Home() {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [blocks, setBlocks] = useState<CanvasBlock[]>([]); // Page level blocks state
   const [showModal, setShowModal] = useState<'groups' | 'query' | 'timeline' | 'memory_manager' | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // 기본값을 true로 설정하여 세션 확인 후 데이터 로딩까지 유지
   const [showInsights, setShowInsights] = useState(false); // 인사이트 패널 토글 (기본: 숨김)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
   const contentMaxWidth = showInsights ? 'calc(100vw - 420px)' : 'calc(100vw - 40px)';
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const lastActiveElementRef = useRef<HTMLElement | null>(null);
 
-  const fetchMemories = async (silent = false) => {
+  const fetchDashboardData = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const res = await fetch('/api/memories');
-      if (res.ok) {
-        const data = await res.json();
-        // 시간순 정렬 (최신순)
+      const [memoriesRes, blocksRes] = await Promise.all([
+        fetch('/api/memories'),
+        fetch('/api/board/blocks')
+      ]);
+
+      if (memoriesRes.ok) {
+        const data = await memoriesRes.json();
         const sortedMemories = data.memories.sort((a: Memory, b: Memory) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
         setMemories(sortedMemories);
       }
-    } catch (error) {
-      console.error('Failed to fetch memories:', error);
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  };
 
-  const fetchBlocks = async () => {
-    try {
-      const res = await fetch('/api/board/blocks');
-      if (res.ok) {
-        const data = await res.json();
+      if (blocksRes.ok) {
+        const data = await blocksRes.json();
         setBlocks(data.blocks || []);
       }
     } catch (error) {
-      console.error('Failed to fetch blocks:', error);
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
+      setLoading(false); // 무조건 false로 설정
     }
   };
 
   useEffect(() => {
-    fetchMemories();
-    fetchBlocks();
-  }, []);
+    if (status === 'authenticated') {
+      fetchDashboardData();
+    }
+  }, [status]);
 
   // 로그인하지 않은 경우 NextAuth 로그인 페이지로 리디렉션
   useEffect(() => {
@@ -127,7 +124,7 @@ export default function Home() {
         );
       });
     }
-    await fetchMemories(true);
+    await fetchDashboardData(true);
   };
 
   const handleManualDeleteMemory = async (id: string) => {
@@ -158,10 +155,10 @@ export default function Home() {
     }
   };
 
-  if (status === 'loading') {
+  if (status === 'loading' || (status === 'authenticated' && loading)) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <ProcessingLoader size={32} variant="overlay" tone="indigo" label="로딩 중..." />
+        <ProcessingLoader size={32} variant="overlay" tone="indigo" label="워크스페이스 로딩 중..." />
       </main>
     );
   }
@@ -329,8 +326,7 @@ export default function Home() {
               <MemoryView
                 memories={memories}
                 onMemoryDeleted={() => {
-                  fetchMemories(true);
-                  fetchBlocks();
+                  fetchDashboardData(true);
                 }}
                 personaId={selectedPersonaId}
               />
@@ -379,7 +375,7 @@ export default function Home() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-6">
-              <GroupManager onGroupsChanged={fetchMemories} personaId={selectedPersonaId} />
+              <GroupManager onGroupsChanged={() => fetchDashboardData(true)} personaId={selectedPersonaId} />
             </div>
           </div>
         </div>

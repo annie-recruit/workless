@@ -90,14 +90,35 @@ const ICON_MAP: Record<string, string> = {
   'trash-alt': 'pixelarticons:trash-alt',
 };
 
+// 글로벌 캐시 - 모든 PixelIcon 인스턴스가 공유
+let manifestCache: Record<string, string> | null = null;
+let manifestPromise: Promise<Record<string, string>> | null = null;
+
+const fetchManifest = async (): Promise<Record<string, string>> => {
+  if (manifestCache) return manifestCache;
+  if (manifestPromise) return manifestPromise;
+
+  manifestPromise = (async () => {
+    try {
+      const response = await fetch('/assets/icons/manifest.json');
+      if (!response.ok) return {};
+      const data = await response.json();
+      manifestCache = data;
+      return data;
+    } catch (err) {
+      console.warn('[PixelIcon] manifest 로드 실패:', err);
+      manifestCache = {};
+      return {};
+    }
+  })();
+
+  return manifestPromise;
+};
+
 /**
  * PixelLab로 생성된 UI 아이콘 또는 Iconify pixelarticons를 렌더링하는 컴포넌트
  * 1. manifest.json에서 생성된 아이콘을 먼저 찾고
  * 2. 없으면 Iconify pixelarticons를 fallback으로 사용합니다.
- * 
- * 사용법:
- *   <PixelIcon name="trash" size={32} />
- *   <PixelIcon name="check" size={24} className="text-indigo-500" />
  */
 export default function PixelIcon({
   name,
@@ -106,47 +127,42 @@ export default function PixelIcon({
   style = {},
 }: PixelIconProps) {
   const [iconSrc, setIconSrc] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!manifestCache);
   const [useIconify, setUseIconify] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadIcon = async () => {
-      try {
-        setLoading(true);
-        setUseIconify(false);
+      const manifest = await fetchManifest();
+      if (!isMounted) return;
 
-        // manifest.json에서 아이콘 경로 로드
-        const response = await fetch('/assets/icons/manifest.json');
-        if (!response.ok) {
-          // manifest.json이 없으면 Iconify 사용
-          setUseIconify(true);
-          setLoading(false);
-          return;
-        }
-
-        const manifest = await response.json();
-        const iconPath = manifest[name];
-
-        if (!iconPath) {
-          // manifest.json에 아이콘이 없으면 Iconify 사용
-          setUseIconify(true);
-          setLoading(false);
-          return;
-        }
-
-        // manifest에서 아이콘을 찾았으면 사용
+      const iconPath = manifest[name];
+      if (iconPath) {
         setIconSrc(iconPath);
         setUseIconify(false);
-      } catch (err) {
-        // 네트워크 오류 등은 Iconify로 fallback
-        console.warn(`[PixelIcon] manifest 로드 실패, Iconify 사용 (${name}):`, err);
+      } else {
         setUseIconify(true);
-      } finally {
-        setLoading(false);
       }
+      setLoading(false);
     };
 
-    loadIcon();
+    if (manifestCache) {
+      const iconPath = manifestCache[name];
+      if (iconPath) {
+        setIconSrc(iconPath);
+        setUseIconify(false);
+      } else {
+        setUseIconify(true);
+      }
+      setLoading(false);
+    } else {
+      loadIcon();
+    }
+
+    return () => {
+      isMounted = false;
+    };
   }, [name]);
 
   // 크기는 반드시 정수로

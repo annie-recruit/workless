@@ -43,23 +43,26 @@ export function useBoardCamera({ storageKey, initialBoardSize = { width: 1600, h
     }
 
     const container = boardContainerRef.current;
-    const containerRect = container.getBoundingClientRect();
+    // getBoundingClientRect는 스크롤바를 포함할 수 있으므로, 
+    // 실제 보이는 영역인 clientWidth/Height를 사용하는 것이 더 정확합니다.
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
 
     const scrollLeft = container.scrollLeft;
     const scrollTop = container.scrollTop;
 
     const left = scrollLeft / zoom;
     const top = scrollTop / zoom;
-    const width = containerRect.width / zoom;
-    const height = containerRect.height / zoom;
+    const width = containerWidth / zoom;
+    const height = containerHeight / zoom;
 
     if (process.env.NODE_ENV === 'development') {
       console.log('[viewportBounds] 계산(심플):', {
         scrollLeft,
         scrollTop,
         zoom,
-        containerWidth: containerRect.width,
-        containerHeight: containerRect.height,
+        containerWidth,
+        containerHeight,
         boardWidth: boardSize.width,
         boardHeight: boardSize.height,
         viewportBounds: { left, top, width, height },
