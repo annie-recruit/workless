@@ -48,12 +48,20 @@ export default function LandingPage() {
                 사고의 흐름을 보는 비정형 워크스페이스
               </p>
             </div>
-            <Link
-              href="/auth/signin"
-              className="px-6 py-3 bg-white text-indigo-600 font-bold rounded-lg hover:bg-indigo-50 transition-colors shadow-lg"
-            >
-              시작하기
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/privacy"
+                className="text-white/90 hover:text-white text-sm underline transition-colors"
+              >
+                개인정보처리방침
+              </Link>
+              <Link
+                href="/auth/signin"
+                className="px-6 py-3 bg-white text-indigo-600 font-bold rounded-lg hover:bg-indigo-50 transition-colors shadow-lg"
+              >
+                시작하기
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -69,12 +77,25 @@ export default function LandingPage() {
             Workless는 Gmail 연동을 통해 이메일을 자동으로 메모로 변환하고, 
             무한 캔버스에서 아이디어를 자유롭게 배치하고 연결할 수 있는 개인 비서입니다.
           </p>
-          <Link
-            href="/auth/signin"
-            className="inline-block px-8 py-4 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-lg text-lg"
-          >
-            Google 계정으로 시작하기
-          </Link>
+          <div className="flex flex-col items-center gap-4">
+            <Link
+              href="/auth/signin"
+              className="inline-block px-8 py-4 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-lg text-lg"
+            >
+              Google 계정으로 시작하기
+            </Link>
+            <p className="text-sm text-gray-600">
+              시작하기 전에{" "}
+              <Link href="/privacy" className="text-indigo-600 hover:text-indigo-800 font-semibold underline">
+                개인정보처리방침
+              </Link>
+              {" "}및{" "}
+              <Link href="/terms" className="text-indigo-600 hover:text-indigo-800 font-semibold underline">
+                서비스 약관
+              </Link>
+              을 확인하세요.
+            </p>
+          </div>
         </section>
 
         {/* 주요 기능 */}
