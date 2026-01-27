@@ -98,12 +98,41 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-2xl font-semibold mt-8 mb-4">3. 정보 공유 및 제공</h2>
             <p className="text-slate-300 mb-4">
-              Workless는 사용자의 개인정보를 제3자에게 판매하지 않습니다. 다음 경우에만 정보를 공유할 수 있습니다:
+              Workless는 사용자의 개인정보를 제3자에게 판매하지 않습니다. 서비스 제공을 위해 다음과 같이 개인정보 처리 업무를 위탁하고 있습니다:
+            </p>
+            <div className="overflow-x-auto">
+              <table className="min-w-full border border-slate-700 text-slate-300 mb-6">
+                <thead>
+                  <tr className="bg-slate-900">
+                    <th className="border border-slate-700 p-2">수탁자</th>
+                    <th className="border border-slate-700 p-2">위탁 업무 내용</th>
+                    <th className="border border-slate-700 p-2">개인정보 보유 및 이용 기간</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="border border-slate-700 p-2">OpenAI, Inc.</td>
+                    <td className="border border-slate-700 p-2">AI 기반 콘텐츠 분석, 요약 및 질의응답 기능 제공</td>
+                    <td className="border border-slate-700 p-2">회원 탈퇴 시 또는 위탁 계약 종료 시까지</td>
+                  </tr>
+                  <tr>
+                    <td className="border border-slate-700 p-2">Google LLC</td>
+                    <td className="border border-slate-700 p-2">사용자 인증 및 Gmail 데이터 연동</td>
+                    <td className="border border-slate-700 p-2">회원 탈퇴 시 또는 위탁 계약 종료 시까지</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h3 className="text-xl font-medium mt-6 mb-3">3.1 개인정보의 국외 이전</h3>
+            <p className="text-slate-300 mb-4">
+              서비스 제공을 위해 개인정보가 다음과 같이 국외로 이전될 수 있습니다:
             </p>
             <ul className="list-disc list-inside text-slate-300 space-y-2 ml-4">
-              <li><strong>서비스 제공자:</strong> OpenAI API 등 서비스 운영을 위한 제3자 서비스 제공자 (데이터 처리 목적으로만 사용)</li>
-              <li><strong>법적 요구사항:</strong> 법원의 명령, 법률, 규정 준수를 위해 필요한 경우</li>
-              <li><strong>사용자 동의:</strong> 사용자가 명시적으로 동의한 경우</li>
+              <li><strong>이전되는 국가:</strong> 미국</li>
+              <li><strong>이전 항목:</strong> 이메일 주소, 이름, 사용자 생성 콘텐츠(메모 등)</li>
+              <li><strong>이전 방법:</strong> API 호출 시 네트워크를 통한 전송</li>
+              <li><strong>이전 목적:</strong> 서비스 기능 제공(AI 분석 및 Google 연동)</li>
             </ul>
           </section>
 
@@ -191,11 +220,14 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-2xl font-semibold mt-8 mb-4">10. 문의사항</h2>
+            <h2 className="text-2xl font-semibold mt-8 mb-4">10. 개인정보 보호책임자 및 문의처</h2>
             <p className="text-slate-300 mb-4">
-              개인정보처리방침에 대한 질문이나 요청사항이 있으시면 다음으로 연락해주세요:
+              사용자의 개인정보를 보호하고 관련 불만을 처리하기 위하여 다음과 같이 개인정보 보호책임자를 지정하고 있습니다:
             </p>
-            <div className="bg-slate-900 p-4 rounded-lg mt-4">
+            <div className="bg-slate-900 p-4 rounded-lg mt-4 space-y-2">
+              <p className="text-slate-300">
+                <strong>개인정보 보호책임자:</strong> Workless 운영팀
+              </p>
               <p className="text-slate-300">
                 <strong>이메일:</strong>{" "}
                 <a href="mailto:support@workless.app" className="text-blue-400 hover:text-blue-300">

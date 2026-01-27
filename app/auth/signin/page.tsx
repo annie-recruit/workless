@@ -2,7 +2,6 @@
 
 import { signIn } from 'next-auth/react';
 import PixelGradientBanner from '@/components/PixelGradientBanner';
-import OnboardingWhiteboard from '@/components/OnboardingWhiteboard';
 
 export default function SignInPage() {
   return (
@@ -14,8 +13,8 @@ export default function SignInPage() {
         <div className="absolute inset-0 bg-indigo-900/10 backdrop-blur-[2px]"></div>
       </div>
 
-      {/* 왼쪽: 로그인 폼 */}
-      <div className="relative z-10 w-1/2 flex items-center justify-center p-8">
+      {/* 중앙: 로그인 폼 */}
+      <div className="relative z-10 w-full flex items-center justify-center p-8">
         <div className="max-w-md w-full space-y-12">
           <div className="text-center space-y-6">
             <div className="space-y-2">
@@ -38,7 +37,7 @@ export default function SignInPage() {
 
           <div className="flex justify-center">
             <button
-              onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
+              onClick={() => signIn('google', { callbackUrl: '/dashboard', prompt: 'consent' })}
               className="group relative w-full max-w-sm flex items-center justify-center gap-4 px-8 py-5 bg-white/10 hover:bg-white/20 border border-white/30 transition-all duration-300 backdrop-blur-sm"
             >
               {/* 버튼 내부 장식 */}
@@ -79,23 +78,6 @@ export default function SignInPage() {
         </div>
       </div>
 
-      {/* 오른쪽: 온보딩 가이드 (미니 화이트보드) */}
-      <div className="relative z-10 w-1/2 flex items-center justify-center p-8">
-        <div className="w-full max-w-2xl h-[500px] bg-white/95 backdrop-blur-sm rounded-lg overflow-hidden shadow-2xl border-[3px] border-gray-800">
-          {/* 온보딩 헤더 */}
-          <div className="bg-white px-6 py-4 border-b-[3px] border-gray-800">
-            <h2 className="text-xl font-bold mb-1 text-gray-900">애자일 워크스페이스를 체험해보세요!</h2>
-            <p className="text-sm text-gray-700">
-              로그인 없이 미리 체험해보세요! 드래그하여 자유롭게 배치할 수 있습니다.
-            </p>
-          </div>
-
-          {/* 미니 화이트보드 */}
-          <div className="h-[calc(100%-80px)]">
-            <OnboardingWhiteboard />
-          </div>
-        </div>
-      </div>
     </main>
   );
 }

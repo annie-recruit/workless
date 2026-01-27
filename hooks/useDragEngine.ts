@@ -244,6 +244,15 @@ export function useDragEngine(params: {
           : [draggingEntity.id];
 
         const finalPositionsMap = { ...dragPositionRef.current };
+        
+        // positionsRef를 즉시 업데이트하여 getLivePos가 최신 위치를 참조할 수 있게 함
+        idsToCommit.forEach((id) => {
+          const finalPos = finalPositionsMap[id];
+          if (finalPos) {
+            positionsRef.current[id] = finalPos;
+          }
+        });
+
         setPositions((prev) => {
           const next = { ...prev };
           idsToCommit.forEach((id) => {
@@ -254,12 +263,14 @@ export function useDragEngine(params: {
         });
       }
 
+      // 먼저 연결선을 업데이트한 후에 드래그 상태를 정리
+      updateConnectionPaths();
+      
       draggedElementsRef.current.clear();
       dragPositionRef.current = {};
       setDraggingEntity(null);
       if (isSelecting) { setIsSelecting(false); setSelectionBox(null); }
       pixelLayerRef.current?.redraw();
-      updateConnectionPaths();
     };
 
     window.addEventListener('pointermove', handleMove);

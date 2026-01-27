@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react';
 import LottiePlayer from './LottiePlayer';
 
 export type ProcessingLoaderVariant = 'inline' | 'panel' | 'overlay';
-export type ProcessingLoaderTone = 'black' | 'indigo' | 'orange' | 'muted';
+export type ProcessingLoaderTone = 'black' | 'indigo' | 'orange' | 'muted' | 'white';
 
 interface ProcessingLoaderProps {
   /** 로더 크기 (픽셀) */
@@ -72,6 +72,9 @@ export default function ProcessingLoader({
       // Approx. Tailwind orange-500 (#F97316)
       filter:
         'brightness(0) saturate(100%) invert(55%) sepia(70%) saturate(2382%) hue-rotate(353deg) brightness(98%) contrast(98%)',
+    },
+    white: {
+      filter: 'brightness(0) invert(1)',
     },
   };
 

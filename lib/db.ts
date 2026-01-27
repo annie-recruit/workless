@@ -3,6 +3,43 @@ import { Memory, Cluster, Attachment, Group, Goal, CanvasBlock, IngestItem, Acti
 import { nanoid } from 'nanoid';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
+import crypto from 'crypto';
+
+// 암호화 설정
+const ENCRYPTION_KEY = process.env.NEXTAUTH_SECRET || 'fallback-secret-for-development-only';
+const ALGORITHM = 'aes-256-cbc';
+const IV_LENGTH = 16;
+
+function encrypt(text: string): string {
+  try {
+    const iv = crypto.randomBytes(IV_LENGTH);
+    // Key must be 32 bytes for aes-256-cbc
+    const key = crypto.createHash('sha256').update(String(ENCRYPTION_KEY)).digest();
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+    let encrypted = cipher.update(text);
+    encrypted = Buffer.concat([encrypted, cipher.final()]);
+    return iv.toString('hex') + ':' + encrypted.toString('hex');
+  } catch (error) {
+    console.error('Encryption failed:', error);
+    return text;
+  }
+}
+
+function decrypt(text: string): string {
+  try {
+    const textParts = text.split(':');
+    const iv = Buffer.from(textParts.shift()!, 'hex');
+    const encryptedText = Buffer.from(textParts.join(':'), 'hex');
+    const key = crypto.createHash('sha256').update(String(ENCRYPTION_KEY)).digest();
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+    let decrypted = decipher.update(encryptedText);
+    decrypted = Buffer.concat([decrypted, decipher.final()]);
+    return decrypted.toString();
+  } catch (error) {
+    // 암호화되지 않은 기존 데이터 호환성을 위해 에러 시 원본 반환
+    return text;
+  }
+}
 
 // Railway 볼륨 또는 로컬 data 디렉토리 사용
 const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH || join(process.cwd(), 'data');
@@ -1134,7 +1171,12 @@ export const userDb = {
     updatedAt: number
   } | undefined {
     const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
-    return stmt.get(id) as any;
+    const user = stmt.get(id) as any;
+    if (user) {
+      if (user.googleAccessToken) user.googleAccessToken = decrypt(user.googleAccessToken);
+      if (user.googleRefreshToken) user.googleRefreshToken = decrypt(user.googleRefreshToken);
+    }
+    return user;
   },
 
   // 이메일로 조회
@@ -1150,14 +1192,22 @@ export const userDb = {
     updatedAt: number
   } | undefined {
     const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
-    return stmt.get(email) as any;
+    const user = stmt.get(email) as any;
+    if (user) {
+      if (user.googleAccessToken) user.googleAccessToken = decrypt(user.googleAccessToken);
+      if (user.googleRefreshToken) user.googleRefreshToken = decrypt(user.googleRefreshToken);
+    }
+    return user;
   },
 
   // OAuth 토큰 업데이트
   updateTokens(id: string, accessToken: string, refreshToken?: string, expiresAt?: number): void {
     const now = Date.now();
+    const encryptedAccessToken = encrypt(accessToken);
+    const encryptedRefreshToken = refreshToken ? encrypt(refreshToken) : undefined;
+
     let stmt;
-    if (refreshToken) {
+    if (encryptedRefreshToken) {
       stmt = db.prepare(`
         UPDATE users SET 
           googleAccessToken = ?, 
@@ -1166,7 +1216,7 @@ export const userDb = {
           updatedAt = ? 
         WHERE id = ?
       `);
-      stmt.run(accessToken, refreshToken, expiresAt || null, now, id);
+      stmt.run(encryptedAccessToken, encryptedRefreshToken, expiresAt || null, now, id);
     } else {
       stmt = db.prepare(`
         UPDATE users SET 
@@ -1175,8 +1225,34 @@ export const userDb = {
           updatedAt = ? 
         WHERE id = ?
       `);
-      stmt.run(accessToken, expiresAt || null, now, id);
+      stmt.run(encryptedAccessToken, expiresAt || null, now, id);
     }
+  },
+
+  // 사용자 탈퇴 및 데이터 전체 삭제 (법적 준수 사항)
+  deleteUser(userId: string): void {
+    const tables = [
+      'memories', 'groups', 'goals', 'personas', 'board_positions', 
+      'board_settings', 'board_card_colors', 'board_blocks', 
+      'memory_links', 'projects', 'clusters', 'ingest_items', 
+      'user_api_keys'
+    ];
+
+    const deleteTransaction = db.transaction(() => {
+      // 1. 모든 관련 테이블 데이터 삭제
+      for (const table of tables) {
+        try {
+          db.prepare(`DELETE FROM ${table} WHERE userId = ?`).run(userId);
+        } catch (err) {
+          console.error(`Failed to delete data from ${table}:`, err);
+        }
+      }
+
+      // 2. 사용자 계정 정보 삭제
+      db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+    });
+
+    deleteTransaction();
   },
 };
 

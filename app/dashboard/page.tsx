@@ -11,7 +11,6 @@ import InsightsPanel from '@/components/InsightsPanel';
 import GroupManager from '@/components/GroupManager';
 import MemoryListPanel from '@/components/MemoryListPanel';
 import PersonaSelector from '@/components/PersonaSelector';
-import Tutorial, { TutorialStep } from '@/components/Tutorial';
 import GlobalSearch from '@/components/GlobalSearch';
 import PixelIcon from '@/components/PixelIcon';
 import ProcessingLoader from '@/components/ProcessingLoader';
@@ -26,9 +25,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [showInsights, setShowInsights] = useState(false); // 인사이트 패널 토글 (기본: 숨김)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
-  const [showTutorial, setShowTutorial] = useState(false);
-  const [tutorialButtonSrc, setTutorialButtonSrc] = useState<string>('/assets/generated/tutorial_button.png');
-  const [tutorialButtonTextSrc, setTutorialButtonTextSrc] = useState<string>('/assets/generated/tutorial_button_text.png');
   const contentMaxWidth = showInsights ? 'calc(100vw - 420px)' : 'calc(100vw - 40px)';
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const lastActiveElementRef = useRef<HTMLElement | null>(null);
@@ -69,44 +65,9 @@ export default function Home() {
     fetchBlocks();
   }, []);
 
-  // 튜토리얼 버튼 스프라이트 로드 (generated asset)
-  useEffect(() => {
-    fetch('/assets/generated/manifest.json')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((manifest) => {
-        const bg = manifest?.tutorial_button_bg || manifest?.tutorial_button;
-        const text = manifest?.tutorial_button_text;
-
-        if (typeof bg === 'string' && bg.length > 0) setTutorialButtonSrc(bg);
-        if (typeof text === 'string' && text.length > 0) setTutorialButtonTextSrc(text);
-      })
-      .catch(() => {
-        // 실패 시 기본 경로 사용
-      });
-  }, []);
-
-  // 최초 로그인 시 튜토리얼 자동 시작
-  useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-      const tutorialCompleted = localStorage.getItem('workless.tutorial.completed');
-      const isFirstLogin = !tutorialCompleted;
-
-      if (isFirstLogin) {
-        // 페이지 로드 완료 대기 (메모리 로드 및 렌더링 완료 대기)
-        const timer = setTimeout(() => {
-          setShowTutorial(true);
-        }, 2000); // 2초로 증가 (렌더링 완료 대기)
-
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [status, session]);
-
-  // 로그인하지 않은 경우 NextAuth 로그인 페이지로 리디렉션 (중복 로그인 화면 방지)
-  // ⚠️ 중요: 모든 useEffect는 early return 전에 호출되어야 함
+  // 로그인하지 않은 경우 NextAuth 로그인 페이지로 리디렉션
   useEffect(() => {
     if (status === 'unauthenticated' && !session) {
-      // 무한 루프 방지: /auth 경로가 아닐 때만 리디렉션
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
         router.push('/auth/signin');
       }
@@ -157,10 +118,8 @@ export default function Home() {
   }, [isSearchOpen]);
 
   const handleMemoryCreated = async (newMemory?: Memory) => {
-    // 메모리 생성 후 즉시 로컬 상태에 추가하여 사용자에게 즉각적인 피드백 제공
     if (newMemory) {
       setMemories(prev => {
-        // 중복 방지 (이미 fetch로 가져왔을 수 있음)
         if (prev.some(m => m.id === newMemory.id)) return prev;
         const updated = [newMemory, ...prev];
         return updated.sort((a, b) =>
@@ -168,7 +127,6 @@ export default function Home() {
         );
       });
     }
-    // 전체 메모리를 백업으로 다시 가져옴 (사일런트 모드)
     await fetchMemories(true);
   };
 
@@ -200,7 +158,6 @@ export default function Home() {
     }
   };
 
-  // 로그인하지 않은 경우 로그인 화면 표시
   if (status === 'loading') {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
@@ -219,7 +176,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-indigo-50 flex relative">
-      {/* 토글 버튼 - 항상 보임 */}
+      {/* 토글 버튼 */}
       <button
         onClick={() => setShowInsights(!showInsights)}
         className={`fixed top-1/2 -translate-y-1/2 bg-white border border-gray-200 hover:bg-gray-50 transition-all duration-300 shadow-lg z-50 ${showInsights ? 'right-[360px]' : 'right-0'
@@ -243,7 +200,6 @@ export default function Home() {
 
       {/* 메인 콘텐츠 영역 */}
       <div className="flex-1 overflow-y-auto">
-        {/* 헤더 배너 - 전체 폭 */}
         <header className="relative overflow-hidden bg-indigo-600 border-b-2 border-indigo-500 font-galmuri11">
           <div className="container mx-auto px-4 py-12">
             <div className="relative z-10">
@@ -264,15 +220,12 @@ export default function Home() {
           className="mx-auto px-3 py-8 w-full font-galmuri11"
           style={{ maxWidth: contentMaxWidth }}
         >
-
           {/* 상단 메뉴바 */}
           <div className="mb-6 flex items-center justify-between border-b border-gray-200 pb-2">
-            {/* 왼쪽: 그룹 관리 */}
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowModal('groups')}
                 className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
-                data-tutorial-target="group-manager"
               >
                 그룹 관리
               </button>
@@ -283,28 +236,8 @@ export default function Home() {
                 <PixelIcon name="list" size={16} />
                 기억 관리
               </button>
-              <button
-                onClick={() => setShowTutorial(true)}
-                className="relative inline-flex items-center justify-center p-0 bg-transparent border-0"
-                style={{ width: 120, height: 32 }}
-                title="튜토리얼 다시 보기"
-              >
-                <img
-                  src={tutorialButtonSrc}
-                  alt=""
-                  className="pixel-icon absolute inset-0 w-full h-full select-none pointer-events-none"
-                  draggable={false}
-                />
-                <img
-                  src={tutorialButtonTextSrc}
-                  alt="Tutorial"
-                  className="pixel-icon absolute left-1/2 top-1/2 w-[88px] h-[20px] -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
-                  draggable={false}
-                />
-              </button>
             </div>
 
-            {/* 오른쪽: 사용자 정보 */}
             <div className="flex items-center gap-1">
               {session ? (
                 <div className="flex items-center gap-2">
@@ -314,7 +247,6 @@ export default function Home() {
                       alt={session.user.name || 'User'}
                       className="w-6 h-6 rounded-full object-cover"
                       onError={(e) => {
-                        // 이미지 로드 실패 시 숨김
                         e.currentTarget.style.display = 'none';
                       }}
                     />
@@ -334,6 +266,26 @@ export default function Home() {
                   >
                     로그아웃
                   </button>
+                  <button
+                    onClick={async () => {
+                      if (confirm('정말로 계정을 탈퇴하시겠습니까? 모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.')) {
+                        try {
+                          const res = await fetch('/api/user/delete', { method: 'DELETE' });
+                          if (res.ok) {
+                            alert('그동안 이용해주셔서 감사합니다. 계정이 삭제되었습니다.');
+                            signOut({ callbackUrl: '/' });
+                          } else {
+                            alert('계정 삭제 중 오류가 발생했습니다.');
+                          }
+                        } catch (error) {
+                          alert('계정 삭제 처리 중 오류가 발생했습니다.');
+                        }
+                      }
+                    }}
+                    className="px-4 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors text-sm font-medium"
+                  >
+                    계정 탈퇴
+                  </button>
                 </div>
               ) : (
                 <button
@@ -349,17 +301,14 @@ export default function Home() {
           {/* 기록하기 영역 */}
           <div className="mb-8">
             <MemoryInput onMemoryCreated={handleMemoryCreated} />
-            {/* 전역 검색 */}
             <GlobalSearch
               memories={memories}
               isOpen={isSearchOpen}
               onClose={() => setIsSearchOpen(false)}
               onMemoryClick={(memory: Memory) => {
-                // 메모리 카드로 스크롤
                 const element = document.getElementById(`memory-${memory.id}`);
                 if (element) {
                   element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  // 하이라이트 효과
                   element.style.transition = 'box-shadow 0.3s';
                   element.style.boxShadow = '0 0 0 4px rgba(59, 130, 246, 0.3)';
                   setTimeout(() => {
@@ -371,7 +320,7 @@ export default function Home() {
           </div>
 
           {/* 보관함 영역 */}
-          <div data-tutorial-target="board-view" className="font-galmuri11">
+          <div className="font-galmuri11">
             {loading ? (
               <div className="py-12 flex items-center justify-center">
                 <ProcessingLoader variant="panel" tone="indigo" label="불러오는 중..." />
@@ -390,7 +339,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 사이드 패널 (인사이트) - 토글 가능 */}
+      {/* 사이드 패널 (인사이트) */}
       <div
         className={`bg-white border-l border-gray-200 shadow-lg overflow-y-auto transition-all duration-300 ease-in-out ${showInsights ? 'w-[360px]' : 'w-0'
           }`}
@@ -403,7 +352,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* 기억 관리 패널 (토스트 스타일, Non-blocking) */}
+      {/* 기억 관리 패널 */}
       {showModal === 'memory_manager' && (
         <MemoryListPanel
           memories={memories}
@@ -456,57 +405,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* 튜토리얼 */}
-      {showTutorial && (
-        <Tutorial
-          steps={[
-            {
-              id: 'memory-input',
-              title: '기억 기록하기',
-              description: '여기서 일상의 기억, 아이디어, 할 일 등을 기록하세요. 제목과 내용을 입력하고 파일도 첨부할 수 있습니다.',
-              targetSelector: 'form[data-tutorial-target="memory-input"]',
-              position: 'bottom',
-            },
-            {
-              id: 'persona-selector',
-              title: '페르소나 선택',
-              description: '오른쪽 패널의 페르소나를 선택하면 AI가 그 스타일로 응답합니다. 예를 들어 "친구" 페르소나는 친근하게, "선생님" 페르소나는 전문적으로 답변합니다.',
-              targetSelector: 'button[data-tutorial-target="persona-selector"]',
-              position: 'left',
-            },
-            {
-              id: 'group-manager',
-              title: '그룹 관리',
-              description: '비슷한 기억들을 그룹으로 묶어서 관리할 수 있습니다. AI가 자동으로 묶어주거나 직접 만들 수도 있어요.',
-              targetSelector: '[data-tutorial-target="group-manager"]',
-              position: 'bottom',
-            },
-            {
-              id: 'board-view',
-              title: '보드 뷰',
-              description: '기억들을 보드에서 드래그해서 자유롭게 배치할 수 있습니다. 연결된 기억들은 선으로 표시됩니다.',
-              targetSelector: '[data-tutorial-target="board-view"]',
-              position: 'bottom',
-            },
-            {
-              id: 'link-memories',
-              title: '기억 연결하기',
-              description: '기억들을 연결해서 관계를 만들 수 있습니다. 각 카드에서 연결 버튼(📎 아이콘)을 눌러 관련된 기억들을 묶어보세요.',
-              targetSelector: 'button[data-tutorial-link-button="true"]',
-              position: 'bottom',
-            },
-          ]}
-          onComplete={() => {
-            setShowTutorial(false);
-            localStorage.setItem('workless.tutorial.completed', 'true');
-          }}
-          onSkip={() => {
-            setShowTutorial(false);
-            localStorage.setItem('workless.tutorial.completed', 'true');
-          }}
-        />
       )}
 
       {/* 타임라인은 별도 페이지로 */}

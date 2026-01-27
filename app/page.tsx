@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import PixelGradientBanner from '@/components/PixelGradientBanner';
-import OnboardingWhiteboard from '@/components/OnboardingWhiteboard';
 import PixelIcon from '@/components/PixelIcon';
 
 export default function LandingPage() {
@@ -233,22 +232,11 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* 하단: 온보딩 미니보드 (전체 너비) */}
-      <div className="relative z-10 flex items-center justify-center p-8">
-        <div className="w-full max-w-6xl h-[600px] bg-white/95 backdrop-blur-sm rounded-lg overflow-hidden shadow-2xl border-[3px] border-gray-800">
-          {/* 온보딩 헤더 */}
-          <div className="bg-white px-6 py-4 border-b-[3px] border-gray-800">
-            <h2 className="text-xl font-bold mb-1 text-gray-900">애자일 워크스페이스를 체험해보세요!</h2>
-            <p className="text-sm text-gray-700">
-              로그인 없이 미리 체험해보세요! 드래그하여 자유롭게 배치할 수 있습니다.
-            </p>
-          </div>
-
-          {/* 미니 화이트보드 */}
-          <div className="h-[calc(100%-80px)]">
-            <OnboardingWhiteboard />
-          </div>
-        </div>
+      {/* 하단 데코레이션 */}
+      <div className="flex justify-center gap-2 opacity-30 mt-8 mb-12">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="w-2 h-2 bg-white rounded-none"></div>
+        ))}
       </div>
     </main>
   );
