@@ -172,11 +172,7 @@ function BlobLayer({
         const width = endX - startX;
         const height = endY - startY;
 
-        if (width <= 0 || height <= 0) return;
-
-        // ImageData 생성 (픽셀 단위)
-        const imageData = ctx.createImageData(width, height);
-        const data = imageData.data;
+        if (width <= 0 || height <= 0) return; // Use 'return' to skip this blob, not the whole render.
 
         for (let py = 0; py < height; py += PIXEL_SIZE) {
           const y = startY + py;
@@ -218,25 +214,12 @@ function BlobLayer({
                 alpha += (xIdx + yIdx) % 2 === 0 ? 0.02 : -0.02;
                 alpha = Math.max(0, Math.min(1, alpha));
 
-                // PIXEL_SIZE x PIXEL_SIZE 블록 채우기
-                for (let sy = 0; sy < PIXEL_SIZE; sy++) {
-                  for (let sx = 0; sx < PIXEL_SIZE; sx++) {
-                    const targetX = px + sx;
-                    const targetY = py + sy;
-                    if (targetX < width && targetY < height) {
-                      const idx = (targetY * width + targetX) * 4;
-                      data[idx] = r;
-                      data[idx + 1] = g;
-                      data[idx + 2] = b;
-                      data[idx + 3] = alpha * 255;
-                    }
-                  }
-                }
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                ctx.fillRect(x, y, PIXEL_SIZE, PIXEL_SIZE);
               }
             }
           }
         }
-        ctx.putImageData(imageData, startX, startY);
       });
 
       // shouldAnimate가 true일 때만 다음 프레임 요청
