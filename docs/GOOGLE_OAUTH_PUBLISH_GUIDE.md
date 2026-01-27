@@ -56,7 +56,7 @@
 - [ ] 개발자 연락처 정보
 - [ ] 앱 도메인 (프로덕션 URL)
 - [ ] 개인정보처리방침 URL (필수)
-- [ ] 서비스 약관 URL (선택, 권장)
+- [ ] 서비스 약관 URL (선택, 권장) ✅ **생성 완료**
 
 #### 4-2. 개인정보처리방침 작성
 
@@ -74,6 +74,12 @@ Gmail API를 사용하므로 개인정보처리방침이 **필수**입니다.
    https://your-domain.com/privacy
    ```
    (실제 프로덕션 도메인으로 변경하세요)
+
+2. **서비스 약관 URL** 필드에 입력 (선택사항이지만 권장):
+   ```
+   https://your-domain.com/terms
+   ```
+   (예: `https://workless-production.up.railway.app/terms`)
 
 **포함된 내용:**
 - ✅ Gmail 읽기 권한 사용 명시
