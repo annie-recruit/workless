@@ -70,7 +70,7 @@ export default function LandingPage() {
           </div>
 
           {/* CTA 버튼 */}
-          <div className="flex justify-center">
+          <div className="flex flex-col items-center gap-2">
             <Link
               href="/auth/signin"
               className="group relative w-full max-w-md flex items-center justify-center gap-4 px-8 py-5 bg-white/10 hover:bg-white/20 border border-white/30 transition-all duration-300 backdrop-blur-sm"
@@ -102,6 +102,9 @@ export default function LandingPage() {
                 시작하기
               </span>
             </Link>
+            <p className="text-white/50 text-xs">
+              시작하면 <Link href="/terms" className="underline hover:text-white/70">서비스 약관</Link> 및 <Link href="/privacy" className="underline hover:text-white/70">개인정보처리방침</Link>에 동의하게 됩니다
+            </p>
           </div>
 
           {/* 3개 박스: 가로 배치 */}
