@@ -559,7 +559,7 @@ export default function Minimap({
   return (
     <div
       ref={containerRef}
-      onMouseDown={handleMouseDown}
+      onMouseDown={isWidgetMode ? undefined : handleMouseDown}
       className={isWidgetMode ? "relative w-full h-full bg-white overflow-hidden" : "fixed bg-white rounded-lg border border-gray-200 shadow-xl overflow-hidden"}
       style={{
         width: isWidgetMode ? '100%' : minimapWidth,

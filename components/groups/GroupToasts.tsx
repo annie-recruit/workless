@@ -32,13 +32,19 @@ export default function GroupToasts({
   return (
     <>
       {toast.type === 'loading' && (
-        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-white border border-gray-300 p-4 min-w-[300px]">
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
+          <div className="bg-white border-4 border-gray-900 p-5 min-w-[300px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+            {/* 픽셀 코너 장식 */}
+            <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+            
             <div className="flex items-center gap-3">
               <ProcessingLoader size={20} variant="inline" tone="indigo" />
               <div>
-                <p className="text-sm font-semibold text-gray-800">AI가 관련 기록을 찾고 있어요</p>
-                <p className="text-xs text-gray-500">잠시만 기다려주세요...</p>
+                <p className="text-sm font-black text-gray-800 uppercase tracking-tight">AI가 관련 기록을 찾고 있어요</p>
+                <p className="text-xs text-gray-600">잠시만 기다려주세요...</p>
               </div>
             </div>
           </div>

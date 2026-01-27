@@ -55,18 +55,19 @@ export default function PixelGradientBanner({ className }: PixelGradientBannerPr
         const nx = x / (LOGICAL_W - 1);
         const ny = y / (LOGICAL_H - 1);
         const t = clamp(0.65 * nx + 0.35 * ny, 0, 1);
+        const reversed_t = 1 - t; // 그라데이션 방향 반전 (인디고 → 주황)
 
         let r: number;
         let g: number;
         let b: number;
 
-        if (t < 0.5) {
-          const tt = t / 0.5;
+        if (reversed_t < 0.5) {
+          const tt = reversed_t / 0.5;
           r = lerp(ORANGE_500[0], ORANGE_400[0], tt);
           g = lerp(ORANGE_500[1], ORANGE_400[1], tt);
           b = lerp(ORANGE_500[2], ORANGE_400[2], tt);
         } else {
-          const tt = (t - 0.5) / 0.5;
+          const tt = (reversed_t - 0.5) / 0.5;
           r = lerp(ORANGE_400[0], INDIGO_600[0], tt);
           g = lerp(ORANGE_400[1], INDIGO_600[1], tt);
           b = lerp(ORANGE_400[2], INDIGO_600[2], tt);

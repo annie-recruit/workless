@@ -53,6 +53,7 @@ export default function DatabaseBlock({
   const [addingProperty, setAddingProperty] = useState(false);
   const [newPropertyName, setNewPropertyName] = useState('');
   const [newPropertyType, setNewPropertyType] = useState<DatabasePropertyType>('text');
+  const [isHovered, setIsHovered] = useState(false);
 
   // 설정 저장
   useEffect(() => {
@@ -72,7 +73,7 @@ export default function DatabaseBlock({
     if (!sortBy) return 0;
     const aVal = a.properties[sortBy];
     const bVal = b.properties[sortBy];
-    
+
     if (aVal === undefined && bVal === undefined) return 0;
     if (aVal === undefined) return 1;
     if (bVal === undefined) return -1;
@@ -232,26 +233,31 @@ export default function DatabaseBlock({
     );
   };
 
+  const scale = isHovered ? 1.05 : 1;
+
   return (
     <div
       data-database-block={blockId}
-      className={`absolute bg-white rounded-lg shadow-lg border-[3px] border-black overflow-hidden flex flex-col ${
-        isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
-      }`}
+      className={`absolute bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black overflow-hidden flex flex-col ${isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
+        }`}
       style={{
-        transform: `translate3d(${x}px, ${y}px, 0)`,
+        transform: `translate3d(${x}px, ${y}px, 0) scale(${scale})`,
         width: `${width}px`,
         height: `${height}px`,
         zIndex: isDragging ? 10000 : zIndex,
         opacity: isDragging ? 0.85 : 1,
-        transition: 'none',
+        transition: isDragging ? 'none' : 'transform 0.2s ease-out',
         willChange: isDragging ? 'transform' : 'auto',
         pointerEvents: isDragging ? 'none' : 'auto',
-        contain: 'layout style paint',
+        contain: isDragging ? 'layout style paint' : 'none',
+        transformOrigin: 'center center',
+        overflow: 'visible',
         ...(isHighlighted
           ? { backgroundImage: 'linear-gradient(rgba(99, 102, 241, 0.06), rgba(99, 102, 241, 0.06))' }
           : null),
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onPointerDown={onPointerDown}
     >
       {/* 헤더 */}

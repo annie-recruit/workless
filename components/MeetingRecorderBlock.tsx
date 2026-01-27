@@ -54,6 +54,7 @@ export default function MeetingRecorderBlock({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const [audioLevels, setAudioLevels] = useState<number[]>(new Array(20).fill(0));
+  const [isHovered, setIsHovered] = useState(false);
 
   // 녹음 시간 포맷팅
   const formatTime = (seconds: number) => {
@@ -65,16 +66,16 @@ export default function MeetingRecorderBlock({
   // 오디오 레벨 분석
   const analyzeAudio = useCallback(() => {
     if (!analyserRef.current) return;
-    
+
     const bufferLength = analyserRef.current.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
     analyserRef.current.getByteFrequencyData(dataArray);
-    
+
     // 20개 바를 위한 샘플링
     const samples = 20;
     const step = Math.floor(bufferLength / samples);
     const levels: number[] = [];
-    
+
     for (let i = 0; i < samples; i++) {
       let sum = 0;
       for (let j = 0; j < step; j++) {
@@ -82,7 +83,7 @@ export default function MeetingRecorderBlock({
       }
       levels.push(sum / step / 255); // 0-1 정규화
     }
-    
+
     setAudioLevels(levels);
     animationFrameRef.current = requestAnimationFrame(analyzeAudio);
   }, []);
@@ -92,21 +93,21 @@ export default function MeetingRecorderBlock({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      
+
       // Web Audio API 설정 (파형 시각화용)
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
       const source = audioContext.createMediaStreamSource(stream);
       source.connect(analyser);
-      
+
       audioContextRef.current = audioContext;
       analyserRef.current = analyser;
-      
+
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus'
       });
-      
+
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -121,17 +122,17 @@ export default function MeetingRecorderBlock({
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           await transcribeAudio(audioBlob);
         }
-        
+
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
           streamRef.current = null;
         }
-        
+
         if (audioContextRef.current) {
           audioContextRef.current.close();
           audioContextRef.current = null;
         }
-        
+
         if (animationFrameRef.current) {
           cancelAnimationFrame(animationFrameRef.current);
           animationFrameRef.current = null;
@@ -182,15 +183,15 @@ export default function MeetingRecorderBlock({
           mediaRecorderRef.current.stop();
         }
       }
-      
+
       setIsPaused(true);
       pausedTimeRef.current = recordingTime;
-      
+
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
-      
+
       // 오디오 분석 중지
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -230,13 +231,13 @@ export default function MeetingRecorderBlock({
           console.warn('resume() failed, restarting recording');
         }
       }
-      
+
       // pause/resume이 지원되지 않는 경우, 새로 녹음 시작
       // 기존 오디오 청크는 유지하고 계속 추가
       const mediaRecorder = new MediaRecorder(streamRef.current, {
         mimeType: 'audio/webm;codecs=opus'
       });
-      
+
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
@@ -280,7 +281,7 @@ export default function MeetingRecorderBlock({
       }
       setIsRecording(false);
       setIsPaused(false);
-      
+
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -295,7 +296,7 @@ export default function MeetingRecorderBlock({
   // 음성 변환
   const transcribeAudio = async (audioBlob: Blob) => {
     setIsProcessing(true);
-    
+
     try {
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.webm');
@@ -310,7 +311,7 @@ export default function MeetingRecorderBlock({
         if (data.script && data.summary) {
           setScript(data.script);
           setSummary(data.summary);
-          
+
           onUpdate(blockId, {
             config: {
               ...config,
@@ -361,26 +362,31 @@ export default function MeetingRecorderBlock({
   const isStateRecording = !isProcessing && isRecording;
   const isStateProcessing = isProcessing;
 
+  const scale = isHovered ? 1.05 : 1;
+
   return (
     <div
       data-meeting-recorder-block={blockId}
-      className={`absolute bg-white border-[3px] border-black overflow-hidden ${
-        isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
-      }`}
+      className={`absolute bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black overflow-hidden ${isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
+        }`}
       style={{
-        transform: `translate3d(${x}px, ${y}px, 0)`,
+        transform: `translate3d(${x}px, ${y}px, 0) scale(${scale})`,
         width: `${width}px`,
         height: `${height}px`,
         zIndex: isDragging ? 10000 : zIndex,
         opacity: isDragging ? 0.85 : 1,
-        transition: 'none',
+        transition: isDragging ? 'none' : 'transform 0.2s ease-out',
         willChange: isDragging ? 'transform' : 'auto',
         pointerEvents: isDragging ? 'none' : 'auto',
-        contain: 'layout style paint',
+        contain: isDragging ? 'layout style paint' : 'none',
+        transformOrigin: 'center center',
+        overflow: 'visible',
         ...(isHighlighted
           ? { backgroundImage: 'linear-gradient(rgba(99, 102, 241, 0.06), rgba(99, 102, 241, 0.06))' }
           : null),
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onPointerDown={onPointerDown}
     >
       {/* 헤더 */}

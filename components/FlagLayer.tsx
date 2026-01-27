@@ -30,7 +30,10 @@ export default function FlagLayer({ flags, hoveredFlagId, selectedFlagId, draft 
             width={104}
             height={97}
             className="pixel-icon relative"
-            style={{ zIndex: 1 }}
+            style={{ 
+              zIndex: 1,
+              filter: 'drop-shadow(4px 4px 0px rgba(0, 0, 0, 0.3))'
+            }}
             draggable={false}
           />
         </div>
@@ -52,15 +55,14 @@ export default function FlagLayer({ flags, hoveredFlagId, selectedFlagId, draft 
           >
             {(isHovered || isSelected) && (
               <div
-                className="absolute"
+                className="absolute border-2 border-indigo-400 bg-indigo-50"
                 style={{
                   left: '50%',
                   top: '100%',
-                  width: 24,
-                  height: 24,
+                  width: 28,
+                  height: 28,
                   transform: 'translate(-50%, -50%)',
-                  background: 'rgba(99, 102, 241, 0.10)',
-                  border: '1px solid rgba(99, 102, 241, 0.20)',
+                  boxShadow: '0 0 0 2px rgba(99, 102, 241, 0.2), inset 0 0 0 2px rgba(255, 255, 255, 0.5)',
                 }}
               />
             )}
@@ -70,7 +72,10 @@ export default function FlagLayer({ flags, hoveredFlagId, selectedFlagId, draft 
               width={104}
               height={97}
               className="pixel-icon relative"
-              style={{ zIndex: 1 }}
+              style={{ 
+                zIndex: 1,
+                filter: 'drop-shadow(4px 4px 0px rgba(0, 0, 0, 0.3))'
+              }}
               draggable={false}
             />
             {(isHovered || isSelected) && (
@@ -78,7 +83,7 @@ export default function FlagLayer({ flags, hoveredFlagId, selectedFlagId, draft 
                 className="absolute left-1/2 -top-2 -translate-x-1/2 -translate-y-full"
                 style={{ zIndex: 2 }}
               >
-                <div className="px-2 py-1 text-xs border border-gray-200 bg-white text-gray-700 whitespace-nowrap">
+                <div className="px-3 py-1.5 text-xs font-bold border-2 border-gray-900 bg-white text-gray-900 whitespace-nowrap shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] font-galmuri11 uppercase tracking-tight">
                   {flag.name}
                 </div>
               </div>

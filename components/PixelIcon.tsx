@@ -64,6 +64,8 @@ const ICON_MAP: Record<string, string> = {
   'archive': 'pixelarticons:archive',
   'refresh': 'pixelarticons:refresh',
   'menu': 'pixelarticons:menu',
+  'apps': 'pixelarticons:apps',
+  'widgets': 'pixelarticons:apps',
   'filter': 'pixelarticons:filter',
   'sort': 'pixelarticons:sort',
   'list': 'pixelarticons:list',

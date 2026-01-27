@@ -556,8 +556,65 @@ ${summary}`;
     : [];
 
   return (
-    <div className="w-full max-w-3xl mx-auto">
-      <form onSubmit={handleSubmit} className="space-y-4" data-tutorial-target="memory-input">
+    <div className="w-full max-w-7xl mx-auto flex gap-6">
+      {/* 왼쪽 가이드 사이드바 */}
+      <div className="w-56 flex-shrink-0 space-y-4 text-xs text-gray-500 font-galmuri11 pt-2">
+        {/* 위젯 기능 */}
+        <div className="space-y-2">
+          <h3 className="flex items-center gap-2 text-gray-700 font-bold uppercase tracking-tight text-[10px] mb-3">
+            <PixelIcon name="widgets" size={14} />
+            위젯
+          </h3>
+          <div className="space-y-2 pl-1">
+            <div className="flex items-start gap-2">
+              <PixelIcon name="calendar" size={12} className="mt-0.5 flex-shrink-0" />
+              <span className="leading-tight"><strong>캘린더:</strong> 날짜 기반 일정 관리</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <PixelIcon name="map" size={12} className="mt-0.5 flex-shrink-0" />
+              <span className="leading-tight"><strong>미니맵:</strong> 보드 전체 뷰</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <PixelIcon name="file" size={12} className="mt-0.5 flex-shrink-0" />
+              <span className="leading-tight"><strong>뷰어:</strong> PDF/이미지 표시</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <PixelIcon name="database" size={12} className="mt-0.5 flex-shrink-0" />
+              <span className="leading-tight"><strong>데이터베이스:</strong> 테이블 뷰</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <PixelIcon name="microphone" size={12} className="mt-0.5 flex-shrink-0" />
+              <span className="leading-tight"><strong>회의록:</strong> 실시간 녹음</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 메모리 카드 기능 */}
+        <div className="space-y-2 pt-2 border-t border-gray-200">
+          <h3 className="flex items-center gap-2 text-gray-700 font-bold uppercase tracking-tight text-[10px] mb-3">
+            <PixelIcon name="card" size={14} />
+            카드 기능
+          </h3>
+          <div className="space-y-2 pl-1">
+            <div className="flex items-start gap-2">
+              <PixelIcon name="link" size={12} className="mt-0.5 flex-shrink-0" />
+              <span className="leading-tight">카드 연결로 관계 시각화</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <PixelIcon name="flag" size={12} className="mt-0.5 flex-shrink-0" />
+              <span className="leading-tight">깃발로 북마크 저장</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <PixelIcon name="folder" size={12} className="mt-0.5 flex-shrink-0" />
+              <span className="leading-tight">그룹으로 분류 정리</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 중앙 입력 폼 영역 */}
+      <div className="flex-1">
+        <form onSubmit={handleSubmit} className="space-y-4" data-tutorial-target="memory-input">
         {/* 제목 입력 */}
         <input
           type="text"
@@ -981,6 +1038,36 @@ ${summary}`;
           </div>
         </div>
       )}
+      </div>
+
+      {/* 오른쪽 가이드 사이드바 */}
+      <div className="w-56 flex-shrink-0 space-y-4 text-xs text-gray-500 font-galmuri11 pt-2">
+        {/* 블롭 생성 */}
+        <div className="space-y-2">
+          <h3 className="flex items-center gap-2 text-gray-700 font-bold uppercase tracking-tight text-[10px] mb-3">
+            <PixelIcon name="blur" size={14} />
+            블롭
+          </h3>
+          <div className="pl-1">
+            <p className="leading-tight">
+              3개 이상 연결된 카드 그룹에 자동으로 배경 생성
+            </p>
+          </div>
+        </div>
+
+        {/* 액션 프로젝트 */}
+        <div className="space-y-2 pt-2 border-t border-gray-200">
+          <h3 className="flex items-center gap-2 text-gray-700 font-bold uppercase tracking-tight text-[10px] mb-3">
+            <PixelIcon name="target" size={14} />
+            액션 프로젝트
+          </h3>
+          <div className="pl-1">
+            <p className="leading-tight">
+              선택한 카드들을 AI가 분석해 실행 가능한 단계별 계획 생성
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

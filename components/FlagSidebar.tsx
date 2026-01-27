@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { FlagBookmark } from '@/components/FlagContext';
+import PixelIcon from './PixelIcon';
 
 type Props = {
   flags: FlagBookmark[];
@@ -32,8 +33,8 @@ export default function FlagSidebar({
         className="w-12 h-12 flex flex-col items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
         title="Flag 추가"
       >
-        <span className="text-lg font-bold leading-none">+</span>
-        <span className="text-[10px] font-semibold tracking-tight">Add</span>
+        <PixelIcon name="flag" size={20} />
+        <span className="text-[9px] font-bold tracking-tight text-gray-600 uppercase">Add</span>
       </button>
 
       <div className="flex-1 w-full flex flex-col items-center gap-2">

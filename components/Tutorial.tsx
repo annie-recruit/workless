@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import PixelIcon from './PixelIcon';
 
 export interface TutorialStep {
   id: string;
@@ -197,10 +198,10 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
 
   return (
     <>
-      {/* Overlay with highlight */}
+      {/* Pixel-style Overlay with highlight */}
       <div
         ref={overlayRef}
-        className="fixed inset-0 z-[9998] bg-black/50 transition-opacity"
+        className="fixed inset-0 z-[9998] bg-black/60 transition-opacity font-galmuri11"
         onClick={(e) => {
           // 툴팁 자체를 클릭한 경우가 아니면 다음으로 진행
           if (e.target === overlayRef.current) {
@@ -208,21 +209,26 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
           }
         }}
       >
-        {/* Highlight area */}
+        {/* Pixel-style Highlight area */}
         {targetElement && (
           <div
-            className="absolute border-4 border-blue-500 rounded-lg shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] pointer-events-none transition-all"
+            className="absolute border-4 border-indigo-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] pointer-events-none transition-all animate-pulse"
             style={{
-              top: targetElement.getBoundingClientRect().top - 4,
-              left: targetElement.getBoundingClientRect().left - 4,
-              width: targetElement.getBoundingClientRect().width + 8,
-              height: targetElement.getBoundingClientRect().height + 8,
+              top: targetElement.getBoundingClientRect().top - 6,
+              left: targetElement.getBoundingClientRect().left - 6,
+              width: targetElement.getBoundingClientRect().width + 12,
+              height: targetElement.getBoundingClientRect().height + 12,
+              boxShadow: `
+                0 0 0 9999px rgba(0,0,0,0.6),
+                inset 0 0 0 2px rgba(255,255,255,0.3),
+                0 0 20px rgba(99, 102, 241, 0.5)
+              `,
             }}
           />
         )}
       </div>
 
-      {/* Tooltip */}
+      {/* Pixel-style Tooltip */}
       <div
         className="fixed z-[9999] pointer-events-none"
         style={{
@@ -240,83 +246,100 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
         }}
       >
         <div 
-          className="bg-white rounded-xl shadow-2xl p-6 max-w-sm pointer-events-auto border border-blue-500" 
+          className="bg-white border-4 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] p-6 max-w-sm pointer-events-auto relative font-galmuri11" 
           style={{ maxHeight: 'calc(100vh - 40px)', overflowY: 'auto' }}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Pixel-style corner decorations */}
+          <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+          <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+          <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+          <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+
           {/* Header */}
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              {/* Pixel-style step badge */}
+              <div className="w-8 h-8 bg-indigo-500 border-2 border-gray-900 flex items-center justify-center text-white font-bold text-sm shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)]">
                 {currentStep + 1}
               </div>
-              <h3 className="text-lg font-bold text-gray-900">{step.title}</h3>
+              <h3 className="text-base font-black text-gray-900 uppercase tracking-tight leading-tight">
+                {step.title}
+              </h3>
             </div>
             <button
               onClick={handleSkip}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="p-1.5 hover:bg-gray-100 border-2 border-transparent hover:border-gray-300 transition-colors"
               title="건너뛰기"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <PixelIcon name="close" size={16} className="text-gray-600" />
             </button>
           </div>
 
           {/* Description */}
-          <p className="text-gray-700 mb-4 leading-relaxed">{step.description}</p>
+          <p className="text-sm text-gray-700 mb-5 leading-relaxed border-l-4 border-indigo-200 pl-3 bg-indigo-50 py-2">
+            {step.description}
+          </p>
 
-          {/* Progress */}
-          <div className="mb-4">
-            <div className="flex gap-1">
+          {/* Pixel-style Progress */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Progress</span>
+              <span className="text-xs font-black text-indigo-600 font-mono">
+                {currentStep + 1}/{steps.length}
+              </span>
+            </div>
+            <div className="flex gap-1.5">
               {steps.map((_, idx) => (
                 <div
                   key={idx}
-                  className={`h-1 flex-1 rounded-full transition-colors ${
-                    idx <= currentStep ? 'bg-blue-500' : 'bg-gray-200'
+                  className={`h-2 flex-1 border-2 border-gray-900 transition-all ${
+                    idx <= currentStep 
+                      ? 'bg-indigo-500 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.3)]' 
+                      : 'bg-gray-200'
                   }`}
                 />
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-1 text-center">
-              {currentStep + 1} / {steps.length}
-            </p>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-between gap-2">
+          {/* Pixel-style Actions */}
+          <div className="flex items-center justify-between gap-3">
             <button
               onClick={handlePrevious}
               disabled={isFirst}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+              className="px-4 py-2 text-xs font-bold border-2 border-gray-900 bg-white hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-2 uppercase tracking-tight shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] disabled:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] disabled:transform-none"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
+              <PixelIcon name="chevron_left" size={14} />
               이전
             </button>
             <button
               onClick={handleNext}
-              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium flex items-center gap-1"
+              className="px-6 py-2 bg-indigo-500 text-white border-2 border-gray-900 hover:bg-indigo-600 transition-all text-xs font-black uppercase tracking-tight flex items-center gap-2 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
             >
-              {isLast ? '완료' : '다음'}
-              {!isLast && (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+              {isLast ? (
+                <>
+                  <PixelIcon name="check" size={14} />
+                  완료
+                </>
+              ) : (
+                <>
+                  다음
+                  <PixelIcon name="chevron_right" size={14} />
+                </>
               )}
             </button>
           </div>
         </div>
 
-        {/* Arrow pointing to target */}
+        {/* Pixel-style Arrow pointing to target */}
         {targetElement && step.position && step.position !== 'center' && (
           <div
-            className="absolute w-0 h-0 pointer-events-none"
+            className="absolute pointer-events-none"
             style={{
-              top: step.position === 'bottom' ? '100%' : step.position === 'top' ? '-10px' : '50%',
+              top: step.position === 'bottom' ? '100%' : step.position === 'top' ? '-16px' : '50%',
               left: step.position === 'left' || step.position === 'right' 
-                ? step.position === 'left' ? '100%' : '-10px'
+                ? step.position === 'left' ? '100%' : '-16px'
                 : '50%',
               transform: step.position === 'right' 
                 ? 'translateY(-50%)'
@@ -325,17 +348,40 @@ export default function Tutorial({ steps, onComplete, onSkip }: TutorialProps) {
                 : step.position === 'top'
                 ? 'translateX(-50%)'
                 : 'translateX(-50%)',
-              borderStyle: 'solid',
-              borderWidth: step.position === 'top' || step.position === 'bottom' ? '10px 10px 0 10px' : '10px 0 10px 10px',
-              borderColor: step.position === 'top'
-                ? 'transparent transparent white transparent'
-                : step.position === 'bottom'
-                ? 'white transparent transparent transparent'
-                : step.position === 'left'
-                ? 'transparent white transparent transparent'
-                : 'transparent transparent transparent white',
             }}
-          />
+          >
+            {/* Pixel-style triangle using divs */}
+            <div className="relative">
+              {step.position === 'bottom' && (
+                <div className="flex flex-col items-center">
+                  <div className="w-3 h-3 bg-gray-900" />
+                  <div className="w-5 h-3 bg-gray-900 -mt-3" />
+                  <div className="w-7 h-3 bg-white border-4 border-gray-900 -mt-3" />
+                </div>
+              )}
+              {step.position === 'top' && (
+                <div className="flex flex-col-reverse items-center">
+                  <div className="w-3 h-3 bg-gray-900" />
+                  <div className="w-5 h-3 bg-gray-900 -mb-3" />
+                  <div className="w-7 h-3 bg-white border-4 border-gray-900 -mb-3" />
+                </div>
+              )}
+              {step.position === 'left' && (
+                <div className="flex flex-row-reverse items-center">
+                  <div className="w-3 h-3 bg-gray-900" />
+                  <div className="w-3 h-5 bg-gray-900 -mr-3" />
+                  <div className="w-3 h-7 bg-white border-4 border-gray-900 -mr-3" />
+                </div>
+              )}
+              {step.position === 'right' && (
+                <div className="flex flex-row items-center">
+                  <div className="w-3 h-3 bg-gray-900" />
+                  <div className="w-3 h-5 bg-gray-900 -ml-3" />
+                  <div className="w-3 h-7 bg-white border-4 border-gray-900 -ml-3" />
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </>

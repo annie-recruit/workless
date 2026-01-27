@@ -49,6 +49,7 @@ export default function CalendarBlock({
 }: CalendarBlockProps) {
   const [currentDate, setCurrentDate] = useState(config.selectedDate ? new Date(config.selectedDate) : new Date());
   const [isEditing, setIsEditing] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const view = config.view || 'month';
 
   // config.view가 변경되면 currentDate도 업데이트
@@ -114,25 +115,31 @@ export default function CalendarBlock({
     });
   };
 
+  const scale = isHovered ? 1.05 : 1;
+
   return (
     <div
       data-calendar-block={blockId}
-      className={`absolute bg-white rounded-lg shadow-lg border-[3px] border-black p-4 cursor-move ${isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
+      className={`absolute bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black p-4 cursor-move ${isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
         }`}
       style={{
-        transform: `translate3d(${x}px, ${y}px, 0)`,
+        transform: `translate3d(${x}px, ${y}px, 0) scale(${scale})`,
         width: `${width}px`,
         height: `${height}px`,
         zIndex: zIndex,
         opacity: isDragging ? 0.85 : 1,
-        transition: 'none',
+        transition: isDragging ? 'none' : 'transform 0.2s ease-out',
         willChange: isDragging ? 'transform' : 'auto',
         pointerEvents: isDragging ? 'none' : 'auto',
-        contain: 'layout style paint',
+        contain: isDragging ? 'layout style paint' : 'none',
+        transformOrigin: 'center center',
+        overflow: 'visible',
         ...(isHighlighted
           ? { backgroundImage: 'linear-gradient(rgba(99, 102, 241, 0.06), rgba(99, 102, 241, 0.06))' }
           : null),
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onPointerDown={onPointerDown}
       onClick={(e) => {
         // 버튼이나 링크 클릭이 아닐 때만 클릭 이벤트 처리

@@ -323,7 +323,7 @@ const MemoryCard = memo(
           if (isEditing) return;
           onDragEnd?.();
         }}
-        className={`group relative p-5 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] transition-all scroll-mt-4 h-full flex flex-col ${isEditing ? 'cursor-default' : 'cursor-move'
+        className={`group relative p-5 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-transform scroll-mt-4 h-full flex flex-col hover:scale-105 ${isEditing ? 'cursor-default' : 'cursor-move'
           } ${cardClassName} ${isHighlighted ? 'ring-4 ring-indigo-400 ring-offset-2' : ''}`}
         onPointerDown={(e) => {
           if (isEditing) {

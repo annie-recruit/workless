@@ -205,6 +205,12 @@ export function useDragEngine(params: {
         if (finalPos) {
           const block = blocks.find((b) => b.id === draggingEntity.id);
           if (block) {
+            // 드래그 중에 설정된 인라인 transform 스타일 제거
+            const element = draggedElementsRef.current.get(draggingEntity.id);
+            if (element) {
+              element.style.transform = '';
+            }
+            
             setBlocks((prev) => {
               const updated = [...prev];
               const index = updated.findIndex((b) => b.id === draggingEntity.id);

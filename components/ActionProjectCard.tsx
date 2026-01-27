@@ -47,7 +47,7 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
 
     return (
         <div
-            className={`relative w-[360px] bg-white border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-5 select-none transition-shadow ${isSelected ? 'ring-4 ring-indigo-400 ring-offset-2' : ''
+            className={`relative w-[360px] bg-white border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-5 select-none transition-all hover:scale-105 ${isSelected ? 'ring-4 ring-indigo-400 ring-offset-2' : ''
                 } ${isDragging ? 'opacity-90 grayscale-[0.2]' : ''}`}
         >
             {/* 장식용 코너 포인트 */}
@@ -114,7 +114,8 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
                                     key={action.id}
                                     data-interactive="true"
                                     className="flex items-start gap-2.5 group cursor-pointer"
-                                    onClick={(e) => {
+                                    onPointerDown={(e) => {
+                                        e.preventDefault();
                                         e.stopPropagation();
                                         handleToggleAction(milestone.id, action.id);
                                     }}
