@@ -50,7 +50,7 @@ export default function CalendarBlock({
   const [currentDate, setCurrentDate] = useState(config.selectedDate ? new Date(config.selectedDate) : new Date());
   const [isEditing, setIsEditing] = useState(false);
   const view = config.view || 'month';
-  
+
   // config.view가 변경되면 currentDate도 업데이트
   useEffect(() => {
     if (config.selectedDate) {
@@ -95,14 +95,14 @@ export default function CalendarBlock({
       e.preventDefault();
       e.stopPropagation();
     }
-    
+
     // 일 뷰로 전환
     const newConfig = {
       ...config,
       view: 'day' as const,
       selectedDate: date.getTime(),
     };
-    
+
     onUpdate(blockId, {
       config: newConfig
     });
@@ -117,9 +117,8 @@ export default function CalendarBlock({
   return (
     <div
       data-calendar-block={blockId}
-      className={`absolute bg-white rounded-lg shadow-lg border-[3px] border-black p-4 cursor-move ${
-        isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
-      }`}
+      className={`absolute bg-white rounded-lg shadow-lg border-[3px] border-black p-4 cursor-move ${isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
+        }`}
       style={{
         transform: `translate3d(${x}px, ${y}px, 0)`,
         width: `${width}px`,
@@ -221,7 +220,7 @@ export default function CalendarBlock({
               const dayMemories = memoriesByDate[dateKey] || [];
               const isCurrentMonth = isSameMonth(day, currentDate);
               const isToday = isSameDay(day, new Date());
-              const isLinked = config.linkedMemoryIds?.some(id => 
+              const isLinked = config.linkedMemoryIds?.some(id =>
                 dayMemories.some(m => m.id === id)
               );
 
@@ -376,6 +375,9 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
 
   const stripHtml = (html: string) => {
     if (!html) return '';
+    if (typeof document === 'undefined') {
+      return html.replace(/<[^>]*>/g, '').trim();
+    }
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = html;
     return tempDiv.textContent || tempDiv.innerText || '';
@@ -386,7 +388,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
     const cursorPos = e.target.selectionStart || 0;
     const textBeforeCursor = value.substring(0, cursorPos);
     const lastAtIndex = textBeforeCursor.lastIndexOf('@');
-    
+
     if (lastAtIndex !== -1) {
       const query = textBeforeCursor.substring(lastAtIndex + 1);
       // 공백이나 줄바꿈이 없으면 멘션 모드
@@ -400,7 +402,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
     } else {
       setShowMentions(false);
     }
-    
+
     setNewTodoText(value);
   };
 
@@ -498,7 +500,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
             </button>
           )}
         </div>
-        
+
         {showAddTodo && (
           <div className="mb-2 space-y-1.5 relative">
             <div className="flex items-center gap-1">
@@ -600,9 +602,8 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
                 )}
                 <div className="flex-1">
                   <div
-                    className={`text-xs flex flex-wrap items-center gap-1 ${
-                      todo.completed ? 'line-through text-gray-400' : 'text-gray-700'
-                    }`}
+                    className={`text-xs flex flex-wrap items-center gap-1 ${todo.completed ? 'line-through text-gray-400' : 'text-gray-700'
+                      }`}
                   >
                     {(() => {
                       // 텍스트에서 @ 태그를 찾아서 인라인 태그로 렌더링
@@ -612,7 +613,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
                       // @ 뒤에 공백이 있을 수도 있고 없을 수도 있음: @기록제목 또는 @ 기록제목
                       const mentionRegex = /@\s*([^\s@]+)/g;
                       let match;
-                      
+
                       while ((match = mentionRegex.exec(text)) !== null) {
                         // @ 이전 텍스트 추가
                         if (match.index > lastIndex) {
@@ -621,11 +622,11 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
                             content: text.substring(lastIndex, match.index)
                           });
                         }
-                        
+
                         // @ 태그 부분 처리 (공백 제거)
                         const mentionText = match[1].trim();
                         const fullMatch = match[0]; // @ 기호 포함 전체 매칭 (공백 포함 가능)
-                        
+
                         // linkedMemoryIds에서 매칭되는 기록 찾기
                         let matchedMemory = null;
                         if (todo.linkedMemoryIds && todo.linkedMemoryIds.length > 0) {
@@ -637,25 +638,25 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
                               const memoryTitle = m.title || '';
                               const memoryDate = format(new Date(m.createdAt), 'M월 d일');
                               // 제목이 정확히 일치하거나, 날짜 형식이 일치하거나, 부분 일치
-                              return memoryTitle === mentionText || 
-                                     memoryDate === mentionText ||
-                                     memoryTitle.includes(mentionText) ||
-                                     mentionText.includes(memoryTitle);
+                              return memoryTitle === mentionText ||
+                                memoryDate === mentionText ||
+                                memoryTitle.includes(mentionText) ||
+                                mentionText.includes(memoryTitle);
                             });
                         }
-                        
+
                         // linkedMemoryIds가 없거나 매칭이 안 되면, 모든 기록에서 찾기
                         if (!matchedMemory) {
                           matchedMemory = allMemories.find(m => {
                             const memoryTitle = m.title || '';
                             const memoryDate = format(new Date(m.createdAt), 'M월 d일');
-                            return memoryTitle === mentionText || 
-                                   memoryDate === mentionText ||
-                                   memoryTitle.includes(mentionText) ||
-                                   mentionText.includes(memoryTitle);
+                            return memoryTitle === mentionText ||
+                              memoryDate === mentionText ||
+                              memoryTitle.includes(mentionText) ||
+                              mentionText.includes(memoryTitle);
                           });
                         }
-                        
+
                         if (matchedMemory) {
                           parts.push({
                             type: 'tag',
@@ -670,10 +671,10 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
                             content: fullMatch
                           });
                         }
-                        
+
                         lastIndex = match.index + fullMatch.length;
                       }
-                      
+
                       // 마지막 남은 텍스트 추가
                       if (lastIndex < text.length) {
                         parts.push({
@@ -681,7 +682,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
                           content: text.substring(lastIndex)
                         });
                       }
-                      
+
                       // @ 태그가 없으면 원본 텍스트 그대로 표시
                       if (parts.length === 0) {
                         parts.push({
@@ -689,7 +690,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
                           content: text
                         });
                       }
-                      
+
                       return parts.map((part, index) => {
                         if (part.type === 'tag' && part.memoryId) {
                           return (
@@ -735,7 +736,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
               const content = stripHtml(memory.content);
               const isLong = content.length > 100;
               const displayContent = isLong ? content.substring(0, 100) + '...' : content;
-              
+
               return (
                 <button
                   key={memory.id}

@@ -8,6 +8,9 @@ export const BOARD_PADDING = 100;
 
 export const stripHtmlClient = (html: string) => {
   if (!html) return '';
+  if (typeof document === 'undefined') {
+    return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  }
   // HTML 엔티티 디코딩
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = html;

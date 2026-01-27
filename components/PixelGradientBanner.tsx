@@ -28,6 +28,8 @@ export default function PixelGradientBanner({ className }: PixelGradientBannerPr
   const lastSizeRef = useRef<{ width: number; height: number; dpr: number } | null>(null);
 
   const internalCanvas = useMemo(() => {
+    if (typeof document === 'undefined') return null;
+
     const LOGICAL_W = 320;
     const LOGICAL_H = 120;
     const CELL_SIZE = 4;
@@ -85,7 +87,7 @@ export default function PixelGradientBanner({ className }: PixelGradientBannerPr
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !internalCanvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
