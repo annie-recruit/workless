@@ -52,7 +52,7 @@ export default function LandingPage() {
           {/* 타이틀 */}
           <div className="text-center space-y-4">
             <div className="space-y-2">
-              <h1 className="text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ letterSpacing: '-0.05em' }}>
+              <h1 className="text-6xl font-black text-white mb-3 tracking-tighter" style={{ letterSpacing: '-0.05em' }}>
                 Workless
               </h1>
               <div className="flex items-center justify-center gap-4">
@@ -67,6 +67,17 @@ export default function LandingPage() {
             <p className="text-white/80 text-sm tracking-wide">
               맥락을 구체화. 비정형 애자일 워크스페이스
             </p>
+
+            {/* 앱 목적 설명 */}
+            <div className="bg-white/10 backdrop-blur-sm border border-white/30 p-6 mt-6 max-w-3xl mx-auto">
+              <h2 className="text-white font-bold text-lg mb-3">애플리케이션 목적</h2>
+              <p className="text-white/90 text-sm leading-relaxed">
+                <strong className="text-white">Workless</strong>는 비정형 사고를 위한 무한 캔버스 워크스페이스입니다. 
+                Gmail 연동을 통해 &quot;Workless&quot; 라벨이 지정된 이메일을 자동으로 메모로 변환하고, 
+                AI 어시스턴트가 메모 간의 연관성을 분석하여 인사이트를 제공합니다. 
+                폴더나 계층 구조 없이 태그와 공간적 맥락으로 정보를 자유롭게 연결하고 시각화할 수 있습니다.
+              </p>
+            </div>
           </div>
 
           {/* CTA 버튼 */}
