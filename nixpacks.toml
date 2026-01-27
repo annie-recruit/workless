@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "python3"]
+nixPkgs = ["nodejs_20"]
 aptPkgs = [
   "libnss3", 
   "libatk1.0-0t64", 
@@ -17,9 +17,16 @@ aptPkgs = [
 
 [phases.install]
 cmds = ["npm install"]
+cacheDirectories = ["node_modules/.cache"]
 
 [phases.build]
 cmds = ["npm run build"]
+cacheDirectories = ["node_modules/.cache", ".next/cache"]
 
 [start]
 cmd = "npm start"
+
+[variables]
+NPM_CONFIG_UPDATE_NOTIFIER = "false"
+NEXT_TELEMETRY_DISABLED = "1"
+NODE_ENV = "production"
