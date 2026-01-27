@@ -26,6 +26,8 @@ import { useBoardPersistence } from '@/hooks/board/useBoardPersistence';
 import { useGroupsPanel, type BoardToastState } from '@/hooks/groups/useGroupsPanel';
 import { useBoardFlags } from '@/hooks/flags/useBoardFlags';
 import { useBoardBlocks } from '@/hooks/blocks/useBoardBlocks';
+import WidgetMenuBar from './WidgetMenuBar';
+import WidgetCreateButton from './WidgetCreateButton';
 
 // 큰 컴포넌트들을 동적 import로 로드 (초기 번들 크기 감소)
 const CalendarBlock = dynamic(() => import('./CalendarBlock'), {
@@ -546,6 +548,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [linkNotes, setLinkNotes] = useState<Record<string, string>>({});
   const [linkInfo, setLinkInfo] = useState<Record<string, { note?: string; isAIGenerated: boolean }>>({});
   const [isBlobEnabled, setIsBlobEnabled] = useState(true);
+  const [isWidgetMenuOpen, setIsWidgetMenuOpen] = useState(false);
 
   // Blob 설정 불러오기
   useEffect(() => {
@@ -2255,13 +2258,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         <div className="flex items-center gap-3 flex-wrap">
           {(() => {
             const folderColorMap: Record<string, string> = {
-              blue: '#93C5FD',
-              purple: '#C4B5FD',
-              green: '#86EFAC',
-              orange: '#FDBA74',
-              pink: '#F9A8D4',
-              red: '#FCA5A5',
-              yellow: '#FDE047',
+              orange: '#fb923c', // 주황 키 컬러
+              indigo: '#6366f1', // 인디고 키 컬러
             };
 
             const folderButtonBase =
@@ -2277,24 +2275,32 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     : 'hover:bg-gray-50 border-transparent'
                     }`}
                 >
-                  <PixelIcon
-                    name="folder"
-                    size={40}
-                    className=""
-                    style={{ color: selectedGroupId === null ? '#FFFFFF' : '#6B7280' }}
-                  />
+                  <div className="relative">
+                    <PixelIcon
+                      name="folder"
+                      size={40}
+                      className=""
+                      style={{ color: selectedGroupId === null ? '#FFFFFF' : '#6B7280' }}
+                    />
+                    {/* 픽셀 스타일 뱃지 */}
+                    <div className={`absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border-2 ${
+                      selectedGroupId === null 
+                        ? 'bg-white border-white text-gray-900' 
+                        : 'bg-gray-900 border-gray-900 text-white'
+                    } text-[9px] font-bold shadow-[1px_1px_0px_0px_rgba(0,0,0,0.2)]`}>
+                      {memories.length}
+                    </div>
+                  </div>
                   <span className={`text-xs font-medium ${selectedGroupId === null ? 'text-white' : 'text-gray-600'}`}>
                     전체
-                  </span>
-                  <span className={`text-[11px] ${selectedGroupId === null ? 'text-gray-300' : 'text-gray-400'}`}>
-                    {memories.length}개
                   </span>
                 </button>
 
                 {/* 그룹 폴더들 */}
                 {groups.map((group, index) => {
                   const palette = Object.values(folderColorMap);
-                  const fallbackColor = palette[index % palette.length] || '#C7D2FE';
+                  // 주황/인디고를 번갈아가며 사용
+                  const fallbackColor = palette[index % palette.length] || '#6366f1';
                   const folderColor = folderColorMap[group.color || ''] || fallbackColor;
 
                   return (
@@ -2311,19 +2317,25 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                           : 'hover:bg-gray-50 border-transparent'
                         }`}
                     >
-                      <PixelIcon
-                        name="folder"
-                        size={40}
-                        className=""
-                        style={{ color: selectedGroupId === group.id ? '#FFFFFF' : folderColor }}
-                      />
+                      <div className="relative">
+                        <PixelIcon
+                          name="folder"
+                          size={40}
+                          className=""
+                          style={{ color: selectedGroupId === group.id ? '#FFFFFF' : folderColor }}
+                        />
+                        {/* 픽셀 스타일 뱃지 */}
+                        <div className={`absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border-2 ${
+                          selectedGroupId === group.id 
+                            ? 'bg-white border-white text-gray-900' 
+                            : 'bg-gray-900 border-gray-900 text-white'
+                        } text-[9px] font-bold shadow-[1px_1px_0px_0px_rgba(0,0,0,0.2)]`}>
+                          {group.memoryIds.length}
+                        </div>
+                      </div>
                       <span className={`text-xs font-medium max-w-[80px] truncate ${selectedGroupId === group.id ? 'text-white' : 'text-gray-600'
                         }`}>
                         {group.name}
-                      </span>
-                      <span className={`text-[11px] ${selectedGroupId === group.id ? 'text-gray-300' : 'text-gray-400'
-                        }`}>
-                        {group.memoryIds.length}개
                       </span>
                       {dropTargetGroupId === group.id && (
                         <div className="absolute -top-1 -right-1">
@@ -2404,76 +2416,10 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   {isAutoArranging ? '배열 중...' : '맞춤 배열'}
                 </button>
 
-                <button
-                  onClick={handleCreateCalendarBlock}
-                  className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-1"
-                  title="캘린더 블록"
-                >
-                  <PixelIcon name="calendar" size={16} />
-                  <span>캘린더</span>
-                </button>
-                <button
-                  onClick={handleCreateMinimapBlock}
-                  disabled={blocks.some(b => b.type === 'minimap')}
-                  className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 flex items-center gap-1"
-                  title={blocks.some(b => b.type === 'minimap') ? '미니맵은 보드당 하나만 추가할 수 있습니다' : '미니맵 블록 추가'}
-                >
-                  <PixelIcon name="minimap" size={16} />
-                  <span>미니맵 추가</span>
-                </button>
-                <button
-                  onClick={handleCreateViewerBlock}
-                  className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-1"
-                  title="Viewer 위젯"
-                >
-                  <PixelIcon name="viewer" size={16} />
-                  <span>Viewer</span>
-                </button>
-                <button
-                  onClick={handleCreateMeetingRecorderBlock}
-                  className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-1"
-                  title="미팅 레코더"
-                >
-                  <PixelIcon name="meeting-recorder" size={16} />
-                  <span>미팅 레코더</span>
-                </button>
-                <button
-                  onClick={handleCreateDatabaseBlock}
-                  className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 flex items-center gap-1"
-                  title="데이터베이스"
-                >
-                  <PixelIcon name="database" size={16} />
-                  <span>데이터베이스</span>
-                </button>
-
-                <button
-                  onClick={() => setToast({ type: 'confirm', data: { type: 'create-project' } })}
-                  disabled={selectedMemoryIds.size === 0}
-                  className="px-2 py-1 text-xs rounded border-2 border-indigo-500 bg-indigo-50 text-indigo-700 font-bold hover:bg-indigo-100 disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed flex items-center gap-1 transition-all"
-                  title={selectedMemoryIds.size === 0 ? "기억들을 선택한 후 프로젝트를 생성하세요" : "선택한 기억들로 실천 계획 생성"}
-                >
-                  <PixelIcon name="success" size={16} className="text-indigo-600" />
-                  <span>액션프로젝트</span>
-                </button>
-
-                <button
-                  onClick={() => setIsHighlightMode((prev) => !prev)}
-                  className={`px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 flex items-center gap-1 ${isHighlightMode ? 'text-indigo-700' : 'text-gray-700'
-                    }`}
-                  title="Highlight Mode 토글"
-                >
-                  <PixelIcon name="star" size={16} className={isHighlightMode ? 'text-indigo-600' : 'text-gray-500'} />
-                  <span>{isHighlightMode ? 'Highlight ON' : 'Highlight'}</span>
-                </button>
-
-                <button
-                  onClick={toggleBlob}
-                  className={`px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 flex items-center gap-1 ${isBlobEnabled ? 'text-indigo-700' : 'text-gray-700'}`}
-                  title="Blob 시각화 토글"
-                >
-                  <PixelIcon name="group" size={16} className={isBlobEnabled ? 'text-indigo-600' : 'text-gray-500'} />
-                  <span>{isBlobEnabled ? 'Blob ON' : 'Blob'}</span>
-                </button>
+                <WidgetCreateButton
+                  isOpen={isWidgetMenuOpen}
+                  onClick={() => setIsWidgetMenuOpen((prev) => !prev)}
+                />
               </div>
               <div className="flex items-center gap-1">
                 <button
@@ -2499,6 +2445,22 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 </button>
               </div>
             </div>
+
+            {/* 위젯 생성 메뉴 바 */}
+            {isWidgetMenuOpen && (
+              <WidgetMenuBar
+                blocks={blocks}
+                selectedMemoryIds={selectedMemoryIds}
+                isBlobEnabled={isBlobEnabled}
+                onCreateCalendar={handleCreateCalendarBlock}
+                onCreateMinimap={handleCreateMinimapBlock}
+                onCreateViewer={handleCreateViewerBlock}
+                onCreateMeetingRecorder={handleCreateMeetingRecorderBlock}
+                onCreateDatabase={handleCreateDatabaseBlock}
+                onCreateProject={() => setToast({ type: 'confirm', data: { type: 'create-project' } })}
+                onToggleBlob={toggleBlob}
+              />
+            )}
 
             <div className="flex-1 min-h-0 overflow-auto bg-white relative" ref={boardContainerRef}>
               <div
@@ -2657,8 +2619,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         : ''
                         }`}
                       style={{
-                        left: `${left}px`,
-                        top: `${top}px`,
+                        transform: `translate3d(${left}px, ${top}px, 0)`,
                         width: `${minimapWidth}px`,
                         height: `${minimapHeight}px`,
                         zIndex: minimapZIndex,
@@ -2670,8 +2631,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       }}
                       onPointerDown={(e) => {
                         const target = e.target as HTMLElement;
-                        const isInteractiveElement = target.closest('button') ||
-                          target.closest('canvas');
+                        // 버튼만 제외하고, 캔버스 포함 모든 영역에서 드래그 가능
+                        const isInteractiveElement = target.closest('button');
 
                         if (!isInteractiveElement) {
                           bringToFrontBlock(minimapBlock.id);
@@ -3130,6 +3091,28 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   return null;
                 })}
 
+                <PixelConnectionLayer
+                  ref={pixelLayerRef}
+                  connectionPairs={connectionPairsArray}
+                  getLivePos={getLivePos}
+                  cardSize={cardSize}
+                  boardSize={boardSize}
+                  isPaused={!draggingEntity && hoveredBlobId === null}
+                  isEnabled={true}
+                  hoveredBlobId={hoveredBlobId}
+                  blobAreas={blobAreas}
+                  projects={localProjects}
+                />
+
+                <BlobLayer
+                  blobAreas={blobAreas}
+                  hoveredBlobId={hoveredBlobId}
+                  hoveredMemoryId={hoveredMemoryId}
+                  isPaused={!!draggingEntity}
+                  isEnabled={isBlobEnabled}
+                  isHighlightMode={isHighlightMode}
+                />
+
                 {connectionPairsArray.length > 0 && (
                   <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
                     {/* 선 자체는 Canvas 레이어로 이동하고, 텍스트 라벨만 SVG로 유지 가능 */}
@@ -3143,11 +3126,25 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         const to = getLivePos(pair.to);
                         if (!from || !to) return null;
 
-                        const dx = to.x - from.x;
-                        const dy = to.y - from.y;
+                        const getDim = (id: string) => {
+                          const p = localProjects.find(item => item.id === id);
+                          if (p) return { centerX: 180, centerY: 60 };
+                          return CARD_DIMENSIONS[cardSize];
+                        };
+                        const fromDim = getDim(pair.from);
+                        const toDim = getDim(pair.to);
+
+                        const fromX = from.x + fromDim.centerX;
+                        const fromY = from.y + fromDim.centerY;
+                        const toX = to.x + toDim.centerX;
+                        const toY = to.y + toDim.centerY;
+
+                        const midX = (fromX + toX) / 2;
+                        const midY = (fromY + toY) / 2;
+
+                        const dx = toX - fromX;
+                        const dy = toY - fromY;
                         const len = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-                        const midX = (from.x + to.x) / 2 + CARD_DIMENSIONS[cardSize].centerX;
-                        const midY = (from.y + to.y) / 2 + CARD_DIMENSIONS[cardSize].centerY;
                         const curveOffset = Math.min(45, len * 0.18);
                         const cx = midX - (dy / len) * curveOffset;
                         const cy = midY + (dx / len) * curveOffset;
@@ -3488,9 +3485,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         willChange: isDragging ? 'transform' : 'auto',
                         opacity: isDragging ? 0.85 : 1,
                         zIndex: memoryZIndex,
-                        transition: 'none',
+                        transition: isDragging ? 'none' : 'transform 0.2s ease-out',
                         pointerEvents: isDragging ? 'none' : 'auto',
-                        contain: 'layout style paint',
+                        contain: isDragging ? 'layout style paint' : 'none',
+                        transformOrigin: 'center center',
+                        overflow: 'visible',
                       }}
                       className={`absolute ${cardSizeClass} select-none touch-none cursor-grab active:cursor-grabbing ${isDragging ? 'cursor-grabbing border border-indigo-500' : ''
                         } ${isSelected ? 'ring-2 ring-blue-300/50 ring-offset-1' : ''} ${isBlobHovered ? 'ring-2 ring-blue-200/60 ring-offset-1' : ''
@@ -3559,6 +3558,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       style={{
                         transform: `translate3d(${project.x}px, ${project.y}px, 0)`,
                         zIndex: isDragging ? 10000 : 50,
+                        transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+                        transformOrigin: 'center center',
                       }}
                       className="absolute cursor-grab active:cursor-grabbing"
                       onPointerDown={(e) => {
@@ -3604,19 +3605,6 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     </div>
                   );
                 })}
-
-                <PixelConnectionLayer
-                  ref={pixelLayerRef}
-                  connectionPairs={connectionPairsArray}
-                  getLivePos={getLivePos}
-                  cardSize={cardSize}
-                  boardSize={boardSize}
-                  isPaused={!draggingEntity && hoveredBlobId === null}
-                  isEnabled={true}
-                  hoveredBlobId={hoveredBlobId}
-                  blobAreas={blobAreas}
-                  projects={localProjects}
-                />
 
                 <BlobLayer
                   blobAreas={blobAreas}
@@ -3700,12 +3688,18 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       />
 
       {toast.type === 'success' && (
-        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-green-500 text-white rounded-xl shadow-2xl p-4 min-w-[300px] border border-green-600">
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
+          <div className="bg-green-500 text-white border-4 border-gray-900 p-5 min-w-[300px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+            {/* 픽셀 코너 장식 */}
+            <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+            
             <div className="flex items-center gap-3">
               <PixelIcon name="success" size={24} />
               <div>
-                <p className="text-sm font-semibold">{toast.data?.message || '완료되었습니다!'}</p>
+                <p className="text-sm font-black uppercase tracking-tight">{toast.data?.message || '완료되었습니다!'}</p>
               </div>
             </div>
           </div>
@@ -3713,12 +3707,18 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       )}
 
       {toast.type === 'delete-link' && (
-        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-white border border-gray-300 p-5 min-w-[350px] max-w-[450px]">
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
+          <div className="bg-white border-4 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+            {/* 픽셀 코너 장식 */}
+            <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+            
             <div className="flex items-start gap-3 mb-4">
-              <div className="text-2xl">🔗</div>
+              <PixelIcon name="link" size={24} />
               <div className="flex-1">
-                <h3 className="text-base font-bold text-gray-800 mb-1">
+                <h3 className="text-base font-black text-gray-900 mb-1 uppercase tracking-tight">
                   연결을 삭제하시겠습니까?
                 </h3>
                 <p className="text-sm text-gray-600">
@@ -3727,23 +3727,21 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
               </div>
               <button
                 onClick={() => setToast({ type: null })}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="p-1 hover:bg-gray-100 border-2 border-transparent hover:border-gray-300 transition-all"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <PixelIcon name="close" size={16} className="text-gray-600" />
               </button>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
                 onClick={() => setToast({ type: null })}
-                className="flex-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 text-xs font-bold border-2 border-gray-900 text-gray-700 bg-white hover:bg-gray-100 transition-all uppercase tracking-tight shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
               >
                 취소
               </button>
               <button
                 onClick={handleDeleteLink}
-                className="flex-1 px-3 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                className="flex-1 px-4 py-2 text-xs font-black bg-red-500 text-white border-2 border-gray-900 hover:bg-red-600 transition-all uppercase tracking-tight shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
               >
                 삭제
               </button>
@@ -3753,12 +3751,18 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       )}
 
       {toast.type === 'delete-memory' && (
-        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-white border border-gray-300 p-5 min-w-[350px] max-w-[450px]">
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
+          <div className="bg-white border-4 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+            {/* 픽셀 코너 장식 */}
+            <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+            
             <div className="flex items-start gap-3 mb-4">
               <PixelIcon name="delete" size={24} />
               <div className="flex-1">
-                <h3 className="text-base font-bold text-gray-800 mb-1">
+                <h3 className="text-base font-black text-gray-900 mb-1 uppercase tracking-tight">
                   기록을 삭제하시겠습니까?
                 </h3>
                 <p className="text-sm text-gray-600">
@@ -3767,23 +3771,21 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
               </div>
               <button
                 onClick={() => setToast({ type: null })}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="p-1 hover:bg-gray-100 border-2 border-transparent hover:border-gray-300 transition-all"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <PixelIcon name="close" size={16} className="text-gray-600" />
               </button>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
                 onClick={() => setToast({ type: null })}
-                className="flex-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 text-xs font-bold border-2 border-gray-900 text-gray-700 bg-white hover:bg-gray-100 transition-all uppercase tracking-tight shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
               >
                 취소
               </button>
               <button
                 onClick={handleDeleteMemory}
-                className="flex-1 px-3 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                className="flex-1 px-4 py-2 text-xs font-black bg-red-500 text-white border-2 border-gray-900 hover:bg-red-600 transition-all uppercase tracking-tight shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
               >
                 삭제
               </button>
@@ -3793,12 +3795,18 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       )}
 
       {toast.type === 'delete-location' && (
-        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-white border border-gray-300 p-5 min-w-[350px] max-w-[450px]">
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
+          <div className="bg-white border-4 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+            {/* 픽셀 코너 장식 */}
+            <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+            
             <div className="flex items-start gap-3 mb-4">
-              <div className="text-2xl">📍</div>
+              <PixelIcon name="location" size={24} />
               <div className="flex-1">
-                <h3 className="text-base font-bold text-gray-800 mb-1">
+                <h3 className="text-base font-black text-gray-900 mb-1 uppercase tracking-tight">
                   위치 정보를 삭제하시겠습니까?
                 </h3>
                 <p className="text-sm text-gray-600">
@@ -3807,23 +3815,21 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
               </div>
               <button
                 onClick={() => setToast({ type: null })}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="p-1 hover:bg-gray-100 border-2 border-transparent hover:border-gray-300 transition-all"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <PixelIcon name="close" size={16} className="text-gray-600" />
               </button>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <button
                 onClick={() => setToast({ type: null })}
-                className="flex-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2 text-xs font-bold border-2 border-gray-900 text-gray-700 bg-white hover:bg-gray-100 transition-all uppercase tracking-tight shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
               >
                 취소
               </button>
               <button
                 onClick={handleDeleteLocation}
-                className="flex-1 px-3 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                className="flex-1 px-4 py-2 text-xs font-black bg-red-500 text-white border-2 border-gray-900 hover:bg-red-600 transition-all uppercase tracking-tight shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
               >
                 삭제
               </button>
@@ -3833,11 +3839,17 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       )}
 
       {toast.type === 'confirm' && toast.data?.type === 'create-project' && (
-        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-white border-4 border-gray-800 p-6 min-w-[400px] shadow-[12px_12px_0px_0px_rgba(0,0,0,0.1)]">
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
+          <div className="bg-white border-4 border-gray-900 p-6 min-w-[400px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+            {/* 픽셀 코너 장식 */}
+            <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+            
             <div className="flex items-start gap-4 mb-4">
-              <div className="w-12 h-12 bg-indigo-100 border-2 border-indigo-600 flex items-center justify-center text-2xl">
-                🚀
+              <div className="w-12 h-12 bg-indigo-100 border-2 border-gray-900 flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)]">
+                <PixelIcon name="target" size={24} className="text-indigo-600" />
               </div>
               <div className="flex-1">
                 <h3 className="text-xl font-black text-gray-900 mb-1 uppercase tracking-tight">액션 프로젝트 생성</h3>
@@ -3853,7 +3865,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 value={projectPrompt}
                 onChange={(e) => setProjectPrompt(e.target.value)}
                 placeholder="예: 안티 그라비티 학습 프로젝트, 2주 습관 만들기 등"
-                className="w-full h-24 p-3 bg-gray-50 border-2 border-gray-800 text-sm font-medium focus:ring-0 focus:border-indigo-500 transition-colors resize-none"
+                className="w-full h-24 p-3 bg-gray-50 border-2 border-gray-900 text-sm font-medium focus:ring-0 focus:border-indigo-500 transition-colors resize-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]"
               />
             </div>
 
@@ -3863,7 +3875,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   setToast({ type: null });
                   setProjectPrompt('');
                 }}
-                className="flex-1 px-4 py-3 text-sm font-black border-2 border-gray-800 hover:bg-gray-100 transition-colors uppercase tracking-widest"
+                className="flex-1 px-4 py-3 text-sm font-black border-2 border-gray-900 bg-white hover:bg-gray-100 transition-all uppercase tracking-widest shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
               >
                 취소
               </button>
@@ -3879,7 +3891,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       body: JSON.stringify({
                         sourceMemoryIds: Array.from(selectedMemoryIds),
                         userPrompt: projectPrompt,
-                        x: 100, // TODO: 중앙 정렬 또는 적절한 위치
+                        x: 100,
                         y: 100,
                         color: 'indigo'
                       }),
@@ -3898,7 +3910,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     setToast({ type: 'error', data: { message: '오류가 발생했습니다' } });
                   }
                 }}
-                className="flex-1 px-4 py-3 text-sm font-black bg-indigo-500 text-white border-2 border-gray-800 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors uppercase tracking-widest"
+                className="flex-1 px-4 py-3 text-sm font-black bg-indigo-500 text-white border-2 border-gray-900 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] disabled:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] disabled:transform-none"
               >
                 프로젝트 생성
               </button>
@@ -3908,20 +3920,24 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       )}
 
       {toast.type === 'error' && (
-        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up">
-          <div className="bg-red-500 text-white rounded-xl shadow-2xl p-4 min-w-[300px] border border-red-600">
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
+          <div className="bg-red-500 text-white border-4 border-gray-900 p-5 min-w-[300px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+            {/* 픽셀 코너 장식 */}
+            <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+            
             <div className="flex items-center gap-3">
               <PixelIcon name="error" size={24} />
               <div className="flex-1">
-                <p className="text-sm font-semibold">{toast.data?.message || '오류가 발생했습니다'}</p>
+                <p className="text-sm font-black uppercase tracking-tight">{toast.data?.message || '오류가 발생했습니다'}</p>
               </div>
               <button
                 onClick={() => setToast({ type: null })}
-                className="text-white/80 hover:text-white transition-colors"
+                className="p-1 hover:bg-red-600 border-2 border-transparent hover:border-white/30 transition-all"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <PixelIcon name="close" size={16} className="text-white" />
               </button>
             </div>
           </div>
