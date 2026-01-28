@@ -85,21 +85,73 @@ export default function LandingClient() {
                             </div>
 
                             {/* 텍스트 콘텐츠 */}
-                            <div className="relative z-0 flex flex-col items-center pointer-events-none select-none">
-                                <h2 className="text-gray-900 font-bold text-2xl mb-8">당신의 액션을 위하여!</h2>
-                                <div className="text-gray-800 text-base md:text-lg leading-loose space-y-6 max-w-3xl">
-                                    <p>
-                                        <strong className="text-gray-900">WORKLESS</strong>는 자유롭게 사고하고 액션아이템을 도출하기 위한 비정형 캔버스 워크스페이스입니다. 생각나는 모든것을 형식없이 자유롭게 기록해보세요.
-                                    </p>
-                                    <p>
-                                        기록하는 모든 것이 의미가 되고, 의미가 있는 모든 것들은 기록이 됩니다.
-                                    </p>
-                                    <p>
-                                        혼자서 고민하지 마세요! AI 어시스턴트가 언제든지 당신의 아이디어를 빠르게 실행할 수있도록 도와드리니까요.
-                                    </p>
-                                    <p className="font-bold text-indigo-600">
-                                        지금 바로 모든 생각 조각들을 연결하고 그룹화 하여 시각화 해보세요.
-                                    </p>
+                            <div className="relative z-0 flex flex-col items-center pointer-events-none select-none w-full px-6">
+                                <h2 className="text-gray-900 font-bold text-2xl md:text-3xl mb-10">당신의 액션을 위하여!</h2>
+
+                                {/* 4개 기능 박스 */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-6xl">
+                                    {/* AI와 서비스 연동 */}
+                                    <div className="bg-white/95 border-2 border-gray-700 p-4 space-y-2 pointer-events-auto shadow-md">
+                                        <h3 className="text-gray-900 font-bold text-sm mb-3 flex items-center gap-1">
+                                            <PixelIcon name="zap" size={16} className="text-indigo-500" />
+                                            AI와 서비스 연동
+                                        </h3>
+                                        <div className="space-y-3 text-xs text-gray-700">
+                                            <div>
+                                                <div className="font-bold text-gray-900 mb-1">Gmail</div>
+                                                <div className="text-gray-600 leading-relaxed">&quot;Workless&quot; 라벨 이메일 자동 카드화 기록</div>
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-gray-900 mb-1">AI 코치</div>
+                                                <div className="text-gray-600 leading-relaxed">유저 기록에 대한 맥락 이해를 기반으로 인사이트, 액션아이템 제안, 연관 기록 자동 연결</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 핵심 기능 */}
+                                    <div className="bg-white/95 border-2 border-gray-700 p-4 space-y-2 pointer-events-auto shadow-md">
+                                        <h3 className="text-gray-900 font-bold text-sm mb-3 flex items-center gap-1">
+                                            <PixelIcon name="apps" size={16} className="text-purple-500" />
+                                            핵심 기능
+                                        </h3>
+                                        <div className="space-y-3 text-xs text-gray-700">
+                                            <div>
+                                                <div className="font-bold text-gray-900 mb-1">무한 캔버스</div>
+                                                <div className="text-gray-600 leading-relaxed">끝없는 2D 공간에서 자유롭게 생각을 작성하고 제약없이 콘텐츠 배열</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* AI 어시스턴트 - 페르소나 설정 */}
+                                    <div className="bg-white/95 border-2 border-gray-700 p-4 space-y-2 pointer-events-auto shadow-md">
+                                        <h3 className="text-gray-900 font-bold text-sm mb-3 flex items-center gap-1">
+                                            <PixelIcon name="user" size={16} className="text-pink-500" />
+                                            AI 어시스턴트 페르소나
+                                        </h3>
+                                        <div className="space-y-3 text-xs text-gray-700">
+                                            <div className="text-gray-600 leading-relaxed">
+                                                AI 어시스턴트의 성격과 대화 스타일을 커스터마이징하세요. 친근한 코치, 전문적인 컨설턴트, 창의적인 파트너 등 당신의 업무 방식에 맞는 AI를 만들 수 있습니다.
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* 여러가지 위젯 & 맥락 시각화 */}
+                                    <div className="bg-white/95 border-2 border-gray-700 p-4 space-y-2 pointer-events-auto shadow-md">
+                                        <h3 className="text-gray-900 font-bold text-sm mb-3 flex items-center gap-1">
+                                            <PixelIcon name="settings" size={16} className="text-orange-500" />
+                                            위젯 & 시각화
+                                        </h3>
+                                        <div className="space-y-3 text-xs text-gray-700">
+                                            <div>
+                                                <div className="font-bold text-gray-900 mb-1">여러가지 위젯 기능</div>
+                                                <div className="text-gray-600 leading-relaxed">캘린더, 뷰어, 액션플랜, 미니맵 등의 위젯을 활용해서 화이트보드를 더 의미있고 풍성하게 사용</div>
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-gray-900 mb-1">맥락 시각화</div>
+                                                <div className="text-gray-600 leading-relaxed">태그로 연결된 기록들이 자동으로 그룹화되며, 공간적 위치와 관계를 통해 사고의 흐름을 한눈에 파악할 수 있습니다</div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </article>
@@ -150,102 +202,7 @@ export default function LandingClient() {
                         </div>
                     </div>
 
-                    {/* 3개 박스: 가로 배치 */}
-                    <div className="grid md:grid-cols-3 gap-4">
-                        {/* 연동 서비스 */}
-                        <div className="relative space-y-3 bg-white border-2 border-gray-800 p-5 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-105">
-                            {/* 픽셀 코너 포인트 */}
-                            <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
-                            <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
-                            <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
-                            <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
 
-                            <h3 className="text-gray-900 font-bold text-base mb-2">
-                                서비스 연동과 AI를 통해 액션 아이템 도출
-                            </h3>
-                            <div className="space-y-2 text-gray-700 text-xs">
-                                <div className="flex items-start gap-2">
-                                    <PixelIcon name="file" size={16} className="text-gray-600 mt-0.5 flex-shrink-0" />
-                                    <div>
-                                        <div className="font-semibold text-gray-900">Gmail</div>
-                                        <div className="text-gray-600">&quot;Workless&quot; 라벨 이메일 자동 캔버스화</div>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-2">
-                                    <PixelIcon name="settings" size={16} className="text-gray-600 mt-0.5 flex-shrink-0" />
-                                    <div>
-                                        <div className="font-semibold text-gray-900">AI 어시스턴트</div>
-                                        <div className="text-gray-600">메모 연관성 분석 및 인사이트</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 핵심 기능 */}
-                        <div className="relative space-y-3 bg-white border-2 border-gray-800 p-5 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-105 font-wanted">
-                            {/* 픽셀 코너 포인트 */}
-                            <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
-                            <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
-                            <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
-                            <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
-
-                            <h3 className="text-gray-900 font-bold text-base mb-2 flex items-center gap-2">
-                                <PixelIcon name="apps" size={20} className="text-indigo-500" />
-                                <span>핵심 기능</span>
-                            </h3>
-                            <div className="space-y-2 text-gray-700 text-xs">
-                                <div className="flex items-start gap-2">
-                                    <PixelIcon name="apps" size={16} className="text-gray-600 mt-0.5 flex-shrink-0" />
-                                    <div>
-                                        <div className="font-semibold text-gray-900">무한 캔버스</div>
-                                        <div className="text-gray-600">끝없는 2D 공간에서 자유롭게 사고</div>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-2">
-                                    <PixelIcon name="tag" size={16} className="text-gray-600 mt-0.5 flex-shrink-0" />
-                                    <div>
-                                        <div className="font-semibold text-gray-900">비정형 구조</div>
-                                        <div className="text-gray-600">제약없이 자유롭게 콘텐츠 배열</div>
-                                    </div>
-                                </div>
-                                <div className="flex items-start gap-2">
-                                    <PixelIcon name="tag" size={16} className="text-gray-600 mt-0.5 flex-shrink-0" />
-                                    <div>
-                                        <div className="font-semibold text-gray-900">맥락 시각화</div>
-                                        <div className="text-gray-600">태깅으로 관계 자동 분석</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 유저 가치 */}
-                        <div className="relative space-y-3 bg-white border-2 border-gray-800 p-5 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-105">
-                            {/* 픽셀 코너 포인트 */}
-                            <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
-                            <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
-                            <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
-                            <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
-
-                            <h3 className="text-gray-900 font-bold text-base mb-2 flex items-center gap-2">
-                                <PixelIcon name="star" size={20} className="text-yellow-500" />
-                                <span>경험하길 바라는 가치</span>
-                            </h3>
-                            <div className="space-y-2 text-gray-800 text-xs leading-relaxed">
-                                <p>
-                                    <span className="font-bold text-orange-600">답답했던 생각 조각을 구체화</span>
-                                    <br />당신의 사고방식대로 자유롭게
-                                </p>
-                                <p>
-                                    <span className="font-bold text-indigo-600">흩어진 정보를 하나로.</span>
-                                    <br />공간적 맥락과 태그로 연결
-                                </p>
-                                <p>
-                                    <span className="font-bold text-pink-600">아이디어를 시각화.</span>
-                                    <br />생각의 흐름이 보이면 일이 쉬워짐
-                                </p>
-                            </div>
-                        </div>
-                    </div>
 
                     {/* Google 심사 필수: 데이터 사용 명시 */}
                     <div className="relative bg-white border-2 border-gray-800 p-4 text-xs text-gray-800 leading-relaxed shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-[1.02]">
@@ -257,7 +214,7 @@ export default function LandingClient() {
                         <p className="mb-2 flex items-start gap-2">
                             <PixelIcon name="email" size={16} className="text-gray-900 mt-0.5 flex-shrink-0" />
                             <span>
-                                <strong className="text-gray-900">Gmail 데이터 사용:</strong> "WORKLESS" 라벨이 지정된 이메일만 <strong>읽기 전용</strong>으로 접근하며,
+                                <strong className="text-gray-900">Gmail 데이터 사용:</strong> &quot;Workless&quot; 라벨이 지정된 이메일만 <strong>읽기 전용</strong>으로 접근하며,
                                 이메일을 메모로 변환하는 데만 사용됩니다. 이메일을 보내거나 수정하지 않습니다.
                             </span>
                         </p>
