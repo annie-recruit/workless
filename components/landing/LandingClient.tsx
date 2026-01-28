@@ -91,64 +91,64 @@ export default function LandingClient() {
                                 {/* 4개 기능 박스 */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-6xl">
                                     {/* AI와 서비스 연동 */}
-                                    <div className="bg-white/95 border-2 border-gray-700 p-4 space-y-2 pointer-events-auto shadow-md">
+                                    <div className="bg-indigo-50 p-4 space-y-2 pointer-events-auto shadow-md">
                                         <h3 className="text-gray-900 font-bold text-sm mb-3 flex items-center gap-1">
-                                            <PixelIcon name="zap" size={16} className="text-indigo-500" />
+                                            <PixelIcon name="zap" size={16} className="text-indigo-500" ariaLabel="AI 서비스 연동" />
                                             AI와 서비스 연동
                                         </h3>
                                         <div className="space-y-3 text-xs text-gray-700">
                                             <div>
-                                                <div className="font-bold text-gray-900 mb-1">Gmail</div>
-                                                <div className="text-gray-600 leading-relaxed">&quot;Workless&quot; 라벨 이메일 자동 카드화 기록</div>
+                                                <div className="font-bold text-gray-900 mb-1">Gmail 연동</div>
+                                                <div className="text-gray-600 leading-relaxed">&quot;Workless&quot; 라벨 이메일을 자동으로 메모 카드화하여 기록</div>
                                             </div>
                                             <div>
-                                                <div className="font-bold text-gray-900 mb-1">AI 코치</div>
-                                                <div className="text-gray-600 leading-relaxed">유저 기록에 대한 맥락 이해를 기반으로 인사이트, 액션아이템 제안, 연관 기록 자동 연결</div>
+                                                <div className="font-bold text-gray-900 mb-1">AI 어시스턴트</div>
+                                                <div className="text-gray-600 leading-relaxed">기록한 내용의 맥락을 이해하고 인사이트, 액션아이템 제안, 연관 정보 자동 연결</div>
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* 핵심 기능 */}
-                                    <div className="bg-white/95 border-2 border-gray-700 p-4 space-y-2 pointer-events-auto shadow-md">
+                                    <div className="bg-indigo-50 p-4 space-y-2 pointer-events-auto shadow-md">
                                         <h3 className="text-gray-900 font-bold text-sm mb-3 flex items-center gap-1">
-                                            <PixelIcon name="apps" size={16} className="text-purple-500" />
+                                            <PixelIcon name="apps" size={16} className="text-purple-500" ariaLabel="핵심 기능" />
                                             핵심 기능
                                         </h3>
                                         <div className="space-y-3 text-xs text-gray-700">
                                             <div>
-                                                <div className="font-bold text-gray-900 mb-1">무한 캔버스</div>
-                                                <div className="text-gray-600 leading-relaxed">끝없는 2D 공간에서 자유롭게 생각을 작성하고 제약없이 콘텐츠 배열</div>
+                                                <div className="font-bold text-gray-900 mb-1">무한 캔버스 화이트보드</div>
+                                                <div className="text-gray-600 leading-relaxed">끝없는 2D 공간에서 자유롭게 아이디어를 메모하고, 브레인스토밍하며, 체계적으로 정리할 수 있는 생산성 도구</div>
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* AI 어시스턴트 - 페르소나 설정 */}
-                                    <div className="bg-white/95 border-2 border-gray-700 p-4 space-y-2 pointer-events-auto shadow-md">
+                                    <div className="bg-indigo-50 p-4 space-y-2 pointer-events-auto shadow-md">
                                         <h3 className="text-gray-900 font-bold text-sm mb-3 flex items-center gap-1">
-                                            <PixelIcon name="user" size={16} className="text-pink-500" />
-                                            AI 어시스턴트 페르소나
+                                            <PixelIcon name="user" size={16} className="text-pink-500" ariaLabel="AI 페르소나 설정" />
+                                            AI 페르소나 커스터마이징
                                         </h3>
                                         <div className="space-y-3 text-xs text-gray-700">
                                             <div className="text-gray-600 leading-relaxed">
-                                                AI 어시스턴트의 성격과 대화 스타일을 커스터마이징하세요. 친근한 코치, 전문적인 컨설턴트, 창의적인 파트너 등 당신의 업무 방식에 맞는 AI를 만들 수 있습니다.
+                                                업무 스타일에 맞는 AI 어시스턴트를 만들어보세요. 친근한 코치부터 전문적인 컨설턴트, 창의적인 파트너까지 - 당신만의 맞춤형 AI 협업 도구로 생산성을 극대화하세요.
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* 여러가지 위젯 & 맥락 시각화 */}
-                                    <div className="bg-white/95 border-2 border-gray-700 p-4 space-y-2 pointer-events-auto shadow-md">
+                                    <div className="bg-indigo-50 p-4 space-y-2 pointer-events-auto shadow-md">
                                         <h3 className="text-gray-900 font-bold text-sm mb-3 flex items-center gap-1">
-                                            <PixelIcon name="settings" size={16} className="text-orange-500" />
+                                            <PixelIcon name="settings" size={16} className="text-orange-500" ariaLabel="위젯 및 시각화 기능" />
                                             위젯 & 시각화
                                         </h3>
                                         <div className="space-y-3 text-xs text-gray-700">
                                             <div>
-                                                <div className="font-bold text-gray-900 mb-1">여러가지 위젯 기능</div>
-                                                <div className="text-gray-600 leading-relaxed">캘린더, 뷰어, 액션플랜, 미니맵 등의 위젯을 활용해서 화이트보드를 더 의미있고 풍성하게 사용</div>
+                                                <div className="font-bold text-gray-900 mb-1">다양한 위젯 도구</div>
+                                                <div className="text-gray-600 leading-relaxed">캘린더, 문서 뷰어, 할일 관리, 미니맵 등 실용적인 위젯으로 화이트보드를 업무용 협업 공간으로 확장</div>
                                             </div>
                                             <div>
-                                                <div className="font-bold text-gray-900 mb-1">맥락 시각화</div>
-                                                <div className="text-gray-600 leading-relaxed">태그로 연결된 기록들이 자동으로 그룹화되며, 공간적 위치와 관계를 통해 사고의 흐름을 한눈에 파악할 수 있습니다</div>
+                                                <div className="font-bold text-gray-900 mb-1">지식 맥락 시각화</div>
+                                                <div className="text-gray-600 leading-relaxed">태그로 연결된 메모와 아이디어가 자동으로 그룹화되며, 공간적 배치를 통해 생각의 흐름과 연관 관계를 직관적으로 파악</div>
                                             </div>
                                         </div>
                                     </div>

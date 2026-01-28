@@ -8,6 +8,7 @@ interface PixelIconProps {
   size?: number;
   className?: string;
   style?: React.CSSProperties;
+  ariaLabel?: string;
 }
 
 // Iconify pixelarticons 아이콘 이름 매핑
@@ -131,6 +132,7 @@ export default function PixelIcon({
   size = 32,
   className = '',
   style = {},
+  ariaLabel,
 }: PixelIconProps) {
   // 크기는 반드시 정수로
   const iconSize = Math.round(size);
@@ -142,7 +144,7 @@ export default function PixelIcon({
     return (
       <img
         src={iconSrc}
-        alt={`${name} 아이콘`}
+        alt={ariaLabel || `${name} 아이콘`}
         width={iconSize}
         height={iconSize}
         className={`pixel-icon ${className}`}
@@ -170,6 +172,7 @@ export default function PixelIcon({
         verticalAlign: 'middle',
         ...style,
       }}
+      aria-label={ariaLabel}
     />
   );
 }

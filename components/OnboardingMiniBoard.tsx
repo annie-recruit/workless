@@ -269,7 +269,7 @@ export default function OnboardingMiniBoard({
                         Action Project
                     </span>
                     <h3 className="text-[11px] font-black text-gray-900 mt-1 flex items-center gap-1">
-                        <PixelIcon name="target" size={12} className="text-indigo-600" />
+                        <PixelIcon name="target" size={12} className="text-indigo-600" ariaLabel="액션 프로젝트 타겟" />
                         <span>시작하기</span>
                     </h3>
                 </div>
@@ -312,7 +312,7 @@ export default function OnboardingMiniBoard({
             >
                 <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-gray-200">
                     <div className="flex items-center gap-1.5">
-                        <PixelIcon name="calendar" size={14} />
+                        <PixelIcon name="calendar" size={14} ariaLabel="캘린더 위젯" />
                         <h3 className="text-[10px] font-semibold text-gray-800">캘린더</h3>
                     </div>
                 </div>
