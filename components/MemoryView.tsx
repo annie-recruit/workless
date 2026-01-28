@@ -1369,7 +1369,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           />
           <div className="flex-1 bg-white relative flex flex-col min-w-0 overflow-hidden">
             {/* 컨트롤 바 - (좌측 깃발 사이드바처럼) 스크롤과 무관하게 상단 고정 */}
-            <div className="shrink-0 sticky top-0 z-30 flex items-center justify-between px-3 py-2 text-xs text-gray-500 bg-white border-b border-gray-200 shadow-sm">
+            <div className="shrink-0 sticky top-0 z-30 flex items-center justify-between py-2 text-xs text-gray-500 bg-white border-b border-gray-200 shadow-sm">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-gray-700">화이트보드</span>
                 <span className="text-[11px] text-gray-400">
