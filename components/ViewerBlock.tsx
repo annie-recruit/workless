@@ -209,8 +209,8 @@ export default function ViewerBlock({
   );
 
   // 윈도우 타이틀 결정
-  const windowTitle = currentSource 
-    ? (currentSource.kind === 'file' ? currentSource.fileName : currentSource.title) 
+  const windowTitle = currentSource
+    ? (currentSource.kind === 'file' ? currentSource.fileName : currentSource.title)
     : 'New Viewer';
 
   // 실제 콘텐츠 렌더링 너비 계산 (프레임 테두리와 패딩 고려)
@@ -232,13 +232,14 @@ export default function ViewerBlock({
       }}
       onPointerDown={onPointerDown}
       onClick={(e) => {
+        e.stopPropagation(); // 캔버스 클릭 이벤트로 전파 방지
         setActiveViewerId(blockId);
         onClick?.();
       }}
       onPaste={handlePaste}
     >
-      <ViewerFrame 
-        title={windowTitle} 
+      <ViewerFrame
+        title={windowTitle}
         onClose={() => onDelete(blockId)}
         className="w-full h-full shadow-2xl"
       >
