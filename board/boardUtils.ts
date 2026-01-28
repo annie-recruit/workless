@@ -1,7 +1,7 @@
 export const CARD_DIMENSIONS = {
-  s: { width: 154, height: 115, centerX: 77, centerY: 58 },
-  m: { width: 205, height: 154, centerX: 103, centerY: 77 },
-  l: { width: 230, height: 179, centerX: 115, centerY: 90 },
+  s: { width: 159, height: 115, centerX: 80, centerY: 58 },
+  m: { width: 210, height: 154, centerX: 105, centerY: 77 },
+  l: { width: 235, height: 179, centerX: 118, centerY: 90 },
 } as const;
 
 export const BOARD_PADDING = 100;
