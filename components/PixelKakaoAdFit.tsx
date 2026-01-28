@@ -91,7 +91,7 @@ export default function PixelKakaoAdFit({
                         </div>
 
                         {/* 카카오 애드핏 광고 영역 */}
-                        <div ref={containerRef} className="flex justify-center items-center overflow-hidden" style={{ width: `${width}px`, height: `${height}px`, maxWidth: `${width}px`, maxHeight: `${height}px` }}>
+                        <div ref={containerRef} className="flex justify-center items-center" style={{ display: 'inline-block' }}>
                             <ins
                                 className="kakao_ad_area"
                                 data-ad-unit={unit}
