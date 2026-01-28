@@ -17,7 +17,7 @@ if (!process.env.NEXTAUTH_SECRET) {
   console.warn('⚠️ 프로덕션 환경에서는 반드시 NEXTAUTH_SECRET을 설정해주세요.');
 }
 
-export const nextAuthOptions: NextAuthOptions = {
+export const nextAuthOptions: NextAuthOptions & { trustHost?: boolean } = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || 'dummy',
@@ -101,4 +101,5 @@ export const nextAuthOptions: NextAuthOptions = {
       },
     },
   },
+  trustHost: true,
 };
