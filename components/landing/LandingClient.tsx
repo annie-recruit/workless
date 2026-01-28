@@ -251,22 +251,9 @@ export default function LandingClient() {
                             문의하기
                         </a>
                     </div>
-
-                    {/* 하단 데코레이션 */}
-                    <div className="flex justify-center gap-2 opacity-30">
-                        {[...Array(5)].map((_, i) => (
-                            <div key={i} className="w-2 h-2 bg-white rounded-none"></div>
-                        ))}
-                    </div>
                 </div>
             </div>
 
-            {/* 하단 데코레이션 */}
-            <div className="flex justify-center gap-2 opacity-30 mt-8 mb-12">
-                {[...Array(5)].map((_, i) => (
-                    <div key={i} className="w-2 h-2 bg-white rounded-none"></div>
-                ))}
-            </div>
         </main>
     );
 }
