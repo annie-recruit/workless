@@ -59,27 +59,48 @@ export default function LandingPage() {
           {/* 메인 콘텐츠: 앱 목적 + 미니 보드 (통합 예정) */}
           <section className="flex flex-col items-center justify-center mt-8 w-full" aria-label="서비스 소개">
             {/* 앱 목적 설명 (보드 배경으로 확장) */}
-            <article className="relative bg-white border-2 border-gray-800 p-8 w-full max-w-5xl min-h-[400px] flex flex-col justify-center items-center text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-[1.01]">
+            <article
+              className="relative bg-white border-2 border-gray-800 p-8 w-full max-w-5xl min-h-[500px] flex flex-col justify-center items-center text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-[1.01] overflow-hidden"
+              style={{ backgroundColor: '#ffffff' }}
+            >
               {/* 픽셀 코너 포인트 */}
-              <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
-              <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
-              <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800 z-20" />
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800 z-20" />
+              <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800 z-20" />
+              <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800 z-20" />
 
-              <h2 className="text-gray-900 font-bold text-2xl mb-8">애플리케이션 목적</h2>
-              <div className="text-gray-800 text-base md:text-lg leading-loose space-y-6 max-w-3xl">
-                <p>
-                  <strong className="text-gray-900">WORKLESS</strong>는 자유롭게 사고하고 액션아이템을 도출하기 위한 비정형 캔버스 워크스페이스입니다.
-                </p>
-                <p>
-                  기록하는 모든 것이 의미가 되고, 의미가 있는 모든 것들은 기록이 됩니다.
-                </p>
-                <p>
-                  혼자서 고민하지 마세요! AI 어시스턴트가 언제든지 당신의 아이디어를 빠르게 실행할 수있도록 도와드리니까요.
-                </p>
-                <p className="font-bold text-indigo-600">
-                  지금 바로 모든 생각 조각들을 연결하고 그룹화 하여 시각화 해보세요.
-                </p>
+              {/* 온보딩 미니 보드 (오버레이) */}
+              <div className="absolute inset-0 z-10 w-full h-full">
+                <OnboardingMiniBoard
+                  showLines={false}
+                  initialPositions={{
+                    card1: { x: 30, y: 30 },
+                    card2: { x: 250, y: 30 },
+                    action: { x: 30, y: 330 },
+                    card3: { x: 250, y: 380 },
+                    viewer: { x: 700, y: 80 },
+                    calendar: { x: 750, y: 300 },
+                  }}
+                />
+              </div>
+
+              {/* 텍스트 콘텐츠 */}
+              <div className="relative z-0 flex flex-col items-center pointer-events-none select-none">
+                <h2 className="text-gray-900 font-bold text-2xl mb-8">당신의 액션을 위하여!</h2>
+                <div className="text-gray-800 text-base md:text-lg leading-loose space-y-6 max-w-3xl">
+                  <p>
+                    <strong className="text-gray-900">WORKLESS</strong>는 자유롭게 사고하고 액션아이템을 도출하기 위한 비정형 캔버스 워크스페이스입니다.
+                  </p>
+                  <p>
+                    기록하는 모든 것이 의미가 되고, 의미가 있는 모든 것들은 기록이 됩니다.
+                  </p>
+                  <p>
+                    혼자서 고민하지 마세요! AI 어시스턴트가 언제든지 당신의 아이디어를 빠르게 실행할 수있도록 도와드리니까요.
+                  </p>
+                  <p className="font-bold text-indigo-600">
+                    지금 바로 모든 생각 조각들을 연결하고 그룹화 하여 시각화 해보세요.
+                  </p>
+                </div>
               </div>
             </article>
           </section>

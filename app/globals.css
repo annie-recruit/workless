@@ -6,20 +6,7 @@
   font-family: var(--font-galmuri), "Galmuri11", var(--font-pretendard), system-ui, sans-serif !important;
 }
 
-/* Wanted Sans Font (우선순위를 위해 Galmuri보다 아래에 배치) */
-@font-face {
-  font-family: 'Wanted Sans';
-  font-weight: 400 900;
-  font-style: normal;
-  font-display: swap;
-  src: url('https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/woff2/WantedSansVariable.woff2') format('woff2'),
-    url('https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/woff/WantedSansVariable.woff') format('woff');
-}
 
-.font-wanted,
-.font-wanted * {
-  font-family: 'Wanted Sans', "Pretendard Variable", Pretendard, system-ui, sans-serif !important;
-}
 
 :root {
   --background: #ffffff;

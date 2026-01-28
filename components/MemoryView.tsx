@@ -2369,6 +2369,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
                         if (!boardRef.current) return;
                         e.preventDefault();
+                        e.stopPropagation();
                         const rect = boardRef.current.getBoundingClientRect();
                         const scale = zoomRef.current;
 

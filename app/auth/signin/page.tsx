@@ -102,7 +102,7 @@ export default function SignInPage() {
               로그인하면 바로 시작할 수 있어요
             </p>
           </div>
-          <div className="transform scale-[0.55] sm:scale-75 md:scale-90 lg:scale-100 origin-center -my-24 sm:-my-12 lg:my-0">
+          <div className="transform scale-[0.55] sm:scale-75 md:scale-90 lg:scale-100 origin-center -my-24 sm:-my-12 lg:my-0 w-[600px] h-[500px] relative">
             <OnboardingMiniBoard />
           </div>
         </div>

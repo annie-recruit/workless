@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import PixelIcon from './PixelIcon';
 
-type CardPosition = {
+export type CardPosition = {
     x: number;
     y: number;
 };
 
-type CardPositions = {
+export type CardPositions = {
     card1: CardPosition;
     card2: CardPosition;
     card3: CardPosition;
@@ -17,9 +17,19 @@ type CardPositions = {
     viewer: CardPosition;
 };
 
-export default function OnboardingMiniBoard() {
+interface OnboardingMiniBoardProps {
+    showLines?: boolean;
+    initialPositions?: CardPositions;
+}
+
+export default function OnboardingMiniBoard({
+    showLines = true,
+    initialPositions
+}: OnboardingMiniBoardProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [positions, setPositions] = useState<CardPositions>({
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [size, setSize] = useState({ width: 0, height: 0 });
+    const [positions, setPositions] = useState<CardPositions>(initialPositions || {
         card1: { x: 20, y: 20 },
         card2: { x: 220, y: 20 },
         card3: { x: 220, y: 180 },
@@ -30,22 +40,44 @@ export default function OnboardingMiniBoard() {
     const [dragging, setDragging] = useState<keyof CardPositions | null>(null);
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
-    // 연결선 그리기 (실제 PixelConnectionLayer와 동일한 알고리즘)
+    // 컨테이너 크기 관측
+    useEffect(() => {
+        if (!containerRef.current) return;
+
+        const updateSize = () => {
+            if (containerRef.current) {
+                setSize({
+                    width: containerRef.current.offsetWidth,
+                    height: containerRef.current.offsetHeight
+                });
+            }
+        };
+
+        updateSize();
+        const observer = new ResizeObserver(updateSize);
+        observer.observe(containerRef.current);
+
+        return () => observer.disconnect();
+    }, []);
+
+    // 연결선 그리기
     useEffect(() => {
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas || size.width === 0 || size.height === 0) return;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
         const dpr = window.devicePixelRatio || 1;
-        canvas.width = 600 * dpr;
-        canvas.height = 500 * dpr;
-        canvas.style.width = '600px';
-        canvas.style.height = '500px';
+        canvas.width = size.width * dpr;
+        canvas.height = size.height * dpr;
+        canvas.style.width = `${size.width}px`;
+        canvas.style.height = `${size.height}px`;
         ctx.scale(dpr, dpr);
 
         ctx.imageSmoothingEnabled = false;
-        ctx.clearRect(0, 0, 600, 500);
+        ctx.clearRect(0, 0, size.width, size.height);
+
+        if (!showLines) return;
 
         // 픽셀 스타일 연결선 그리기
         const drawPixelLine = (x1: number, y1: number, x2: number, y2: number, color: string) => {
@@ -79,18 +111,11 @@ export default function OnboardingMiniBoard() {
         const actionCenter = { x: positions.action.x + 90, y: positions.action.y + 60 };
         const viewerCenter = { x: positions.viewer.x + 100, y: positions.viewer.y + 80 };
 
-        // 메모리 카드 1 -> 메모리 카드 2
         drawPixelLine(card1Center.x, card1Center.y, card2Center.x, card2Center.y, '#818CF8');
-        // 메모리 카드 2 -> 메모리 카드 3
         drawPixelLine(card2Center.x, card2Center.y, card3Center.x, card3Center.y, '#A78BFA');
-        // 메모리 카드 1 -> 액션 플랜
         drawPixelLine(card1Center.x, card1Center.y, actionCenter.x, actionCenter.y, '#FB923C');
-        // 메모리 카드 2 -> 뷰어 위젯
         drawPixelLine(card2Center.x, card2Center.y, viewerCenter.x, viewerCenter.y, '#3B82F6');
-    }, [positions]);
-
-    // 컨테이너 참조를 위한 ref 추가
-    const containerRef = useRef<HTMLDivElement>(null);
+    }, [positions, size, showLines]);
 
     const handlePointerDown = (card: keyof CardPositions, e: React.PointerEvent) => {
         e.preventDefault();
@@ -107,8 +132,6 @@ export default function OnboardingMiniBoard() {
         if (!dragging) return;
         e.preventDefault();
 
-        // setPointerCapture를 사용하면 e.currentTarget이 캡처된 요소를 가리킬 수 있으므로
-        // 정확한 좌표 계산을 위해 ref로 컨테이너의 위치를 참조합니다.
         const container = containerRef.current;
         if (!container) return;
 
@@ -117,11 +140,14 @@ export default function OnboardingMiniBoard() {
         const newX = e.clientX - containerRect.left - dragOffset.x;
         const newY = e.clientY - containerRect.top - dragOffset.y;
 
+        const maxX = containerRect.width - (dragging === 'viewer' ? 200 : dragging === 'calendar' ? 160 : dragging === 'action' ? 126 : 140);
+        const maxY = containerRect.height - (dragging === 'viewer' ? 160 : dragging === 'calendar' ? 200 : dragging === 'action' ? 150 : 120);
+
         setPositions(prev => ({
             ...prev,
             [dragging]: {
-                x: Math.max(0, Math.min(newX, 600 - (dragging === 'viewer' ? 200 : dragging === 'calendar' ? 160 : dragging === 'action' ? 126 : 140))),
-                y: Math.max(0, Math.min(newY, 500 - (dragging === 'viewer' ? 160 : dragging === 'calendar' ? 200 : dragging === 'action' ? 150 : 120))),
+                x: Math.max(0, Math.min(newX, maxX)),
+                y: Math.max(0, Math.min(newY, maxY)),
             },
         }));
     };
@@ -129,7 +155,6 @@ export default function OnboardingMiniBoard() {
     const handlePointerUp = (e: React.PointerEvent) => {
         setDragging(null);
         try {
-            // Release capture if needed, though usually automatic on up
             (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
         } catch { }
     };
@@ -137,22 +162,24 @@ export default function OnboardingMiniBoard() {
     return (
         <div
             ref={containerRef}
-            className="relative w-[600px] h-[500px] bg-gradient-to-br from-orange-50 via-white to-indigo-50 overflow-hidden border-4 border-black"
+            className="w-full h-full bg-transparent overflow-hidden pointer-events-none"
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerUp}
             style={{ touchAction: 'none' }}
         >
             {/* 연결선 캔버스 */}
-            <canvas
-                ref={canvasRef}
-                className="absolute inset-0 pointer-events-none"
-                style={{ zIndex: 1 }}
-            />
+            {showLines && (
+                <canvas
+                    ref={canvasRef}
+                    className="absolute inset-0 pointer-events-none"
+                    style={{ zIndex: 1 }}
+                />
+            )}
 
-            {/* 메모리 카드 1: 메모 작성 (70% 크기: 140px) */}
+            {/* 메모리 카드 1: 메모 작성 */}
             <div
-                className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[140px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow"
+                className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[140px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
                 style={{ left: `${positions.card1.x}px`, top: `${positions.card1.y}px`, zIndex: dragging === 'card1' ? 20 : 10 }}
                 onPointerDown={(e) => handlePointerDown('card1', e)}
             >
@@ -165,8 +192,8 @@ export default function OnboardingMiniBoard() {
                 <div className="mb-2">
                     <h3 className="text-[10px] font-semibold text-gray-900 mb-1">메모 작성</h3>
                     <p className="text-[9px] text-gray-800 leading-relaxed">
-                        • 파일 첨부 가능 (PDF, 이미지)<br />
-                        • @태그로 다른 카드 참조
+                        • 파일 첨부 가능<br />
+                        • @태그로 참조
                     </p>
                 </div>
                 <div className="flex items-center gap-1.5 text-[8px] text-gray-500">
@@ -179,7 +206,7 @@ export default function OnboardingMiniBoard() {
 
             {/* 메모리 카드 2: 카드 연결 */}
             <div
-                className="absolute bg-purple-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[140px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow"
+                className="absolute bg-purple-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[140px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
                 style={{ left: `${positions.card2.x}px`, top: `${positions.card2.y}px`, zIndex: dragging === 'card2' ? 20 : 10 }}
                 onPointerDown={(e) => handlePointerDown('card2', e)}
             >
@@ -192,7 +219,6 @@ export default function OnboardingMiniBoard() {
                     <h3 className="text-[10px] font-semibold text-gray-900 mb-1">카드 연결</h3>
                     <p className="text-[9px] text-gray-800 leading-relaxed">
                         • 카드끼리 선으로 연결<br />
-                        • 관계를 시각적으로 표현<br />
                         • AI가 자동으로 그룹 제안
                     </p>
                 </div>
@@ -206,7 +232,7 @@ export default function OnboardingMiniBoard() {
 
             {/* 메모리 카드 3: 태그 & 분류 */}
             <div
-                className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[140px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow"
+                className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[140px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
                 style={{ left: `${positions.card3.x}px`, top: `${positions.card3.y}px`, zIndex: dragging === 'card3' ? 20 : 10 }}
                 onPointerDown={(e) => handlePointerDown('card3', e)}
             >
@@ -218,9 +244,8 @@ export default function OnboardingMiniBoard() {
                 <div className="mb-2">
                     <h3 className="text-[10px] font-semibold text-gray-900 mb-1">태그 & 분류</h3>
                     <p className="text-[9px] text-gray-800 leading-relaxed">
-                        • 주제별 태그 자동 분류<br />
-                        • 시간 맥락 추적<br />
-                        • 검색으로 빠르게 찾기
+                        • 태그 자동 분류<br />
+                        • 시간 맥락 추적
                     </p>
                 </div>
                 <div className="flex items-center gap-1.5 text-[8px] text-gray-500">
@@ -228,9 +253,9 @@ export default function OnboardingMiniBoard() {
                 </div>
             </div>
 
-            {/* 액션 플랜 카드 (실제 ActionProjectCard 스타일) */}
+            {/* 액션 플랜 카드 */}
             <div
-                className="absolute w-[126px] bg-white border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-2.5 cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow"
+                className="absolute w-[126px] bg-white border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-2.5 cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
                 style={{ left: `${positions.action.x}px`, top: `${positions.action.y}px`, zIndex: dragging === 'action' ? 20 : 10 }}
                 onPointerDown={(e) => handlePointerDown('action', e)}
             >
@@ -249,7 +274,6 @@ export default function OnboardingMiniBoard() {
                     </h3>
                 </div>
 
-                {/* 진행바 */}
                 <div className="mb-2">
                     <div className="flex justify-between items-center mb-0.5">
                         <span className="text-[7px] font-bold text-gray-600">PROGRESS</span>
@@ -260,7 +284,6 @@ export default function OnboardingMiniBoard() {
                     </div>
                 </div>
 
-                {/* 액션 아이템들 */}
                 <div className="space-y-1">
                     <div className="flex items-start gap-1.5">
                         <div className="mt-0.5 w-2.5 h-2.5 border-2 border-gray-800 bg-indigo-500 flex-shrink-0 flex items-center justify-center">
@@ -281,13 +304,12 @@ export default function OnboardingMiniBoard() {
                 </div>
             </div>
 
-            {/* 캘린더 위젯 (실제 CalendarBlock 스타일) */}
+            {/* 캘린더 위젯 */}
             <div
-                className="absolute bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black p-3 cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.15)] transition-shadow"
+                className="absolute bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black p-3 cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
                 style={{ left: `${positions.calendar.x}px`, top: `${positions.calendar.y}px`, width: '160px', zIndex: dragging === 'calendar' ? 20 : 10 }}
                 onPointerDown={(e) => handlePointerDown('calendar', e)}
             >
-                {/* 헤더 */}
                 <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-gray-200">
                     <div className="flex items-center gap-1.5">
                         <PixelIcon name="calendar" size={14} />
@@ -295,7 +317,6 @@ export default function OnboardingMiniBoard() {
                     </div>
                 </div>
 
-                {/* 월 네비게이션 */}
                 <div className="flex items-center justify-between mb-1.5">
                     <button className="p-0.5 hover:bg-gray-100 rounded">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -310,7 +331,6 @@ export default function OnboardingMiniBoard() {
                     </button>
                 </div>
 
-                {/* 요일 헤더 */}
                 <div className="grid grid-cols-7 gap-0.5 mb-1">
                     {['일', '월', '화', '수', '목', '금', '토'].map(day => (
                         <div key={day} className="text-center text-[8px] font-medium text-gray-500 py-0.5">
@@ -319,10 +339,9 @@ export default function OnboardingMiniBoard() {
                     ))}
                 </div>
 
-                {/* 캘린더 그리드 */}
                 <div className="grid grid-cols-7 gap-0.5">
                     {Array.from({ length: 35 }, (_, i) => {
-                        const day = i - 2; // 1일이 수요일이라고 가정
+                        const day = i - 2;
                         const isToday = day === 28;
                         const isCurrentMonth = day >= 1 && day <= 31;
                         return (
@@ -338,9 +357,9 @@ export default function OnboardingMiniBoard() {
                 </div>
             </div>
 
-            {/* 뷰어 위젯 (ViewerBlock 스타일) */}
+            {/* 뷰어 위젯 */}
             <div
-                className="absolute flex flex-col bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,0.15)] overflow-hidden cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] transition-shadow"
+                className="absolute flex flex-col bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,0.15)] overflow-hidden cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] transition-shadow pointer-events-auto"
                 style={{
                     left: `${positions.viewer.x}px`,
                     top: `${positions.viewer.y}px`,
@@ -350,7 +369,6 @@ export default function OnboardingMiniBoard() {
                 }}
                 onPointerDown={(e) => handlePointerDown('viewer', e)}
             >
-                {/* 타이틀 바 */}
                 <div className="h-6 bg-[#EEEEEE] border-b-[3px] border-black flex items-center justify-between px-2 select-none shrink-0">
                     <div className="flex items-center gap-1.5">
                         <div className="flex gap-1">
@@ -362,7 +380,6 @@ export default function OnboardingMiniBoard() {
                     </div>
                 </div>
 
-                {/* 콘텐츠 영역 */}
                 <div className="flex-1 bg-gray-100 flex items-center justify-center overflow-hidden relative group">
                     <img
                         src="https://images.unsplash.com/photo-1517842645767-c639042777db?q=80&w=400&auto=format&fit=crop"
@@ -371,14 +388,6 @@ export default function OnboardingMiniBoard() {
                     />
                     <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
                 </div>
-            </div>
-
-            {/* 하단 안내 텍스트 */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-center">
-                <p className="text-[10px] text-gray-500 font-medium flex items-center gap-1.5 justify-center">
-                    <PixelIcon name="sparkles" size={12} className="text-yellow-500" />
-                    <span>드래그 & 연결로 생각을 정리하세요</span>
-                </p>
             </div>
         </div>
     );
