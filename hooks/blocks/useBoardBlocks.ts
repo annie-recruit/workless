@@ -223,6 +223,7 @@ export function useBoardBlocks({ boardSize, viewportBounds }: UseBoardBlocksArgs
     });
   }, [blocks, viewportBounds.height, viewportBounds.left, viewportBounds.top, viewportBounds.width]);
 
+
   const minimapSizeFixedRef = useRef(false);
   useEffect(() => {
     if (minimapSizeFixedRef.current) return;
@@ -235,6 +236,23 @@ export function useBoardBlocks({ boardSize, viewportBounds }: UseBoardBlocksArgs
     ) {
       minimapSizeFixedRef.current = true;
       updateBlock(minimapBlock.id, { width: 240, height: 180 });
+    }
+  }, [blocks, updateBlock]);
+
+  // Calendar size migration: resize old 350x400 calendars to new 245x280
+  const calendarSizeFixedRef = useRef(false);
+  useEffect(() => {
+    if (calendarSizeFixedRef.current) return;
+    const calendarBlocks = blocks.filter((b) => b.type === 'calendar');
+    const needsResize = calendarBlocks.filter(
+      (b) => b.width === 350 && b.height === 400
+    );
+
+    if (needsResize.length > 0) {
+      calendarSizeFixedRef.current = true;
+      needsResize.forEach((block) => {
+        updateBlock(block.id, { width: 245, height: 280 });
+      });
     }
   }, [blocks, updateBlock]);
 
