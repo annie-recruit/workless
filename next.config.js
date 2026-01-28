@@ -42,14 +42,20 @@ if (process.env.ANALYZE === 'true') {
   config = withBundleAnalyzer(config);
 }
 
-// Sentry 설정 (소스맵 업로드/릴리즈 등은 환경변수로 제어)
-module.exports = withSentryConfig(
-  config,
-  {
-    silent: true,
-  },
-  {
-    disableLogger: true,
-    hideSourceMaps: true,
-  }
-);
+// Sentry 설정 (Railway 빌드 시간 단축을 위해 조건부 비활성화)
+if (process.env.RAILWAY_ENVIRONMENT || process.env.SKIP_SENTRY === 'true') {
+  // Railway 환경에서는 Sentry 비활성화하여 빌드 속도 향상
+  module.exports = config;
+} else {
+  // 로컬/다른 환경에서는 Sentry 활성화
+  module.exports = withSentryConfig(
+    config,
+    {
+      silent: true,
+    },
+    {
+      disableLogger: true,
+      hideSourceMaps: true,
+    }
+  );
+}
