@@ -1327,7 +1327,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   }, [selectedMemoryIds, selectedBlockIds, handleBlockDelete, onMemoryDeleted]);
 
   return (
-    <div className="w-full mx-auto space-y-6 font-galmuri11">
+    <div className="w-full font-galmuri11">
       {/* 그룹 설명 */}
       {selectedGroupId && (
         <div className="mb-4 p-4 bg-gradient-to-r from-orange-50 to-indigo-50 border border-indigo-300">

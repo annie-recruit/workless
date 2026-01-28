@@ -213,8 +213,9 @@ export default function Home() {
           </div>
         </header>
 
+
         <div
-          className="mx-auto px-3 py-8 w-full font-galmuri11"
+          className="mx-auto py-8 w-full font-galmuri11"
           style={{ maxWidth: contentMaxWidth }}
         >
           {/* 상단 메뉴바 */}
@@ -349,61 +350,67 @@ export default function Home() {
       </div>
 
       {/* 기억 관리 패널 */}
-      {showModal === 'memory_manager' && (
-        <MemoryListPanel
-          memories={memories}
-          blocks={blocks}
-          onClose={() => setShowModal(null)}
-          onDeleteMemory={handleManualDeleteMemory}
-          onDeleteBlock={handleManualDeleteBlock}
-        />
-      )}
+      {
+        showModal === 'memory_manager' && (
+          <MemoryListPanel
+            memories={memories}
+            blocks={blocks}
+            onClose={() => setShowModal(null)}
+            onDeleteMemory={handleManualDeleteMemory}
+            onDeleteBlock={handleManualDeleteBlock}
+          />
+        )
+      }
 
       {/* 그룹 관리 모달 */}
-      {showModal === 'groups' && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-purple-50 to-pink-50">
-              <h2 className="text-2xl font-bold text-gray-800">그룹 관리</h2>
-              <button
-                onClick={() => setShowModal(null)}
-                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-white rounded-lg transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              <GroupManager onGroupsChanged={() => fetchDashboardData(true)} personaId={selectedPersonaId} />
+      {
+        showModal === 'groups' && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+              <div className="p-6 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-purple-50 to-pink-50">
+                <h2 className="text-2xl font-bold text-gray-800">그룹 관리</h2>
+                <button
+                  onClick={() => setShowModal(null)}
+                  className="text-gray-400 hover:text-gray-600 p-2 hover:bg-white rounded-lg transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6">
+                <GroupManager onGroupsChanged={() => fetchDashboardData(true)} personaId={selectedPersonaId} />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* 물어보기 모달 */}
-      {showModal === 'query' && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white border border-orange-200 max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col">
-            <div className="p-6 border-b-2 border-orange-300 flex items-center justify-between bg-gradient-to-r from-orange-50 to-indigo-50">
-              <h2 className="text-2xl font-bold text-gray-800">물어보기</h2>
-              <button
-                onClick={() => setShowModal(null)}
-                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-white rounded-lg transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              <QueryPanel personaId={selectedPersonaId} />
+      {
+        showModal === 'query' && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white border border-orange-200 max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+              <div className="p-6 border-b-2 border-orange-300 flex items-center justify-between bg-gradient-to-r from-orange-50 to-indigo-50">
+                <h2 className="text-2xl font-bold text-gray-800">물어보기</h2>
+                <button
+                  onClick={() => setShowModal(null)}
+                  className="text-gray-400 hover:text-gray-600 p-2 hover:bg-white rounded-lg transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6">
+                <QueryPanel personaId={selectedPersonaId} />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* 타임라인은 별도 페이지로 */}
-    </main>
+    </main >
   );
 }
