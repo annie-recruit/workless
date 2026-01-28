@@ -6,6 +6,21 @@
   font-family: var(--font-galmuri), "Galmuri11", var(--font-pretendard), system-ui, sans-serif !important;
 }
 
+/* Wanted Sans Font (우선순위를 위해 Galmuri보다 아래에 배치) */
+@font-face {
+  font-family: 'Wanted Sans';
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+  src: url('https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/woff2/WantedSansVariable.woff2') format('woff2'),
+    url('https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/woff/WantedSansVariable.woff') format('woff');
+}
+
+.font-wanted,
+.font-wanted * {
+  font-family: 'Wanted Sans', "Pretendard Variable", Pretendard, system-ui, sans-serif !important;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -44,7 +59,8 @@ body {
 }
 
 /* 터치 피드백 효과 */
-button:active, a:active {
+button:active,
+a:active {
   transform: scale(0.98);
   transition: transform 0.1s ease-in-out;
 }
@@ -68,10 +84,13 @@ button:active, a:active {
 
 /* 반짝 애니메이션 - 단순하게 */
 @keyframes sparkle-single {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 0.8;
     transform: scale(1) rotate(0deg);
   }
+
   50% {
     opacity: 1;
     transform: scale(1.2) rotate(10deg);
@@ -84,10 +103,12 @@ button:active, a:active {
     opacity: 1;
     transform: translate(-100px, -80px) scale(0.8) rotate(-15deg);
   }
+
   70% {
     opacity: 0.8;
     transform: translate(0, 0) scale(0.4) rotate(0deg);
   }
+
   100% {
     opacity: 0;
     transform: translate(0, 0) scale(0.2);
@@ -99,10 +120,12 @@ button:active, a:active {
     opacity: 1;
     transform: translate(100px, -60px) scale(0.8) rotate(15deg);
   }
+
   70% {
     opacity: 0.8;
     transform: translate(0, 0) scale(0.4) rotate(0deg);
   }
+
   100% {
     opacity: 0;
     transform: translate(0, 0) scale(0.2);
@@ -114,10 +137,12 @@ button:active, a:active {
     opacity: 1;
     transform: translate(0, 100px) scale(0.8) rotate(0deg);
   }
+
   70% {
     opacity: 0.8;
     transform: translate(0, 0) scale(0.4) rotate(0deg);
   }
+
   100% {
     opacity: 0;
     transform: translate(0, 0) scale(0.2);
@@ -130,10 +155,12 @@ button:active, a:active {
     opacity: 0;
     transform: scale(0.5);
   }
+
   50% {
     opacity: 0.5;
     transform: scale(0.8);
   }
+
   100% {
     opacity: 1;
     transform: scale(1);
@@ -141,8 +168,13 @@ button:active, a:active {
 }
 
 @keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes fade-in {
@@ -150,6 +182,7 @@ button:active, a:active {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -193,6 +226,7 @@ button:active, a:active {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -208,7 +242,8 @@ button:active, a:active {
   display: inline !important;
   padding: 2px 6px !important;
   background: var(--color-primary-indigo-light) !important;
-  border-radius: 2px !important; /* 직선 느낌 */
+  border-radius: 2px !important;
+  /* 직선 느낌 */
   color: var(--color-primary-indigo-dark) !important;
   text-decoration: none !important;
   cursor: pointer !important;
@@ -227,4 +262,3 @@ button:active, a:active {
 .mention:active {
   background: var(--color-primary-indigo-dark) !important;
 }
-

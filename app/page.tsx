@@ -160,7 +160,7 @@ export default function LandingPage() {
             </div>
 
             {/* 핵심 기능 */}
-            <div className="relative space-y-3 bg-white border-2 border-gray-800 p-5 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-105">
+            <div className="relative space-y-3 bg-white border-2 border-gray-800 p-5 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-105 font-wanted">
               {/* 픽셀 코너 포인트 */}
               <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
