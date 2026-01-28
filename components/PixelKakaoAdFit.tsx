@@ -77,9 +77,9 @@ export default function PixelKakaoAdFit({
     };
 
     return (
-        <div className={`pixel-adfit-wrapper ${className}`}>
+        <div className={`pixel-adfit-wrapper ${className} flex justify-center`}>
             {/* 픽셀 아트 스타일 외부 프레임 */}
-            <div className="relative group">
+            <div className="relative group w-fit">
                 {/* 코너 장식 */}
                 <div className={`absolute -top-1 -left-1 w-3 h-3 ${borderColorMap[borderColor]} bg-current z-10`}></div>
                 <div className={`absolute -top-1 -right-1 w-3 h-3 ${borderColorMap[borderColor]} bg-current z-10`}></div>
@@ -89,7 +89,7 @@ export default function PixelKakaoAdFit({
                 {/* 메인 컨테이너 */}
                 <div
                     className={`
-            relative
+            relative w-fit mx-auto
             border-4 ${borderColorMap[borderColor]}
             bg-black/40 backdrop-blur-sm
             p-4
@@ -108,7 +108,7 @@ export default function PixelKakaoAdFit({
                     </div>
 
                     {/* 카카오 애드핏 광고 영역 */}
-                    <div ref={containerRef} className="flex justify-center overflow-hidden">
+                    <div ref={containerRef} className="flex justify-center overflow-hidden" style={{ minWidth: `${width}px`, minHeight: `${height}px` }}>
                         <ins
                             className="kakao_ad_area"
                             style={{ display: 'none' }}

@@ -74,11 +74,10 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://api.iconify.design" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
-        <link rel="stylesheet" as="style" crossOrigin="" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1164366157890050"
           crossOrigin="anonymous"></script>
       </head>
-      <body className="font-pretendard flex flex-col min-h-screen">
+      <body className="flex flex-col min-h-screen">
         <WebVitals />
         <ConsoleLogger />
         <SessionProvider>
