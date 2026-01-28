@@ -62,7 +62,7 @@ export default function PixelKakaoAdFit({
             />
             <div className={`pixel-adfit-wrapper ${className} flex justify-center`}>
                 {/* 픽셀 아트 스타일 외부 프레임 */}
-                <div className="relative group w-fit">
+                <div className="relative group" style={{ width: 'fit-content' }}>
                     {/* 코너 장식 */}
                     <div className={`absolute -top-1 -left-1 w-3 h-3 ${borderColorMap[borderColor]} bg-current z-10`}></div>
                     <div className={`absolute -top-1 -right-1 w-3 h-3 ${borderColorMap[borderColor]} bg-current z-10`}></div>
@@ -72,26 +72,26 @@ export default function PixelKakaoAdFit({
                     {/* 메인 컨테이너 */}
                     <div
                         className={`
-            relative w-fit mx-auto
+            relative
             border-4 ${borderColorMap[borderColor]}
             bg-black/40 backdrop-blur-sm
-            p-4
             ${glowColorMap[borderColor]}
             transition-all duration-300
             hover:scale-[1.02]
             group-hover:${glowColorMap[borderColor].replace('0.3', '0.5')}
           `}
+                        style={{ width: 'fit-content', height: 'fit-content' }}
                     >
                         {/* 상단 레이블 */}
                         <div className="absolute -top-3 left-4 px-2 bg-black">
                             <span className={`text-xs font-bold ${borderColorMap[borderColor].replace('border-', 'text-')} uppercase tracking-wider flex items-center gap-1`}>
-                                <PixelIcon name="zap" size={10} className={borderColorMap[borderColor].replace('border-', 'text-')} />
+                                <PixelIcon name="zap" size={10} className={borderColorMap[borderColor].replace('border-', 'text-')} ariaLabel="애드핏 광고" />
                                 <span>AdFit</span>
                             </span>
                         </div>
 
-                        {/* 카카오 애드핏 광고 영역 */}
-                        <div ref={containerRef} className="flex justify-center items-center" style={{ display: 'inline-block' }}>
+                        {/* 카카오 애드핏 광고 영역 - padding 없이 */}
+                        <div ref={containerRef}>
                             <ins
                                 className="kakao_ad_area"
                                 data-ad-unit={unit}
