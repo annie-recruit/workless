@@ -18,25 +18,25 @@ export default function SignInPage() {
     }
   }, [router]);
   return (
-    <main className="min-h-screen flex relative overflow-hidden font-galmuri11">
+    <main className="min-h-screen flex flex-col lg:flex-row relative overflow-hidden font-galmuri11 overflow-y-auto">
       {/* 픽셀 그라데이션 배경 */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 h-full w-full fixed">
         <PixelGradientBanner className="opacity-100" />
         {/* 오버레이로 색감 조절 */}
         <div className="absolute inset-0 bg-indigo-900/10 backdrop-blur-[2px]"></div>
       </div>
 
       {/* 왼쪽: 로그인 폼 */}
-      <div className="relative z-10 w-1/2 flex items-center justify-center p-8">
+      <div className="relative z-10 w-full lg:w-1/2 flex items-center justify-center p-8 pt-20 lg:pt-8 shrink-0">
         <div className="max-w-md w-full space-y-12">
           <div className="text-center space-y-6">
             <div className="space-y-2">
-              <h1 className="text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ letterSpacing: '-0.05em', WebkitTextStroke: '2px black', textShadow: '4px 4px 0px rgba(0,0,0,0.3)' }}>
+              <h1 className="text-4xl md:text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ letterSpacing: '-0.05em', WebkitTextStroke: '2px black', textShadow: '4px 4px 0px rgba(0,0,0,0.3)' }}>
                 WORKLESS
               </h1>
               <div className="flex items-center justify-center gap-4">
                 <div className="h-0.5 w-12 bg-white"></div>
-                <p className="text-white/90 text-base font-light">
+                <p className="text-white/90 text-sm md:text-base font-light">
                   맥락을 구체화. 비정형 애자일 워크스페이스
                 </p>
                 <div className="h-0.5 w-12 bg-white"></div>
@@ -92,17 +92,19 @@ export default function SignInPage() {
       </div>
 
       {/* 오른쪽: 온보딩 미니 보드 */}
-      <div className="relative z-10 w-1/2 flex items-center justify-center p-8">
+      <div className="relative z-10 w-full lg:w-1/2 flex items-center justify-center p-8 shrink-0">
         <div className="space-y-4">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-white mb-2">
+            <h2 className="text-xl md:text-2xl font-bold text-white mb-2">
               이렇게 사용해요 👇
             </h2>
-            <p className="text-white/70 text-sm">
+            <p className="text-white/70 text-xs md:text-sm">
               로그인하면 바로 시작할 수 있어요
             </p>
           </div>
-          <OnboardingMiniBoard />
+          <div className="transform scale-[0.55] sm:scale-75 md:scale-90 lg:scale-100 origin-center -my-24 sm:-my-12 lg:my-0">
+            <OnboardingMiniBoard />
+          </div>
         </div>
       </div>
 

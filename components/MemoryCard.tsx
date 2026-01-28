@@ -321,7 +321,8 @@ const MemoryCard = memo(
           if (isEditing) return;
           onDragEnd?.();
         }}
-        className={`group relative p-5 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-transform scroll-mt-4 h-full flex flex-col hover:scale-105 ${isEditing ? 'cursor-default' : 'cursor-move'
+        style={{ touchAction: 'none' }}
+        className={`group relative p-3 md:p-5 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-transform scroll-mt-4 h-full flex flex-col hover:scale-105 ${isEditing ? 'cursor-default' : 'cursor-move'
           } ${cardClassName} ${isHighlighted ? 'ring-4 ring-indigo-400 ring-offset-2' : ''}`}
         onPointerDown={(e) => {
           if (isEditing) {
@@ -402,14 +403,14 @@ const MemoryCard = memo(
               onPointerDown={(e) => e.stopPropagation()}
               onDragStart={(e) => e.preventDefault()}
               placeholder="제목 (선택)"
-              className="w-full px-2 py-1 mb-1.5 text-xs font-semibold border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-2 py-1 mb-1.5 text-[11px] md:text-xs font-semibold border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <div className="flex items-center gap-1 px-2 py-1 border border-indigo-300 bg-indigo-50/60">
               <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => execEditCommand('bold')}
-                className="px-2 py-1 text-xs rounded hover:bg-white font-semibold"
+                className="px-2 py-1 text-[10px] md:text-xs rounded hover:bg-white font-semibold"
                 title="굵게"
               >
                 B
@@ -418,7 +419,7 @@ const MemoryCard = memo(
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => execEditCommand('italic')}
-                className="px-2 py-1 text-xs rounded hover:bg-white italic"
+                className="px-2 py-1 text-[10px] md:text-xs rounded hover:bg-white italic"
                 title="기울임"
               >
                 I
@@ -427,7 +428,7 @@ const MemoryCard = memo(
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => execEditCommand('underline')}
-                className="px-2 py-1 text-xs rounded hover:bg-white underline"
+                className="px-2 py-1 text-[10px] md:text-xs rounded hover:bg-white underline"
                 title="밑줄"
               >
                 U
@@ -439,7 +440,7 @@ const MemoryCard = memo(
                   const url = prompt('링크 URL을 입력해주세요');
                   if (url) execEditCommand('createLink', url);
                 }}
-                className="px-2 py-1 text-xs rounded hover:bg-white"
+                className="px-2 py-1 text-[10px] md:text-xs rounded hover:bg-white"
                 title="하이퍼링크"
               >
                 <PixelIcon name="link" size={16} />
@@ -451,7 +452,7 @@ const MemoryCard = memo(
               onMouseDown={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
               onDragStart={(e) => e.preventDefault()}
-              className="w-full p-2 border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[11px] whitespace-pre-wrap"
+              className="w-full p-2 border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[10px] md:text-[11px] whitespace-pre-wrap"
               onInput={() => setEditContent(editRef.current?.innerHTML || '')}
               suppressContentEditableWarning
             />
@@ -460,20 +461,20 @@ const MemoryCard = memo(
           <div className="mb-2 pr-8">
             {/* 제목 */}
             {localMemory.title && (
-              <h3 className="text-xs font-semibold text-gray-900 mb-1">
+              <h3 className="text-[11px] md:text-xs font-semibold text-gray-900 mb-1">
                 {stripHtmlClient(localMemory.title)}
               </h3>
             )}
             {/* 내용 */}
             <div
               ref={contentRef}
-              className={`text-[11px] text-gray-800 leading-relaxed whitespace-pre-wrap ${!isExpanded && isLong ? 'line-clamp-3' : ''}`}
+              className={`text-[10px] md:text-[11px] text-gray-800 leading-relaxed whitespace-pre-wrap ${!isExpanded && isLong ? 'line-clamp-3' : ''}`}
               dangerouslySetInnerHTML={{ __html: safeHtml }}
             />
             {isLong && !isExpanded && (
               <button
                 onClick={() => setIsExpanded(true)}
-                className="mt-1 text-indigo-500 hover:text-indigo-600 text-[11px] font-medium"
+                className="mt-1 text-indigo-500 hover:text-indigo-600 text-[10px] md:text-[11px] font-medium"
               >
                 더보기
               </button>
@@ -481,7 +482,7 @@ const MemoryCard = memo(
             {isLong && isExpanded && (
               <button
                 onClick={() => setIsExpanded(false)}
-                className="mt-1 text-gray-500 hover:text-gray-600 text-[11px] font-medium"
+                className="mt-1 text-gray-500 hover:text-gray-600 text-[10px] md:text-[11px] font-medium"
               >
                 접기
               </button>

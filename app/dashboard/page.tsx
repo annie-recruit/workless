@@ -176,7 +176,7 @@ export default function Home() {
       {/* 토글 버튼 */}
       <button
         onClick={() => setShowInsights(!showInsights)}
-        className={`fixed top-1/2 -translate-y-1/2 bg-white border border-gray-200 hover:bg-gray-50 transition-all duration-300 shadow-lg z-50 ${showInsights ? 'right-[360px]' : 'right-0'
+        className={`hidden md:block fixed top-1/2 -translate-y-1/2 bg-white border border-gray-200 hover:bg-gray-50 transition-all duration-300 shadow-lg z-50 ${showInsights ? 'right-[360px]' : 'right-0'
           }`}
         style={{
           padding: '12px 6px',
@@ -200,12 +200,12 @@ export default function Home() {
         <header className="relative overflow-hidden bg-indigo-600 border-b-2 border-indigo-500 font-galmuri11">
           <div className="container mx-auto px-4 py-12">
             <div className="relative z-10">
-              <h1 className="text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ letterSpacing: '-0.05em' }}>
+              <h1 className="text-4xl md:text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ letterSpacing: '-0.05em' }}>
                 Workless
               </h1>
               <div className="flex items-center gap-3">
                 <div className="h-0.5 w-12 bg-white"></div>
-                <p className="text-white/90 text-base font-light">
+                <p className="text-white/90 text-sm md:text-base font-light">
                   사고의 흐름을 보는 비정형 워크스페이스
                 </p>
               </div>
@@ -222,13 +222,13 @@ export default function Home() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowModal('groups')}
-                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-xs md:text-sm font-medium"
               >
                 그룹 관리
               </button>
               <button
                 onClick={() => setShowModal('memory_manager')}
-                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium flex items-center gap-1"
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-xs md:text-sm font-medium flex items-center gap-1"
               >
                 <PixelIcon name="list" size={16} />
                 기억 관리
@@ -254,12 +254,12 @@ export default function Home() {
                       </span>
                     </div>
                   )}
-                  <span className="px-2 text-gray-600 text-sm">
+                  <span className="px-2 text-gray-600 text-xs md:text-sm">
                     {session.user?.name || session.user?.email}
                   </span>
                   <button
                     onClick={() => signOut()}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
+                    className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-xs md:text-sm font-medium"
                   >
                     로그아웃
                   </button>
@@ -279,7 +279,7 @@ export default function Home() {
                         }
                       }
                     }}
-                    className="px-4 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors text-sm font-medium"
+                    className="px-4 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors text-xs md:text-sm font-medium"
                   >
                     계정 탈퇴
                   </button>
@@ -287,7 +287,7 @@ export default function Home() {
               ) : (
                 <button
                   onClick={() => signIn('google')}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-sm font-medium"
+                  className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-xs md:text-sm font-medium"
                 >
                   로그인
                 </button>
@@ -337,7 +337,7 @@ export default function Home() {
 
       {/* 사이드 패널 (인사이트) */}
       <div
-        className={`bg-white border-l border-gray-200 shadow-lg overflow-y-auto transition-all duration-300 ease-in-out ${showInsights ? 'w-[360px]' : 'w-0'
+        className={`bg-white border-l border-gray-200 shadow-lg overflow-y-auto transition-all duration-300 ease-in-out hidden md:block ${showInsights ? 'w-[360px]' : 'w-0'
           }`}
       >
         {showInsights && (

@@ -1,5 +1,5 @@
 export const CARD_DIMENSIONS = {
-  s: { width: 260, height: 200, centerX: 130, centerY: 100 },
+  s: { width: 240, height: 180, centerX: 120, centerY: 90 },
   m: { width: 320, height: 240, centerX: 160, centerY: 120 },
   l: { width: 360, height: 280, centerX: 180, centerY: 140 },
 } as const;

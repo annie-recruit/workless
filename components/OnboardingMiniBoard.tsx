@@ -89,40 +89,59 @@ export default function OnboardingMiniBoard() {
         drawPixelLine(card2Center.x, card2Center.y, viewerCenter.x, viewerCenter.y, '#3B82F6');
     }, [positions]);
 
-    const handleMouseDown = (card: keyof CardPositions, e: React.MouseEvent) => {
+    // 컨테이너 참조를 위한 ref 추가
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const handlePointerDown = (card: keyof CardPositions, e: React.PointerEvent) => {
+        e.preventDefault();
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         setDragging(card);
         setDragOffset({
             x: e.clientX - rect.left,
             y: e.clientY - rect.top,
         });
+        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     };
 
-    const handleMouseMove = (e: React.MouseEvent) => {
+    const handlePointerMove = (e: React.PointerEvent) => {
         if (!dragging) return;
-        const container = e.currentTarget.getBoundingClientRect();
-        const newX = e.clientX - container.left - dragOffset.x;
-        const newY = e.clientY - container.top - dragOffset.y;
+        e.preventDefault();
+
+        // setPointerCapture를 사용하면 e.currentTarget이 캡처된 요소를 가리킬 수 있으므로
+        // 정확한 좌표 계산을 위해 ref로 컨테이너의 위치를 참조합니다.
+        const container = containerRef.current;
+        if (!container) return;
+
+        const containerRect = container.getBoundingClientRect();
+
+        const newX = e.clientX - containerRect.left - dragOffset.x;
+        const newY = e.clientY - containerRect.top - dragOffset.y;
 
         setPositions(prev => ({
             ...prev,
             [dragging]: {
-                x: Math.max(0, Math.min(newX, 600 - 140)),
-                y: Math.max(0, Math.min(newY, 500 - 120)),
+                x: Math.max(0, Math.min(newX, 600 - (dragging === 'viewer' ? 200 : dragging === 'calendar' ? 160 : dragging === 'action' ? 126 : 140))),
+                y: Math.max(0, Math.min(newY, 500 - (dragging === 'viewer' ? 160 : dragging === 'calendar' ? 200 : dragging === 'action' ? 150 : 120))),
             },
         }));
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = (e: React.PointerEvent) => {
         setDragging(null);
+        try {
+            // Release capture if needed, though usually automatic on up
+            (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+        } catch { }
     };
 
     return (
         <div
+            ref={containerRef}
             className="relative w-[600px] h-[500px] bg-gradient-to-br from-orange-50 via-white to-indigo-50 overflow-hidden border-4 border-black"
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerLeave={handlePointerUp}
+            style={{ touchAction: 'none' }}
         >
             {/* 연결선 캔버스 */}
             <canvas
@@ -135,7 +154,7 @@ export default function OnboardingMiniBoard() {
             <div
                 className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[140px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow"
                 style={{ left: `${positions.card1.x}px`, top: `${positions.card1.y}px`, zIndex: dragging === 'card1' ? 20 : 10 }}
-                onMouseDown={(e) => handleMouseDown('card1', e)}
+                onPointerDown={(e) => handlePointerDown('card1', e)}
             >
                 {/* 장식용 코너 포인트 */}
                 <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
@@ -162,7 +181,7 @@ export default function OnboardingMiniBoard() {
             <div
                 className="absolute bg-purple-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[140px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow"
                 style={{ left: `${positions.card2.x}px`, top: `${positions.card2.y}px`, zIndex: dragging === 'card2' ? 20 : 10 }}
-                onMouseDown={(e) => handleMouseDown('card2', e)}
+                onPointerDown={(e) => handlePointerDown('card2', e)}
             >
                 <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
                 <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
@@ -189,7 +208,7 @@ export default function OnboardingMiniBoard() {
             <div
                 className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[140px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow"
                 style={{ left: `${positions.card3.x}px`, top: `${positions.card3.y}px`, zIndex: dragging === 'card3' ? 20 : 10 }}
-                onMouseDown={(e) => handleMouseDown('card3', e)}
+                onPointerDown={(e) => handlePointerDown('card3', e)}
             >
                 <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
                 <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
@@ -213,7 +232,7 @@ export default function OnboardingMiniBoard() {
             <div
                 className="absolute w-[126px] bg-white border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-2.5 cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow"
                 style={{ left: `${positions.action.x}px`, top: `${positions.action.y}px`, zIndex: dragging === 'action' ? 20 : 10 }}
-                onMouseDown={(e) => handleMouseDown('action', e)}
+                onPointerDown={(e) => handlePointerDown('action', e)}
             >
                 <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
                 <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
@@ -266,7 +285,7 @@ export default function OnboardingMiniBoard() {
             <div
                 className="absolute bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black p-3 cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.15)] transition-shadow"
                 style={{ left: `${positions.calendar.x}px`, top: `${positions.calendar.y}px`, width: '160px', zIndex: dragging === 'calendar' ? 20 : 10 }}
-                onMouseDown={(e) => handleMouseDown('calendar', e)}
+                onPointerDown={(e) => handlePointerDown('calendar', e)}
             >
                 {/* 헤더 */}
                 <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-gray-200">
@@ -329,7 +348,7 @@ export default function OnboardingMiniBoard() {
                     height: '160px',
                     zIndex: dragging === 'viewer' ? 20 : 10
                 }}
-                onMouseDown={(e) => handleMouseDown('viewer', e)}
+                onPointerDown={(e) => handlePointerDown('viewer', e)}
             >
                 {/* 타이틀 바 */}
                 <div className="h-6 bg-[#EEEEEE] border-b-[3px] border-black flex items-center justify-between px-2 select-none shrink-0">

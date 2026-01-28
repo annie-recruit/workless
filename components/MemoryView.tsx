@@ -407,9 +407,14 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   useEffect(() => {
     const storedSize = localStorage.getItem('workless.board.cardSize');
     const storedColor = localStorage.getItem('workless.board.cardColor');
+
     if (storedSize === 's' || storedSize === 'm' || storedSize === 'l') {
       setCardSize(storedSize);
+    } else if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      // 모바일에서는 기본적으로 스몰 사이즈
+      setCardSize('s');
     }
+
     if (storedColor === 'green' || storedColor === 'pink' || storedColor === 'purple') {
       setCardColor(storedColor);
     }
@@ -1844,7 +1849,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       zIndex: blockZIndex,
                     };
                     return (
-                      <div key={block.id} data-block-id={block.id}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }}>
                         <CalendarBlock
                           blockId={block.id}
                           x={block.x}
@@ -1940,7 +1945,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       zIndex: blockZIndex,
                     };
                     return (
-                      <div key={block.id} data-block-id={block.id}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }}>
                         <ViewerBlock
                           blockId={block.id}
                           x={block.x}
@@ -2009,7 +2014,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       zIndex: blockZIndex,
                     };
                     return (
-                      <div key={block.id} data-block-id={block.id}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }}>
                         <MeetingRecorderBlock
                           blockId={block.id}
                           x={block.x}
@@ -2075,7 +2080,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     };
 
                     return (
-                      <div key={block.id} data-block-id={block.id}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }}>
                         <DatabaseBlock
                           blockId={block.id}
                           x={block.x}
