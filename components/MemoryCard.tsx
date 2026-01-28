@@ -500,7 +500,7 @@ const MemoryCard = memo(
             <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            {isLoadingSummary ? '생성중' : showSummary ? '요약 끄기' : '요약하기'}
+            {isLoadingSummary ? '생성중' : showSummary ? '요약 끄기' : '요약'}
           </button>
 
           <button
@@ -511,7 +511,7 @@ const MemoryCard = memo(
             <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            {isLoadingSuggestions ? '생성중' : showSuggestions ? '제안 끄기' : '제안받기'}
+            {isLoadingSuggestions ? '생성중' : showSuggestions ? '제안 끄기' : '제안'}
           </button>
           {variant === 'board' && (
             <>
