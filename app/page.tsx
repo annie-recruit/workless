@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import PixelGradientBanner from '@/components/PixelGradientBanner';
 import PixelIcon from '@/components/PixelIcon';
 import PixelAdSense from '@/components/PixelAdSense';
@@ -11,6 +11,7 @@ import PixelAdSense from '@/components/PixelAdSense';
 export default function LandingPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [isAgreed, setIsAgreed] = useState(false);
 
   // 로그인한 사용자는 대시보드로 리디렉션
   useEffect(() => {
@@ -74,24 +75,45 @@ export default function LandingPage() {
           </div>
 
           {/* CTA 버튼 */}
-          <div className="flex flex-col items-center gap-2">
-            <Link
-              href="/auth/signin"
-              className="group relative w-full max-w-md flex items-center justify-center gap-4 px-8 py-5 bg-white hover:bg-gray-50 border-2 border-gray-800 transition-all duration-300 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] hover:scale-105"
+          <div className="flex flex-col items-center gap-4">
+            <button
+              onClick={() => {
+                if (isAgreed) router.push('/auth/signin');
+              }}
+              disabled={!isAgreed}
+              className={`group relative w-full max-w-md flex items-center justify-center gap-4 px-8 py-5 border-2 border-gray-800 transition-all duration-300
+                ${isAgreed
+                  ? "bg-white hover:bg-gray-50 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] hover:scale-105 cursor-pointer"
+                  : "bg-gray-200 text-gray-400 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.05)] cursor-not-allowed"
+                }`}
             >
               {/* 픽셀 코너 포인트 */}
-              <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
-              <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
-              <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
+              <div className={`absolute -top-1 -left-1 w-2 h-2 ${isAgreed ? "bg-gray-800" : "bg-gray-400"}`} />
+              <div className={`absolute -top-1 -right-1 w-2 h-2 ${isAgreed ? "bg-gray-800" : "bg-gray-400"}`} />
+              <div className={`absolute -bottom-1 -left-1 w-2 h-2 ${isAgreed ? "bg-gray-800" : "bg-gray-400"}`} />
+              <div className={`absolute -bottom-1 -right-1 w-2 h-2 ${isAgreed ? "bg-gray-800" : "bg-gray-400"}`} />
 
-              <span className="text-gray-900 text-lg font-bold tracking-wider">
+              <span className={`text-lg font-bold tracking-wider ${isAgreed ? "text-gray-900" : "text-gray-400"}`}>
                 시작하기
               </span>
-            </Link>
-            <p className="text-white/70 text-xs">
-              시작하면 <Link href="/terms" className="underline hover:text-white">서비스 약관</Link> 및 <Link href="/privacy" className="underline hover:text-white">개인정보처리방침</Link>에 동의하게 됩니다
-            </p>
+            </button>
+
+            {/* 동의 체크박스 */}
+            <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded backdrop-blur-sm">
+              <input
+                type="checkbox"
+                id="terms-agreement"
+                checked={isAgreed}
+                onChange={(e) => setIsAgreed(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer accent-indigo-600"
+              />
+              <label htmlFor="terms-agreement" className="text-white/90 text-xs cursor-pointer select-none">
+                <Link href="/terms" className="underline font-bold hover:text-white" onClick={(e) => e.stopPropagation()}>서비스 약관</Link>
+                {' 및 '}
+                <Link href="/privacy" className="underline font-bold hover:text-white" onClick={(e) => e.stopPropagation()}>개인정보처리방침</Link>
+                {'에 동의합니다'}
+              </label>
+            </div>
           </div>
 
           {/* 3개 박스: 가로 배치 */}

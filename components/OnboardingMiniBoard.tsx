@@ -13,6 +13,8 @@ type CardPositions = {
     card2: CardPosition;
     card3: CardPosition;
     action: CardPosition;
+    calendar: CardPosition;
+    viewer: CardPosition;
 };
 
 export default function OnboardingMiniBoard() {
@@ -22,6 +24,8 @@ export default function OnboardingMiniBoard() {
         card2: { x: 220, y: 20 },
         card3: { x: 220, y: 180 },
         action: { x: 20, y: 280 },
+        calendar: { x: 420, y: 20 },
+        viewer: { x: 380, y: 200 },
     });
     const [dragging, setDragging] = useState<keyof CardPositions | null>(null);
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -73,6 +77,7 @@ export default function OnboardingMiniBoard() {
         const card2Center = { x: positions.card2.x + 70, y: positions.card2.y + 60 };
         const card3Center = { x: positions.card3.x + 70, y: positions.card3.y + 60 };
         const actionCenter = { x: positions.action.x + 90, y: positions.action.y + 60 };
+        const viewerCenter = { x: positions.viewer.x + 100, y: positions.viewer.y + 80 };
 
         // 메모리 카드 1 -> 메모리 카드 2
         drawPixelLine(card1Center.x, card1Center.y, card2Center.x, card2Center.y, '#818CF8');
@@ -80,6 +85,8 @@ export default function OnboardingMiniBoard() {
         drawPixelLine(card2Center.x, card2Center.y, card3Center.x, card3Center.y, '#A78BFA');
         // 메모리 카드 1 -> 액션 플랜
         drawPixelLine(card1Center.x, card1Center.y, actionCenter.x, actionCenter.y, '#FB923C');
+        // 메모리 카드 2 -> 뷰어 위젯
+        drawPixelLine(card2Center.x, card2Center.y, viewerCenter.x, viewerCenter.y, '#3B82F6');
     }, [positions]);
 
     const handleMouseDown = (card: keyof CardPositions, e: React.MouseEvent) => {
@@ -257,8 +264,9 @@ export default function OnboardingMiniBoard() {
 
             {/* 캘린더 위젯 (실제 CalendarBlock 스타일) */}
             <div
-                className="absolute bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black p-3"
-                style={{ left: '420px', top: '20px', width: '160px', zIndex: 10 }}
+                className="absolute bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black p-3 cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.15)] transition-shadow"
+                style={{ left: `${positions.calendar.x}px`, top: `${positions.calendar.y}px`, width: '160px', zIndex: dragging === 'calendar' ? 20 : 10 }}
+                onMouseDown={(e) => handleMouseDown('calendar', e)}
             >
                 {/* 헤더 */}
                 <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-gray-200">
@@ -308,6 +316,41 @@ export default function OnboardingMiniBoard() {
                             </div>
                         );
                     })}
+                </div>
+            </div>
+
+            {/* 뷰어 위젯 (ViewerBlock 스타일) */}
+            <div
+                className="absolute flex flex-col bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,0.15)] overflow-hidden cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] transition-shadow"
+                style={{
+                    left: `${positions.viewer.x}px`,
+                    top: `${positions.viewer.y}px`,
+                    width: '200px',
+                    height: '160px',
+                    zIndex: dragging === 'viewer' ? 20 : 10
+                }}
+                onMouseDown={(e) => handleMouseDown('viewer', e)}
+            >
+                {/* 타이틀 바 */}
+                <div className="h-6 bg-[#EEEEEE] border-b-[3px] border-black flex items-center justify-between px-2 select-none shrink-0">
+                    <div className="flex items-center gap-1.5">
+                        <div className="flex gap-1">
+                            <div className="w-2 h-2 border border-black bg-[#FF5F56]" />
+                            <div className="w-2 h-2 border border-black bg-[#FFBD2E]" />
+                            <div className="w-2 h-2 border border-black bg-[#27C93F]" />
+                        </div>
+                        <span className="ml-1 text-[9px] font-bold text-black uppercase tracking-tight">PREVIEW</span>
+                    </div>
+                </div>
+
+                {/* 콘텐츠 영역 */}
+                <div className="flex-1 bg-gray-100 flex items-center justify-center overflow-hidden relative group">
+                    <img
+                        src="https://images.unsplash.com/photo-1517842645767-c639042777db?q=80&w=400&auto=format&fit=crop"
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
                 </div>
             </div>
 
