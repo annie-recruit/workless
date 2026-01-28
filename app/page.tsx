@@ -49,7 +49,7 @@ export default function LandingPage() {
               <div className="flex items-center justify-center gap-4">
                 <div className="h-0.5 w-12 bg-white"></div>
                 <p className="text-white/90 text-sm md:text-base font-light">
-                  맥락을 구체화. 비정형 애자일 워크스페이스
+                  비정형 애자일 워크스페이스
                 </p>
                 <div className="h-0.5 w-12 bg-white"></div>
               </div>
@@ -89,7 +89,7 @@ export default function LandingPage() {
                 <h2 className="text-gray-900 font-bold text-2xl mb-8">당신의 액션을 위하여!</h2>
                 <div className="text-gray-800 text-base md:text-lg leading-loose space-y-6 max-w-3xl">
                   <p>
-                    <strong className="text-gray-900">WORKLESS</strong>는 자유롭게 사고하고 액션아이템을 도출하기 위한 비정형 캔버스 워크스페이스입니다.
+                    <strong className="text-gray-900">WORKLESS</strong>는 자유롭게 사고하고 액션아이템을 도출하기 위한 비정형 캔버스 워크스페이스입니다. 생각나는 모든것을 형식없이 자유롭게 기록해보세요.
                   </p>
                   <p>
                     기록하는 모든 것이 의미가 되고, 의미가 있는 모든 것들은 기록이 됩니다.

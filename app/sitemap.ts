@@ -1,27 +1,29 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
+    const baseUrl = process.env.NEXTAUTH_URL || 'https://workless.app';
+
     return [
         {
-            url: 'https://workless.app',
+            url: baseUrl,
             lastModified: new Date(),
             changeFrequency: 'daily',
             priority: 1,
         },
         {
-            url: 'https://workless.app/auth/signin',
+            url: `${baseUrl}/auth/signin`,
             lastModified: new Date(),
             changeFrequency: 'monthly',
             priority: 0.8,
         },
         {
-            url: 'https://workless.app/terms',
+            url: `${baseUrl}/terms`,
             lastModified: new Date(),
             changeFrequency: 'monthly',
             priority: 0.5,
         },
         {
-            url: 'https://workless.app/privacy',
+            url: `${baseUrl}/privacy`,
             lastModified: new Date(),
             changeFrequency: 'monthly',
             priority: 0.5,

@@ -77,7 +77,7 @@ export default function RootLayout({
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1164366157890050"
           crossOrigin="anonymous"></script>
       </head>
-      <body className="flex flex-col min-h-screen">
+      <body className="flex flex-col min-h-screen" suppressHydrationWarning>
         <WebVitals />
         <ConsoleLogger />
         <SessionProvider>

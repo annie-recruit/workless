@@ -102,7 +102,13 @@ export default function SignInPage() {
               로그인하면 바로 시작할 수 있어요
             </p>
           </div>
-          <div className="transform scale-[0.55] sm:scale-75 md:scale-90 lg:scale-100 origin-center -my-24 sm:-my-12 lg:my-0 w-[600px] h-[500px] relative">
+          <div className="transform scale-[0.55] sm:scale-75 md:scale-90 lg:scale-100 origin-center -my-24 sm:-my-12 lg:my-0 w-[600px] h-[500px] relative bg-white border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)]">
+            {/* 픽셀 코너 포인트 */}
+            <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800 z-20" />
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800 z-20" />
+            <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800 z-20" />
+            <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800 z-20" />
+
             <OnboardingMiniBoard />
           </div>
         </div>
