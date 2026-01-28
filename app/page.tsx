@@ -56,9 +56,9 @@ export default function LandingPage() {
           </div>
 
           {/* 메인 콘텐츠: 앱 목적 + 미니 보드 */}
-          <div className="flex flex-col xl:flex-row items-center justify-center gap-4 xl:gap-12 mt-8">
+          <section className="flex flex-col xl:flex-row items-center justify-center gap-4 xl:gap-12 mt-8" aria-label="서비스 소개">
             {/* 앱 목적 설명 */}
-            <div className="relative bg-white border-2 border-gray-800 p-8 w-full max-w-xl h-auto xl:h-[500px] flex flex-col justify-center shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-[1.02]">
+            <article className="relative bg-white border-2 border-gray-800 p-8 w-full max-w-xl h-auto xl:h-[500px] flex flex-col justify-center shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-[1.02]">
               {/* 픽셀 코너 포인트 */}
               <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
@@ -75,13 +75,13 @@ export default function LandingPage() {
                 <br /><br />
                 지금 바로 모든 생각 조각들을 연결하고 그룹화 하여 시각화 해보세요.
               </p>
-            </div>
+            </article>
 
             {/* 온보딩 미니 보드 */}
             <div className="flex-shrink-0 transform scale-[0.5] sm:scale-75 md:scale-90 xl:scale-100 transition-transform origin-center -my-24 sm:-my-12 xl:my-0">
               <OnboardingMiniBoard />
             </div>
-          </div>
+          </section>
 
           {/* CTA 버튼 */}
           <div className="flex flex-col items-center gap-4">

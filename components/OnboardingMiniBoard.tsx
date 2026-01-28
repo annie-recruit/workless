@@ -347,7 +347,7 @@ export default function OnboardingMiniBoard() {
                 <div className="flex-1 bg-gray-100 flex items-center justify-center overflow-hidden relative group">
                     <img
                         src="https://images.unsplash.com/photo-1517842645767-c639042777db?q=80&w=400&auto=format&fit=crop"
-                        alt="Preview"
+                        alt="콘텐츠 미리보기 이미지"
                         className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
