@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Icon } from '@iconify/react';
 
 interface PixelIconProps {
@@ -103,35 +103,28 @@ const ICON_MAP: Record<string, string> = {
   'trash-alt': 'pixelarticons:trash-alt',
 };
 
-// 글로벌 캐시 - 모든 PixelIcon 인스턴스가 공유
-let manifestCache: Record<string, string> | null = null;
-let manifestPromise: Promise<Record<string, string>> | null = null;
-
-const fetchManifest = async (): Promise<Record<string, string>> => {
-  if (manifestCache) return manifestCache;
-  if (manifestPromise) return manifestPromise;
-
-  manifestPromise = (async () => {
-    try {
-      const response = await fetch('/assets/icons/manifest.json');
-      if (!response.ok) return {};
-      const data = await response.json();
-      manifestCache = data;
-      return data;
-    } catch (err) {
-      console.warn('[PixelIcon] manifest 로드 실패:', err);
-      manifestCache = {};
-      return {};
-    }
-  })();
-
-  return manifestPromise;
+// 정적 매니페스트 (public/assets/icons/manifest.json 내용)
+// 로딩 딜레이를 없애기 위해 하드코딩
+const STATIC_MANIFEST: Record<string, string> = {
+  "trash": "/assets/icons/trash.png",
+  "check": "/assets/icons/check.png",
+  "bundle": "/assets/icons/bundle.png",
+  "edit": "/assets/icons/edit.png",
+  "delete": "/assets/icons/delete.png",
+  "persona_default": "/assets/icons/persona_default.png",
+  "persona_hr": "/assets/icons/persona_hr.png",
+  "persona_chef": "/assets/icons/persona_chef.png",
+  "persona_developer": "/assets/icons/persona_developer.png",
+  "persona_student": "/assets/icons/persona_student.png",
+  "pixel_flag": "/assets/icons/pixel_flag.png"
 };
 
 /**
  * PixelLab로 생성된 UI 아이콘 또는 Iconify pixelarticons를 렌더링하는 컴포넌트
- * 1. manifest.json에서 생성된 아이콘을 먼저 찾고
+ * 1. 로컬 정적 에셋(manifest)을 먼저 확인하고
  * 2. 없으면 Iconify pixelarticons를 fallback으로 사용합니다.
+ * 
+ * 모든 로직이 동기적으로 처리되므로 로딩 깜빡임이 없습니다.
  */
 export default function PixelIcon({
   name,
@@ -139,113 +132,44 @@ export default function PixelIcon({
   className = '',
   style = {},
 }: PixelIconProps) {
-  const [iconSrc, setIconSrc] = useState<string | null>(null);
-  const [loading, setLoading] = useState(!manifestCache);
-  const [useIconify, setUseIconify] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadIcon = async () => {
-      const manifest = await fetchManifest();
-      if (!isMounted) return;
-
-      const iconPath = manifest[name];
-      if (iconPath) {
-        setIconSrc(iconPath);
-        setUseIconify(false);
-      } else {
-        setUseIconify(true);
-      }
-      setLoading(false);
-    };
-
-    if (manifestCache) {
-      const iconPath = manifestCache[name];
-      if (iconPath) {
-        setIconSrc(iconPath);
-        setUseIconify(false);
-      } else {
-        setUseIconify(true);
-      }
-      setLoading(false);
-    } else {
-      loadIcon();
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [name]);
-
   // 크기는 반드시 정수로
   const iconSize = Math.round(size);
 
-  if (loading) {
-    return (
-      <span
-        className={`inline-block ${className}`}
-        style={{
-          width: iconSize,
-          height: iconSize,
-          ...style,
-        }}
-        aria-label={`${name} 아이콘 로딩 중`}
-      />
-    );
-  }
+  const iconSrc = STATIC_MANIFEST[name];
 
-  // Iconify pixelarticons 사용
-  if (useIconify) {
-    const iconName = ICON_MAP[name] || `pixelarticons:${name}`;
+  // 1. manifest에 있는 로컬 이미지 사용
+  if (iconSrc) {
     return (
-      <Icon
-        icon={iconName}
+      <img
+        src={iconSrc}
+        alt={`${name} 아이콘`}
         width={iconSize}
         height={iconSize}
-        className={className}
+        className={`pixel-icon ${className}`}
         style={{
           display: 'inline-block',
           verticalAlign: 'middle',
           ...style,
         }}
+        loading="eager"
+        decoding="sync"
       />
     );
   }
 
-  // manifest에서 로드한 이미지 사용
-  if (!iconSrc) {
-    // 아이콘이 없으면 Iconify로 fallback
-    const iconName = ICON_MAP[name] || `pixelarticons:${name}`;
-    return (
-      <Icon
-        icon={iconName}
-        width={iconSize}
-        height={iconSize}
-        className={className}
-        style={{
-          display: 'inline-block',
-          verticalAlign: 'middle',
-          ...style,
-        }}
-      />
-    );
-  }
-
+  // 2. Iconify pixelarticons 사용
+  const iconName = ICON_MAP[name] || `pixelarticons:${name}`;
   return (
-    <img
-      src={iconSrc}
-      alt={`${name} 아이콘`}
+    <Icon
+      icon={iconName}
       width={iconSize}
       height={iconSize}
-      className={`pixel-icon ${className}`}
+      className={className}
       style={{
         display: 'inline-block',
         verticalAlign: 'middle',
         ...style,
       }}
-      loading="eager"
-      decoding="sync"
     />
   );
 }
