@@ -244,7 +244,8 @@ export default function PixelIcon({
         verticalAlign: 'middle',
         ...style,
       }}
-      loading="lazy"
+      loading="eager"
+      decoding="sync"
     />
   );
 }

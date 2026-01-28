@@ -40,7 +40,7 @@ export default function LandingPage() {
           {/* 타이틀 */}
           <div className="text-center space-y-4">
             <div className="space-y-2">
-              <h1 className="text-6xl font-black text-white mb-3 tracking-tighter" style={{ letterSpacing: '-0.05em' }}>
+              <h1 className="text-6xl font-black text-white mb-3 tracking-tighter" style={{ letterSpacing: '-0.05em', WebkitTextStroke: '2px black', textShadow: '4px 4px 0px rgba(0,0,0,0.3)' }}>
                 WORKLESS
               </h1>
               <div className="flex items-center justify-center gap-4">
@@ -63,9 +63,12 @@ export default function LandingPage() {
               <h2 className="text-gray-900 font-bold text-lg mb-3">애플리케이션 목적</h2>
               <p className="text-gray-800 text-sm leading-relaxed">
                 <strong className="text-gray-900">WORKLESS</strong>는 비정형 사고를 위한 무한 캔버스 워크스페이스입니다.
-                Gmail 연동을 통해 &quot;WORKLESS&quot; 라벨이 지정된 이메일을 자동으로 메모로 변환하고,
-                AI 어시스턴트가 메모 간의 연관성을 분석하여 인사이트를 제공합니다.
-                폴더나 계층 구조 없이 태그와 공간적 맥락으로 정보를 자유롭게 연결하고 시각화할 수 있습니다.
+                <br />
+                기록하는 모든 것이 의미가 되고, 의미가 있는 모든 것들은 기록이 됩니다.
+                <br />
+                혼자서 고민하지 마세요! AI 어시스턴트는 언제든지 당신의 아이디어를 빠르게 실행할 수있도록 도와 드릴 것입니다.
+                <br />
+                지금 바로 모든 생각 조각들을 연결하고 그룹화 하여 시각화 해보세요.
               </p>
             </div>
           </div>
@@ -101,9 +104,8 @@ export default function LandingPage() {
               <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
               <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
 
-              <h3 className="text-gray-900 font-bold text-base mb-2 flex items-center gap-2">
-                <PixelIcon name="link" size={20} className="text-orange-500" />
-                <span>연동 가능한 서비스</span>
+              <h3 className="text-gray-900 font-bold text-base mb-2">
+                서비스 연동과 AI를 통해 액션 아이템 도출
               </h3>
               <div className="space-y-2 text-gray-700 text-xs">
                 <div className="flex items-start gap-2">
@@ -147,7 +149,7 @@ export default function LandingPage() {
                   <PixelIcon name="tag" size={16} className="text-gray-600 mt-0.5 flex-shrink-0" />
                   <div>
                     <div className="font-semibold text-gray-900">비정형 구조</div>
-                    <div className="text-gray-600">폴더 없이 태그와 맥락으로 연결</div>
+                    <div className="text-gray-600">제약없이 자유롭게 콘텐츠 배열</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
@@ -170,11 +172,11 @@ export default function LandingPage() {
 
               <h3 className="text-gray-900 font-bold text-base mb-2 flex items-center gap-2">
                 <PixelIcon name="star" size={20} className="text-yellow-500" />
-                <span>제공하는 가치</span>
+                <span>경험하길 바라는 가치</span>
               </h3>
               <div className="space-y-2 text-gray-800 text-xs leading-relaxed">
                 <p>
-                  <span className="font-bold text-orange-600">틀에 박힌 워크플로우는 이제 그만.</span>
+                  <span className="font-bold text-orange-600">답답했던 생각 조각을 구체화</span>
                   <br />당신의 사고방식대로 자유롭게
                 </p>
                 <p>
@@ -229,7 +231,7 @@ export default function LandingPage() {
               서비스 약관
             </Link>
             <span>·</span>
-            <a href="mailto:support@workless.app" className="hover:text-white transition-colors underline">
+            <a href="mailto:rkdhs326@gmail.com" className="hover:text-white transition-colors underline">
               문의하기
             </a>
           </div>

@@ -19,7 +19,7 @@ export default function SignInPage() {
         <div className="max-w-md w-full space-y-12">
           <div className="text-center space-y-6">
             <div className="space-y-2">
-              <h1 className="text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ letterSpacing: '-0.05em' }}>
+              <h1 className="text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ letterSpacing: '-0.05em', WebkitTextStroke: '2px black', textShadow: '4px 4px 0px rgba(0,0,0,0.3)' }}>
                 WORKLESS
               </h1>
               <div className="flex items-center justify-center gap-4">

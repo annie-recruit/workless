@@ -34,7 +34,7 @@
 }
 
 body {
-  background: var(--background);
+  background: linear-gradient(135deg, #4338ca 0%, #6366f1 50%, #fb923c 100%);
   color: var(--foreground);
   font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   /* 모바일 최적화 */
