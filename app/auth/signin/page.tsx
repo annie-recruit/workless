@@ -1,10 +1,22 @@
 'use client';
 
 import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import PixelGradientBanner from '@/components/PixelGradientBanner';
 import OnboardingMiniBoard from '@/components/OnboardingMiniBoard';
 
 export default function SignInPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    // 약관 동의 확인
+    const isAgreed = sessionStorage.getItem('terms_agreed');
+    if (!isAgreed) {
+      alert('약관 동의가 필요합니다.');
+      router.replace('/');
+    }
+  }, [router]);
   return (
     <main className="min-h-screen flex relative overflow-hidden font-galmuri11">
       {/* 픽셀 그라데이션 배경 */}

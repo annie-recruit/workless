@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import PixelGradientBanner from '@/components/PixelGradientBanner';
 import PixelIcon from '@/components/PixelIcon';
 import PixelAdSense from '@/components/PixelAdSense';
+import OnboardingMiniBoard from '@/components/OnboardingMiniBoard';
 
 export default function LandingPage() {
   const { data: session, status } = useSession();
@@ -41,36 +42,44 @@ export default function LandingPage() {
           {/* 타이틀 */}
           <div className="text-center space-y-4">
             <div className="space-y-2">
-              <h1 className="text-6xl font-black text-white mb-3 tracking-tighter" style={{ letterSpacing: '-0.05em', WebkitTextStroke: '2px black', textShadow: '4px 4px 0px rgba(0,0,0,0.3)' }}>
+              <h1 className="text-4xl md:text-6xl font-black text-white mb-3 tracking-tighter" style={{ letterSpacing: '-0.05em', WebkitTextStroke: '2px black', textShadow: '4px 4px 0px rgba(0,0,0,0.3)' }}>
                 WORKLESS
               </h1>
               <div className="flex items-center justify-center gap-4">
                 <div className="h-0.5 w-12 bg-white"></div>
-                <p className="text-white/90 text-base font-light">
+                <p className="text-white/90 text-sm md:text-base font-light">
                   맥락을 구체화. 비정형 애자일 워크스페이스
                 </p>
                 <div className="h-0.5 w-12 bg-white"></div>
               </div>
             </div>
+          </div>
 
+          {/* 메인 콘텐츠: 앱 목적 + 미니 보드 */}
+          <div className="flex flex-col xl:flex-row items-center justify-center gap-4 xl:gap-12 mt-8">
             {/* 앱 목적 설명 */}
-            <div className="relative bg-white border-2 border-gray-800 p-6 mt-6 max-w-3xl mx-auto shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-[1.02]">
+            <div className="relative bg-white border-2 border-gray-800 p-8 w-full max-w-xl h-auto xl:h-[500px] flex flex-col justify-center shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-[1.02]">
               {/* 픽셀 코너 포인트 */}
               <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
               <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
               <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
 
-              <h2 className="text-gray-900 font-bold text-lg mb-3">애플리케이션 목적</h2>
-              <p className="text-gray-800 text-sm leading-relaxed">
+              <h2 className="text-gray-900 font-bold text-xl mb-8 text-center xl:text-left">애플리케이션 목적</h2>
+              <p className="text-gray-800 text-base leading-loose">
                 <strong className="text-gray-900">WORKLESS</strong>는 비정형 사고를 위한 무한 캔버스 워크스페이스입니다.
-                <br />
+                <br /><br />
                 기록하는 모든 것이 의미가 되고, 의미가 있는 모든 것들은 기록이 됩니다.
-                <br />
+                <br /><br />
                 혼자서 고민하지 마세요! AI 어시스턴트는 언제든지 당신의 아이디어를 빠르게 실행할 수있도록 도와 드릴 것입니다.
-                <br />
+                <br /><br />
                 지금 바로 모든 생각 조각들을 연결하고 그룹화 하여 시각화 해보세요.
               </p>
+            </div>
+
+            {/* 온보딩 미니 보드 */}
+            <div className="flex-shrink-0 transform scale-[0.5] sm:scale-75 md:scale-90 xl:scale-100 transition-transform origin-center -my-24 sm:-my-12 xl:my-0">
+              <OnboardingMiniBoard />
             </div>
           </div>
 
@@ -78,7 +87,10 @@ export default function LandingPage() {
           <div className="flex flex-col items-center gap-4">
             <button
               onClick={() => {
-                if (isAgreed) router.push('/auth/signin');
+                if (isAgreed) {
+                  sessionStorage.setItem('terms_agreed', 'true');
+                  router.push('/auth/signin');
+                }
               }}
               disabled={!isAgreed}
               className={`group relative w-full max-w-md flex items-center justify-center gap-4 px-8 py-5 border-2 border-gray-800 transition-all duration-300
