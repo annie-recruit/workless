@@ -82,14 +82,6 @@ export default function PixelKakaoAdFit({
           `}
                         style={{ width: 'fit-content', height: 'fit-content' }}
                     >
-                        {/* 상단 레이블 */}
-                        <div className="absolute -top-3 left-4 px-2 bg-black">
-                            <span className={`text-xs font-bold ${borderColorMap[borderColor].replace('border-', 'text-')} uppercase tracking-wider flex items-center gap-1`}>
-                                <PixelIcon name="zap" size={10} className={borderColorMap[borderColor].replace('border-', 'text-')} ariaLabel="애드핏 광고" />
-                                <span>AdFit</span>
-                            </span>
-                        </div>
-
                         {/* 카카오 애드핏 광고 영역 - padding 없이 */}
                         <div ref={containerRef}>
                             <ins
