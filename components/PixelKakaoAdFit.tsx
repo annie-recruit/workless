@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import Script from 'next/script';
 import PixelIcon from './PixelIcon';
 
@@ -34,18 +34,7 @@ export default function PixelKakaoAdFit({
     className = '',
     borderColor = 'yellow',
 }: PixelKakaoAdFitProps) {
-    const [scriptLoaded, setScriptLoaded] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        // 스크립트가 로드되면 광고 영역 표시
-        if (scriptLoaded && containerRef.current) {
-            const ins = containerRef.current.querySelector('.kakao_ad_area') as HTMLElement;
-            if (ins) {
-                ins.style.display = 'block';
-            }
-        }
-    }, [scriptLoaded]);
 
     const borderColorMap = {
         cyan: 'border-cyan-400',
@@ -69,8 +58,7 @@ export default function PixelKakaoAdFit({
         <>
             <Script
                 src="//t1.daumcdn.net/kas/static/ba.min.js"
-                strategy="lazyOnload"
-                onLoad={() => setScriptLoaded(true)}
+                strategy="afterInteractive"
             />
             <div className={`pixel-adfit-wrapper ${className} flex justify-center`}>
                 {/* 픽셀 아트 스타일 외부 프레임 */}
@@ -106,7 +94,6 @@ export default function PixelKakaoAdFit({
                         <div ref={containerRef} className="flex justify-center overflow-hidden" style={{ minWidth: `${width}px`, minHeight: `${height}px` }}>
                             <ins
                                 className="kakao_ad_area"
-                                style={{ display: 'none' }}
                                 data-ad-unit={unit}
                                 data-ad-width={width}
                                 data-ad-height={height}
