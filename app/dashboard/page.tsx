@@ -25,7 +25,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true); // 기본값을 true로 설정하여 세션 확인 후 데이터 로딩까지 유지
   const [showInsights, setShowInsights] = useState(false); // 인사이트 패널 토글 (기본: 숨김)
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null);
-  const contentMaxWidth = showInsights ? 'calc(100vw - 420px)' : 'calc(100vw - 40px)';
+  const contentMaxWidth = showInsights ? 'calc(100vw - 360px)' : '100%';
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const lastActiveElementRef = useRef<HTMLElement | null>(null);
 
@@ -215,8 +215,7 @@ export default function Home() {
 
 
         <div
-          className="mx-auto py-8 w-full font-galmuri11"
-          style={{ maxWidth: contentMaxWidth }}
+          className="py-8 w-full font-galmuri11"
         >
           {/* 상단 메뉴바 */}
           <div className="mb-6 flex items-center justify-between border-b border-gray-200 pb-2">
