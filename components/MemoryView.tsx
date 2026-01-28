@@ -10,7 +10,7 @@ import dynamic from 'next/dynamic';
 import { useViewer } from './ViewerContext';
 import PixelIcon from './PixelIcon';
 import { useFlagsStore } from '@/components/FlagContext';
-import FlagSidebar from '@/components/FlagSidebar';
+import FlagMenuBar from '@/components/FlagMenuBar';
 import FlagLayer from '@/components/FlagLayer';
 import ProcessingLoader from './ProcessingLoader';
 import MemoryCard from './MemoryCard';
@@ -181,6 +181,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [linkInfo, setLinkInfo] = useState<Record<string, { note?: string; isAIGenerated: boolean }>>({});
   const [isBlobEnabled, setIsBlobEnabled] = useState(true);
   const [isWidgetMenuOpen, setIsWidgetMenuOpen] = useState(false);
+  const [isFlagMenuOpen, setIsFlagMenuOpen] = useState(false);
 
   // Blob 설정 불러오기
   useEffect(() => {
@@ -1357,16 +1358,6 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       {/* 화이트보드 뷰 */}
       <div data-tutorial-target="board-view" className="h-[calc(300vh-280px)] min-h-[1500px]">
         <div className="w-full h-full bg-white border border-gray-300 font-galmuri11 flex overflow-hidden">
-          <FlagSidebar
-            flags={flags}
-            selectedFlagId={selectedFlagId}
-            activeFlagId={activeNearestFlagId}
-            hoveredFlagId={hoveredFlagId}
-            isPlacing={isPlacingFlag}
-            onAddFlag={handleAddFlag}
-            onGoToFlag={handleGoToFlag}
-            onHoverFlag={(id) => flagsStore.hoverFlag(storageKey, id)}
-          />
           <div className="flex-1 bg-white relative flex flex-col min-w-0 overflow-hidden">
             {/* 컨트롤 바 - (좌측 깃발 사이드바처럼) 스크롤과 무관하게 상단 고정 */}
             <div className="shrink-0 sticky top-0 z-30 flex items-center justify-between py-2 text-xs text-gray-500 bg-white border-b border-gray-200 shadow-sm">
@@ -1422,6 +1413,19 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   <PixelIcon name="folder" size={16} />
                   <span>그룹</span>
                 </button>
+
+                <button
+                  onClick={() => {
+                    setIsFlagMenuOpen((prev) => !prev);
+                    setIsWidgetMenuOpen(false);
+                    setIsGroupMenuOpen(false);
+                  }}
+                  className={`px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 flex items-center gap-1 ${isFlagMenuOpen ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'text-gray-700'}`}
+                  title="깃발"
+                >
+                  <PixelIcon name="flag" size={16} />
+                  <span>깃발</span>
+                </button>
               </div>
               <div className="flex items-center gap-1">
                 <button
@@ -1447,6 +1451,20 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 </button>
               </div>
             </div>
+
+            {/* 깃발 메뉴 바 */}
+            {isFlagMenuOpen && (
+              <FlagMenuBar
+                flags={flags}
+                selectedFlagId={selectedFlagId}
+                activeFlagId={activeNearestFlagId}
+                hoveredFlagId={hoveredFlagId}
+                isPlacing={isPlacingFlag}
+                onAddFlag={handleAddFlag}
+                onGoToFlag={handleGoToFlag}
+                onHoverFlag={(id) => flagsStore.hoverFlag(storageKey, id)}
+              />
+            )}
 
             {/* 위젯 생성 메뉴 바 */}
             {isWidgetMenuOpen && (
