@@ -21,6 +21,7 @@ export function useBoardCamera({ storageKey, initialBoardSize = { width: 1600, h
   const boardContainerRef = useRef<HTMLDivElement>(null);
 
   const [boardSize, setBoardSize] = useState<BoardSize>(initialBoardSize);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const zoomRef = useRef(1);
@@ -35,28 +36,23 @@ export function useBoardCamera({ storageKey, initialBoardSize = { width: 1600, h
       x: -container.scrollLeft,
       y: -container.scrollTop,
     });
+    setContainerSize({
+      width: container.clientWidth,
+      height: container.clientHeight,
+    });
   }, []);
 
   const viewportBounds: ViewportBounds = useMemo(() => {
-    if (!boardContainerRef.current || !boardRef.current) {
-      return { left: 0, top: 0, width: 0, height: 0 };
-    }
-
-    const container = boardContainerRef.current;
-    // getBoundingClientRect는 스크롤바를 포함할 수 있으므로, 
-    // 실제 보이는 영역인 clientWidth/Height를 사용하는 것이 더 정확합니다.
-    const containerWidth = container.clientWidth;
-    const containerHeight = container.clientHeight;
-
-    const scrollLeft = container.scrollLeft;
-    const scrollTop = container.scrollTop;
+    const scrollLeft = -pan.x;
+    const scrollTop = -pan.y;
+    const { width: containerWidth, height: containerHeight } = containerSize;
 
     const left = scrollLeft / zoom;
     const top = scrollTop / zoom;
     const width = containerWidth / zoom;
     const height = containerHeight / zoom;
 
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development' && width > 0) {
       console.log('[viewportBounds] 계산(심플):', {
         scrollLeft,
         scrollTop,
@@ -70,7 +66,7 @@ export function useBoardCamera({ storageKey, initialBoardSize = { width: 1600, h
     }
 
     return { left, top, width, height };
-  }, [pan, zoom, boardSize]);
+  }, [pan, containerSize, zoom, boardSize]);
 
   const changeZoom = useCallback(
     (delta: number) => {
@@ -156,6 +152,22 @@ export function useBoardCamera({ storageKey, initialBoardSize = { width: 1600, h
     return () => {
       container.removeEventListener('scroll', handleScroll);
       if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [updatePan]);
+
+  useEffect(() => {
+    const container = boardContainerRef.current;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      updatePan();
+    });
+
+    resizeObserver.observe(container);
+    updatePan();
+
+    return () => {
+      resizeObserver.disconnect();
     };
   }, [updatePan]);
 

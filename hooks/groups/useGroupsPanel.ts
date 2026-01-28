@@ -6,14 +6,13 @@ export type MemorySummary = { id: string; content: string };
 
 export type BoardToastState = {
   type:
-    | 'loading'
-    | 'confirm'
-    | 'success'
-    | 'delete-link'
-    | 'delete-memory'
-    | 'delete-location'
-    | 'error'
-    | null;
+  | 'loading'
+  | 'confirm'
+  | 'success'
+  | 'delete-link'
+  | 'delete-memory'
+  | 'error'
+  | null;
   data?: any;
 };
 

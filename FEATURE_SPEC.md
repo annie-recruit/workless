@@ -51,7 +51,6 @@ Workless는 생각과 아이디어를 자유롭게 펼쳐놓고 연결할 수 �
 - 리치 에디터를 통한 서식 있는 텍스트 편집
 - 파일 첨부 (이미지, PDF, 문서 등)
 - 음성 녹음 및 자동 전사
-- 위치 정보 자동 기록
 
 ### 2.2 무한 캔버스
 - 자유로운 드래그 앤 드롭 배치
@@ -79,7 +78,6 @@ Workless는 생각과 아이디어를 자유롭게 펼쳐놓고 연결할 수 �
 - **파일 첨부**: 드래그 앤 드롭 또는 파일 선택
   - 지원 형식: 이미지, PDF, TXT, MD, DOC, DOCX
 - **음성 녹음**: 실시간 녹음 및 자동 전사
-- **위치 정보**: GPS 기반 자동 위치 기록
 
 #### 리치 에디터 기능
 - **서식**: 굵게 (B), 기울임 (I)
@@ -89,7 +87,7 @@ Workless는 생각과 아이디어를 자유롭게 펼쳐놓고 연결할 수 �
 
 #### API 엔드포인트
 - `POST /api/memories` - 메모리 생성
-  - 요청: `title`, `content`, `files`, `location`, `relatedMemoryIds`
+  - 요청: `title`, `content`, `files`, `relatedMemoryIds`
   - 응답: 생성된 메모리 및 연결 제안
 
 ### 3.2 메모리 조회
@@ -112,7 +110,6 @@ Workless는 생각과 아이디어를 자유롭게 펼쳐놓고 연결할 수 �
 #### 수정
 - 제목 및 내용 수정
 - 파일 추가/삭제
-- 위치 정보 수정/삭제
 
 #### 삭제
 - 메모리 삭제
@@ -733,12 +730,6 @@ Workless는 생각과 아이디어를 자유롭게 펼쳐놓고 연결할 수 �
   repeatCount?: number;
   lastMentionedAt?: number;
   attachments?: Attachment[];
-  location?: {
-    latitude: number;
-    longitude: number;
-    address?: string;
-    accuracy?: number;
-  };
 }
 ```
 

@@ -23,17 +23,7 @@ export async function POST(req: NextRequest) {
     const derivedFromCardId = (formData.get('derivedFromCardId') as string) || undefined;
     const files = formData.getAll('files') as File[];
     const relatedMemoryIdsRaw = formData.get('relatedMemoryIds') as string | null;
-    const locationRaw = formData.get('location') as string | null;
-    
-    // 위치 정보 파싱
-    let location = undefined;
-    if (locationRaw) {
-      try {
-        location = JSON.parse(locationRaw);
-      } catch (error) {
-        console.error('Failed to parse location:', error);
-      }
-    }
+
 
     if (!content || typeof content !== 'string') {
       return NextResponse.json(
@@ -94,7 +84,6 @@ export async function POST(req: NextRequest) {
       derivedFromCardId: derivedFromCardId,
       relatedMemoryIds: relatedIds,
       attachments: attachments.length > 0 ? attachments : undefined,
-      location: location,
     });
 
     // 양방향 링크 생성 - 관련 기록들에도 새 기록 ID 추가 (같은 사용자의 기록만)
@@ -115,24 +104,24 @@ export async function POST(req: NextRequest) {
     const candidateMemories = existingMemories
       .filter(m => m.id !== memory.id)
       .slice(0, 30); // 최대 30개만 검토
-    
+
     let connectionSuggestions: Array<{ id: string; content: string; reason: string }> = [];
-    
+
     if (candidateMemories.length > 0) {
       try {
         const relatedIds = await findRelatedMemories(stripHtml(content), candidateMemories);
-        
+
         if (relatedIds.length > 0) {
           // 관련 기록들의 상세 정보 가져오기
           const relatedMemories = relatedIds
             .map(id => candidateMemories.find(m => m.id === id))
             .filter(Boolean) as typeof candidateMemories;
-          
+
           // AI에게 묶을 수 있는지 확인
           const openaiClient = new OpenAI({
             apiKey: process.env.OPENAI_API_KEY,
           });
-          
+
           const suggestionPrompt = `
 다음 새 기록과 관련 기록들이 함께 묶일 만한지 분석해주세요.
 
@@ -141,9 +130,9 @@ export async function POST(req: NextRequest) {
 
 [관련 기록 후보들]
 ${relatedMemories.slice(0, 5).map((m, idx) => {
-  const plain = stripHtml(m.content);
-  return `${idx}. "${plain.substring(0, 150)}..."`;
-}).join('\n\n')}
+            const plain = stripHtml(m.content);
+            return `${idx}. "${plain.substring(0, 150)}..."`;
+          }).join('\n\n')}
 
 각 후보 기록이 새 기록과 함께 묶일 만큼 관련이 있는지 판단해주세요.
 - 관련이 있으면: reason에 왜 관련있는지 설명
@@ -167,7 +156,7 @@ JSON 형식:
 
           const suggestionResult = JSON.parse(suggestionResponse.choices[0].message.content || '{}');
           const suggestions = suggestionResult.suggestions || [];
-          
+
           connectionSuggestions = suggestions
             .filter((s: any) => s.shouldLink === true)
             .map((s: any) => {
@@ -289,7 +278,7 @@ export async function PUT(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
-    const { title, content, location } = await req.json();
+    const { title, content } = await req.json();
 
     if (!id) {
       return NextResponse.json(
@@ -321,9 +310,6 @@ export async function PUT(req: NextRequest) {
     const updates: any = { content, relatedMemoryIds: nextRelated };
     if (title !== undefined) {
       updates.title = title;
-    }
-    if (location !== undefined) {
-      updates.location = location;
     }
 
     memoryDb.update(id, updates);

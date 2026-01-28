@@ -171,3 +171,5 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
         </div>
     );
 };
+
+export default ActionProjectCard;

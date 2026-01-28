@@ -33,14 +33,6 @@ export interface Memory {
   // 첨부 파일
   attachments?: Attachment[];
 
-  // 위치 정보
-  location?: {
-    latitude: number;      // 위도
-    longitude: number;    // 경도
-    address?: string;      // 주소 (선택, 역지오코딩 결과)
-    accuracy?: number;     // 정확도 (미터)
-  };
-
   // 출처 정보
   source?: 'gmail' | 'manual' | 'ios-shortcut' | 'workless-web' | string;
   sourceId?: string;       // Gmail messageId 등

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { Memory, CanvasBlock } from '@/types';
+import { CARD_DIMENSIONS } from '@/board/boardUtils';
 
 interface MinimapProps {
   positions: Record<string, { x: number; y: number }>;
@@ -26,12 +27,6 @@ interface MinimapProps {
 
 // localStorage 키
 const MINIMAP_POSITION_KEY = 'workless-minimap-position';
-
-const CARD_DIMENSIONS = {
-  s: { width: 200, height: 160 },
-  m: { width: 240, height: 180 },
-  l: { width: 280, height: 200 },
-} as const;
 
 // 원본 카드 색상 매핑 - 모두 연한 회색으로 통일
 const CARD_COLORS = {
@@ -72,7 +67,7 @@ export default function Minimap({
   // localStorage에서 위치 복원
   useEffect(() => {
     if (isWidgetMode) return; // 위젯 모드에서는 드래그 불가
-    
+
     try {
       const saved = localStorage.getItem(MINIMAP_POSITION_KEY);
       if (saved) {
@@ -87,7 +82,7 @@ export default function Minimap({
   // 드래그 핸들러
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isWidgetMode) return; // 위젯 모드에서는 드래그 불가
-    
+
     // 캔버스나 내부 요소를 클릭한 경우에만 드래그 시작
     setIsDragging(true);
     dragStartRef.current = {
@@ -216,29 +211,39 @@ export default function Minimap({
     return colorMap;
   }, [connectionPairs]);
 
-  // 3. 실제 콘텐츠 기준 Bounding Box & 창 크기 계산
+  // 1. 실제 콘텐츠 기준 Bounding Box & 창 크기 계산
   const bounds = useMemo(() => {
-    // 실제 콘텐츠가 있는 영역 계산
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
     let hasContent = false;
 
-    // 메모리/블록 위치 순회
-    Object.entries(positions).forEach(([id, pos]) => {
-      // 실제로 존재하는 메모리나 블록만 경계 계산에 포함
-      const block = blocks.find(b => b.id === id);
-      const memory = memories.find(m => m.id === id);
-      if (!block && !memory) return;
+    // 실제로 화면에 보이는 요소들만 대상으로 범위 계산
+    const visibleIds = new Set([
+      ...memories.map(m => m.id),
+      ...blocks.map(b => b.id)
+    ]);
 
+    Object.entries(positions).forEach(([id, pos]) => {
+      if (!visibleIds.has(id)) return;
       hasContent = true;
+
+      const block = blocks.find(b => b.id === id);
       let width: number = cardDims.width;
       let height: number = cardDims.height;
 
       if (block) {
-        width = block.width || 350;
-        height = block.height || 300;
+        if (block.type === 'calendar') {
+          width = block.width || 350;
+          height = block.height || 240;
+        } else if (block.type === 'viewer' || block.type === 'meeting-recorder' || block.type === 'database') {
+          width = block.width || 420;
+          height = block.height || 320;
+        } else {
+          width = block.width || 350;
+          height = block.height || 300;
+        }
       }
 
       minX = Math.min(minX, pos.x);
@@ -247,25 +252,16 @@ export default function Minimap({
       maxY = Math.max(maxY, pos.y + height);
     });
 
-    // 뷰포트 영역도 포함하여 계산 (사용자가 빈 공간을 보고 있어도 미니맵에 표시되도록)
-    if (viewportBounds.width > 0 && viewportBounds.height > 0) {
-      hasContent = true;
-      minX = Math.min(minX, viewportBounds.left);
-      minY = Math.min(minY, viewportBounds.top);
-      maxX = Math.max(maxX, viewportBounds.left + viewportBounds.width);
-      maxY = Math.max(maxY, viewportBounds.top + viewportBounds.height);
-    }
-
-    // 콘텐츠가 없으면 기본값 사용
+    // 콘텐츠가 없으면 기본 보드 크기 사용
     if (!hasContent) {
       minX = 0;
       minY = 0;
-      maxX = 1600;
-      maxY = 1200;
+      maxX = boardSize.width;
+      maxY = boardSize.height;
     }
 
-    // 패딩 추가
-    const padding = CONTENT_PADDING * 2; // 여유 있게
+    // 여유 패딩 (충분히 주어서 시야 박스가 움직여도 지도가 너무 자주 변하지 않게 함)
+    const padding = 200;
     minX -= padding;
     minY -= padding;
     maxX += padding;
@@ -274,36 +270,19 @@ export default function Minimap({
     const contentW = maxX - minX;
     const contentH = maxY - minY;
 
-    // 위젯 모드일 때는 컨테이너 크기에 맞춤 (Contain)
-    if (isWidgetMode && containerWidth && containerHeight) {
-      const scaleX = containerWidth / contentW;
-      const scaleY = containerHeight / contentH;
-      const scale = Math.min(scaleX, scaleY);
-
-      // 중앙 정렬을 위한 오프셋 (선택사항, 일단은 좌상단 기준)
-      return {
-        minX,
-        minY,
-        scale,
-        h: containerHeight,
-        contentW,
-        contentH
-      };
-    }
-
-    // 일반 모드: 가로 폭 고정
-    const scale = minimapWidth / contentW;
-    const dynamicHeight = contentH * scale;
+    const scale = isWidgetMode && containerWidth && containerHeight
+      ? Math.min(containerWidth / contentW, containerHeight / contentH)
+      : minimapWidth / contentW;
 
     return {
       minX,
       minY,
       scale,
-      h: dynamicHeight,
+      h: isWidgetMode ? containerHeight : contentH * scale,
       contentW,
       contentH
     };
-  }, [positions, blocks, cardDims, containerWidth, containerHeight, minimapWidth, isWidgetMode, viewportBounds]);
+  }, [positions, blocks, memories, cardDims, boardSize, containerWidth, containerHeight, minimapWidth, isWidgetMode]);
 
   // 4. 캔버스 렌더링 (배경, 블롭, 연결선)
   useEffect(() => {
@@ -371,8 +350,17 @@ export default function Minimap({
 
             const block = blocks.find(b => b.id === id);
             if (block) {
-              const blockWidth = block.width || 350;
-              const blockHeight = block.height || 300;
+              let blockWidth = block.width || 350;
+              let blockHeight = block.height || 300;
+
+              if (block.type === 'calendar') {
+                blockWidth = block.width || 350;
+                blockHeight = block.height || 240;
+              } else if (block.type === 'viewer' || block.type === 'meeting-recorder' || block.type === 'database') {
+                blockWidth = block.width || 420;
+                blockHeight = block.height || 320;
+              }
+
               return {
                 minX: pos.x,
                 minY: pos.y,
@@ -438,8 +426,17 @@ export default function Minimap({
       const getNodeCenter = (id: string, pos: { x: number; y: number }) => {
         const block = blocks.find(b => b.id === id);
         if (block) {
-          const blockWidth = block.width || 350;
-          const blockHeight = block.height || 300;
+          let blockWidth = block.width || 350;
+          let blockHeight = block.height || 300;
+
+          if (block.type === 'calendar') {
+            blockWidth = block.width || 350;
+            blockHeight = block.height || 240;
+          } else if (block.type === 'viewer' || block.type === 'meeting-recorder' || block.type === 'database') {
+            blockWidth = block.width || 420;
+            blockHeight = block.height || 320;
+          }
+
           return {
             x: (pos.x + blockWidth / 2 - bounds.minX) * bounds.scale,
             y: (pos.y + blockHeight / 2 - bounds.minY) * bounds.scale,
@@ -461,21 +458,21 @@ export default function Minimap({
 
         const dx = x2 - x1;
         const dy = y2 - y1;
-        
+
         // 픽셀 계단 효과: 수평 우선 → 수직 → 수평 (3단계)
         ctx.beginPath();
         ctx.moveTo(Math.round(x1), Math.round(y1));
-        
+
         // 1단계: 수평으로 1/3 이동
         const midX1 = Math.round(x1 + dx / 3);
         ctx.lineTo(midX1, Math.round(y1));
-        
+
         // 2단계: 수직으로 전체 이동
         ctx.lineTo(midX1, Math.round(y2));
-        
+
         // 3단계: 수평으로 나머지 이동
         ctx.lineTo(Math.round(x2), Math.round(y2));
-        
+
         ctx.stroke();
       };
 
@@ -516,7 +513,7 @@ export default function Minimap({
     } else {
       // connectionPairs가 없을 때 기본 연결선 - 픽셀 스타일
       const lineWidth = Math.max(2, 3 * bounds.scale); // 최소 2px 보장
-      
+
       const drawPixelLine = (x1: number, y1: number, x2: number, y2: number) => {
         ctx.strokeStyle = '#94A3B8'; // 더 진한 회색으로 변경
         ctx.lineWidth = lineWidth;
@@ -525,16 +522,16 @@ export default function Minimap({
 
         const dx = x2 - x1;
         const dy = y2 - y1;
-        
+
         ctx.beginPath();
         ctx.moveTo(Math.round(x1), Math.round(y1));
-        
+
         // 픽셀 계단 효과: 수평 → 수직 → 수평
         const midX1 = Math.round(x1 + dx / 3);
         ctx.lineTo(midX1, Math.round(y1));
         ctx.lineTo(midX1, Math.round(y2));
         ctx.lineTo(Math.round(x2), Math.round(y2));
-        
+
         ctx.stroke();
       };
 
@@ -598,14 +595,9 @@ export default function Minimap({
           const isBlock = !!block;
 
           let colors;
-          let dotSize;
           let centerX, centerY;
 
           if (isBlock && block) {
-            // 블록의 경우
-            const blockWidth = block.width || 350;
-            const blockHeight = block.height || 300;
-
             // 블록 타입별 색상
             const blockColors = {
               viewer: { dot: '#A78BFA', border: '#C4B5FD', bg: '#F5F3FF' },
@@ -616,16 +608,54 @@ export default function Minimap({
             };
             colors = blockColors[block.type as keyof typeof blockColors] || blockColors.default;
 
-            dotSize = Math.max(
-              8,
-              Math.min(blockWidth, blockHeight) * 0.22 * bounds.scale
-            );
+            // 블록의 경우 - 이제 점이 아니라 실제 영역을 보여줍니다 (위치 동기화용)
+            let blockWidth = block.width || 350;
+            let blockHeight = block.height || 300;
 
-            centerX = (pos.x + blockWidth / 2 - bounds.minX) * bounds.scale;
-            centerY = (pos.y + blockHeight / 2 - bounds.minY) * bounds.scale;
+            if (block.type === 'calendar') {
+              blockWidth = block.width || 350;
+              blockHeight = block.height || 240;
+            } else if (block.type === 'viewer' || block.type === 'meeting-recorder' || block.type === 'database') {
+              blockWidth = block.width || 420;
+              blockHeight = block.height || 320;
+            }
+
+            const drawWidth = blockWidth * bounds.scale;
+            const drawHeight = blockHeight * bounds.scale;
+            const left = (pos.x - bounds.minX) * bounds.scale;
+            const top = (pos.y - bounds.minY) * bounds.scale;
+
+            return (
+              <div
+                key={id}
+                className="absolute select-none pointer-events-none"
+                style={{
+                  left: `${left}px`,
+                  top: `${top}px`,
+                  width: `${drawWidth}px`,
+                  height: `${drawHeight}px`,
+                  backgroundColor: `${colors.dot}15`, // 훨씬 더 연하게 변경
+                  border: `${Math.max(1, 1.5 * bounds.scale)}px solid ${colors.border}`,
+                  borderRadius: '1px',
+                }}
+              >
+                {/* 중심점 표시 */}
+                <div
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                  style={{
+                    width: `${Math.max(3, 5 * bounds.scale)}px`,
+                    height: `${Math.max(3, 5 * bounds.scale)}px`,
+                    backgroundColor: colors.dot,
+                  }}
+                />
+              </div>
+            );
           } else {
-            // 메모리 카드의 경우
-            // viewportBounds 안에 있으면 파란색으로 표시 (현재 위치와 대응)
+            // 메모리 카드의 경우 - 깔끔하게 점(Dot)으로 원복
+            const colorType = cardColorMap[id] || 'purple';
+            colors = CARD_COLORS[colorType];
+
+            // 현재 화면에 보이는 카드는 파란색으로 강조
             const isInViewport = viewportBounds.width > 0 && viewportBounds.height > 0 &&
               pos.x >= viewportBounds.left &&
               pos.x + cardDims.width <= viewportBounds.left + viewportBounds.width &&
@@ -633,38 +663,29 @@ export default function Minimap({
               pos.y + cardDims.height <= viewportBounds.top + viewportBounds.height;
 
             if (isInViewport) {
-              // 파란 박스 색상과 일치: blue-500 계열
               colors = { dot: '#3B82F6', border: '#2563EB', bg: '#DBEAFE' };
-            } else {
-              const colorType = cardColorMap[id] || 'purple';
-              colors = CARD_COLORS[colorType];
             }
 
-            // 점 크기 줄이기 (0.22 -> 0.12, 최소값 8 -> 4)
-            dotSize = Math.max(
-              4,
-              Math.min(cardDims.width, cardDims.height) * 0.12 * bounds.scale
+            // 카드의 정중앙 위치 계산
+            const centerX = (pos.x + cardDims.width / 2 - bounds.minX) * bounds.scale;
+            const centerY = (pos.y + cardDims.height / 2 - bounds.minY) * bounds.scale;
+            const dotSize = Math.max(4, 8 * bounds.scale);
+
+            return (
+              <div
+                key={id}
+                className="absolute -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none rounded-full"
+                style={{
+                  left: `${centerX}px`,
+                  top: `${centerY}px`,
+                  width: `${dotSize}px`,
+                  height: `${dotSize}px`,
+                  backgroundColor: colors.dot,
+                  border: `${Math.max(1, 1.5 * bounds.scale)}px solid ${colors.border}`,
+                }}
+              />
             );
-
-            centerX = (pos.x + cardDims.width / 2 - bounds.minX) * bounds.scale;
-            centerY = (pos.y + cardDims.height / 2 - bounds.minY) * bounds.scale;
           }
-
-          return (
-            <div
-              key={id}
-              className="absolute -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
-              style={{
-                left: centerX,
-                top: centerY,
-                width: `${dotSize}px`,
-                height: `${dotSize}px`,
-                backgroundColor: colors.dot,
-                border: `${isBlock ? 3 : 2.5}px solid ${colors.border}`,
-                boxShadow: `0 0 0 ${dotSize * 0.25}px ${colors.bg}40`,
-              }}
-            />
-          );
         })}
 
       {/* 뷰포트 네비게이팅 박스 */}

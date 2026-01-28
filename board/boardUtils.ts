@@ -1,7 +1,7 @@
 export const CARD_DIMENSIONS = {
-  s: { width: 200, height: 160, centerX: 100, centerY: 80 },
-  m: { width: 240, height: 180, centerX: 120, centerY: 90 },
-  l: { width: 280, height: 200, centerX: 140, centerY: 100 },
+  s: { width: 260, height: 200, centerX: 130, centerY: 100 },
+  m: { width: 320, height: 240, centerX: 160, centerY: 120 },
+  l: { width: 360, height: 280, centerX: 180, centerY: 140 },
 } as const;
 
 export const BOARD_PADDING = 100;
@@ -107,3 +107,20 @@ export const sanitizeHtml = (html: string) => {
   return doc.body.innerHTML;
 };
 
+
+export const resolveTimestamp = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) {
+      return numeric;
+    }
+    const parsed = Date.parse(value);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  return Date.now();
+};

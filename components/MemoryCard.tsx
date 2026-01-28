@@ -63,7 +63,6 @@ type MemoryCardProps = {
   onOpenGroupModal?: (memory: Memory) => void;
   onRequestDeleteLink?: (memoryId1: string, memoryId2: string) => void;
   onRequestDelete?: (memoryId: string) => void;
-  onRequestDeleteLocation?: (memoryId: string) => void;
   onMentionClick?: (mentionedMemoryId: string) => void;
   onCardFocus?: (memoryId: string) => void;
   onCreateSummaryCard?: (sourceMemory: Memory, summaryText: string) => Promise<void>;
@@ -93,7 +92,6 @@ const MemoryCard = memo(
       onOpenGroupModal,
       onRequestDeleteLink,
       onRequestDelete,
-      onRequestDeleteLocation,
       onMentionClick,
       onActivityEditStart,
       onActivityEditCommit,
@@ -762,40 +760,6 @@ const MemoryCard = memo(
             </span>
           )}
 
-          {localMemory.location && (
-            <div className="relative inline-block group">
-              <a
-                href={`https://www.google.com/maps?q=${localMemory.location.latitude},${localMemory.location.longitude}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-1 py-0.5 bg-green-50 text-green-600 rounded text-[10px] hover:bg-green-100 transition-colors flex items-center gap-0.5"
-                title={
-                  localMemory.location.address ||
-                  `${localMemory.location.latitude}, ${localMemory.location.longitude}`
-                }
-              >
-                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                {localMemory.location.address || '위치'}
-              </a>
-              {/* 위치 삭제 버튼 */}
-              {isEditing && (
-                <button
-                  onClick={() => {
-                    if (onRequestDeleteLocation) {
-                      onRequestDeleteLocation(localMemory.id);
-                    }
-                  }}
-                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-red-600 transition-all"
-                  title="위치 삭제"
-                >
-                  ×
-                </button>
-              )}
-            </div>
-          )}
         </div>
 
         {/* 관련 기록 링크 */}

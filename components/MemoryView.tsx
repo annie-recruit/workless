@@ -16,19 +16,25 @@ import ProcessingLoader from './ProcessingLoader';
 import MemoryCard from './MemoryCard';
 import ShineHighlight from '@/src/components/highlight/ShineHighlight';
 import GroupToasts from './groups/GroupToasts';
-import { BOARD_PADDING, CARD_DIMENSIONS, sanitizeHtml, stripHtmlClient } from '@/board/boardUtils';
-import { ActionProjectCard } from './ActionProjectCard';
+import { BOARD_PADDING, CARD_DIMENSIONS, sanitizeHtml, stripHtmlClient, resolveTimestamp } from '@/board/boardUtils';
 import { useBoardSelection } from '@/hooks/useBoardSelection';
+import BlobLayer from './board/BlobLayer';
+import PixelConnectionLayer, { PixelConnectionLayerHandle } from './board/PixelConnectionLayer';
 import { useConnectionLayer } from '@/hooks/useConnectionLayer';
 import { useDragEngine, type DraggableEntity } from '@/hooks/useDragEngine';
 import { useBoardCamera } from '@/hooks/board/useBoardCamera';
 import { useBoardPersistence } from '@/hooks/board/useBoardPersistence';
 import { useGroupsPanel, type BoardToastState } from '@/hooks/groups/useGroupsPanel';
-import { useBoardFlags } from '@/hooks/flags/useBoardFlags';
 import { useBoardBlocks } from '@/hooks/blocks/useBoardBlocks';
+import { useActivityTracking } from '@/hooks/board/useActivityTracking';
+import { useBoardConnections } from '@/hooks/board/useBoardConnections';
+import BoardOverlay from './board/BoardOverlay';
 import WidgetMenuBar from './WidgetMenuBar';
 import WidgetCreateButton from './WidgetCreateButton';
+import GroupMenuBar from './GroupMenuBar';
 import { GmailImportButton } from './GmailImportButton';
+import { useBoardFlags } from '@/hooks/flags/useBoardFlags';
+import ActionProjectCard from './ActionProjectCard';
 
 // 위젯 로딩 플레이스홀더
 const WidgetPlaceholder = () => (
@@ -64,381 +70,6 @@ const DatabaseBlock = dynamic(() => import('./DatabaseBlock'), {
 });
 
 
-const resolveTimestamp = (value: unknown): number => {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const numeric = Number(value);
-    if (Number.isFinite(numeric)) {
-      return numeric;
-    }
-    const parsed = Date.parse(value);
-    if (!Number.isNaN(parsed)) {
-      return parsed;
-    }
-  }
-  return Date.now();
-};
-
-
-// 인라인 BlobLayer 컴포넌트 (요청사항 반영: inside fill, pixelated edge)
-function BlobLayer({
-  blobAreas,
-  hoveredBlobId,
-  hoveredMemoryId,
-  isPaused = false,
-  isEnabled = true,
-  isHighlightMode = false,
-}: {
-  blobAreas?: Array<{
-    id: string;
-    color: string;
-    bounds: { minX: number; minY: number; maxX: number; maxY: number };
-    center: { x: number; y: number };
-    radius: { x: number; y: number };
-  }>;
-  hoveredBlobId: string | null;
-  hoveredMemoryId: string | null;
-  isPaused?: boolean;
-  isEnabled?: boolean;
-  isHighlightMode?: boolean;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const requestRef = useRef<number | undefined>(undefined);
-  const startTimeRef = useRef<number>(Date.now());
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    if (!isEnabled || !blobAreas || blobAreas.length === 0) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
-      return;
-    }
-
-    // 부모 컨테이너(보드) 크기에 맞춤
-    const parent = canvas.parentElement;
-    if (parent) {
-      canvas.width = parent.clientWidth;
-      canvas.height = parent.clientHeight;
-    }
-
-    if (isPaused) {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
-      return;
-    }
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 픽셀 크기 및 해상도 최적화
-    const PIXEL_SIZE = 4;
-    const SCALE_FACTOR = 2; // 캔버스 해상도를 1/2로 낮춤 (계산량 1/4로 감소)
-
-    const render = () => {
-      // 선택적 애니메이션: 호버 중(블롭 또는 메모리 카드)이거나 하이라이트 모드일 때만 움직임
-      const shouldAnimate = hoveredBlobId !== null || hoveredMemoryId !== null || isHighlightMode;
-      const time = shouldAnimate ? (Date.now() - startTimeRef.current) / 1000 : 0;
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // 전체 캔버스 스케일링 적용 (저해상도 렌더링 후 브라우저가 확대)
-      ctx.save();
-      ctx.scale(1 / SCALE_FACTOR, 1 / SCALE_FACTOR);
-
-      blobAreas.forEach((blob) => {
-        let r = 0, g = 0, b = 0;
-        const hex = blob.color.replace('#', '');
-        if (hex.length === 6) {
-          r = parseInt(hex.substring(0, 2), 16);
-          g = parseInt(hex.substring(2, 4), 16);
-          b = parseInt(hex.substring(4, 6), 16);
-        }
-
-        const isHovered = hoveredBlobId === blob.id;
-        const centerAlphaMin = isHovered ? 0.12 : 0.08;
-        const edgeAlphaMax = isHovered ? 0.85 : 0.75;
-        const gamma = 1.4;
-
-        const waveAmp = 4;
-        const avgRadius = (blob.radius.x + blob.radius.y) / 2;
-
-        const padding = PIXEL_SIZE * 4;
-        const startX = Math.max(0, Math.floor((blob.bounds.minX - padding) / PIXEL_SIZE) * PIXEL_SIZE);
-        const startY = Math.max(0, Math.floor((blob.bounds.minY - padding) / PIXEL_SIZE) * PIXEL_SIZE);
-        const endX = Math.min(canvas.width * SCALE_FACTOR, Math.ceil((blob.bounds.maxX + padding) / PIXEL_SIZE) * PIXEL_SIZE);
-        const endY = Math.min(canvas.height * SCALE_FACTOR, Math.ceil((blob.bounds.maxY + padding) / PIXEL_SIZE) * PIXEL_SIZE);
-
-        const width = endX - startX;
-        const height = endY - startY;
-
-        if (width <= 0 || height <= 0) return;
-
-        // 루프 내 반복 계산 최적화
-        const centerX = blob.center.x;
-        const centerY = blob.center.y;
-        const radX2 = blob.radius.x * blob.radius.x;
-        const radY2 = blob.radius.y * blob.radius.y;
-
-        for (let py = 0; py < height; py += PIXEL_SIZE) {
-          const y = startY + py;
-          const dy = y - centerY;
-          const dy2 = dy * dy;
-
-          for (let px = 0; px < width; px += PIXEL_SIZE) {
-            const x = startX + px;
-            const dx = x - centerX;
-
-            const distBase = Math.sqrt((dx * dx) / radX2 + dy2 / radY2);
-            const angle = Math.atan2(dy, dx);
-            const noise = Math.sin(angle * 3 + time * 0.5) * 0.5 +
-              Math.sin(angle * 7 - time * 0.3) * 0.3 +
-              Math.sin(angle * 11 + time * 0.2) * 0.2;
-
-            const effectiveDist = distBase - (noise * waveAmp) / avgRadius;
-
-            if (effectiveDist <= 1.0) {
-              const falloffStart = 0.85;
-              let alpha = centerAlphaMin;
-
-              if (effectiveDist > falloffStart) {
-                const outerT = (effectiveDist - falloffStart) / (1.0 - falloffStart);
-                alpha = centerAlphaMin + (edgeAlphaMax - centerAlphaMin) * Math.pow(outerT, gamma);
-                
-                // 디더링 최적화
-                const bx = Math.abs(Math.floor(x / PIXEL_SIZE)) % 2;
-                const by = Math.abs(Math.floor(y / PIXEL_SIZE)) % 2;
-                if (1.0 - outerT * 0.65 < ((bx + by * 2) + 0.5) / 4.0) continue;
-              }
-
-              ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-              ctx.fillRect(x, y, PIXEL_SIZE, PIXEL_SIZE);
-            }
-          }
-        }
-      });
-
-      ctx.restore();
-
-      if (shouldAnimate) {
-        requestRef.current = requestAnimationFrame(render);
-      } else {
-        requestRef.current = undefined;
-      }
-    };
-
-    console.log('🖌️ BlobLayer render(immediate) - areas:', blobAreas?.length, 'isEnabled:', isEnabled);
-    render();
-
-    return () => {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    };
-  }, [blobAreas, hoveredBlobId, hoveredMemoryId, isPaused, isEnabled, isHighlightMode]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 pointer-events-none transition-opacity duration-700"
-      style={{ zIndex: 0, opacity: isEnabled && blobAreas && blobAreas.length > 0 ? 1 : 0 }}
-    />
-  );
-}
-
-// 픽셀 아트 스타일 연결선 레이어 (Canvas 기반)
-const PixelConnectionLayer = forwardRef(({
-  connectionPairs,
-  getLivePos,
-  cardSize,
-  boardSize,
-  isPaused,
-  isEnabled,
-  hoveredBlobId,
-  blobAreas,
-  projects = [],
-}: {
-  connectionPairs: any[];
-  getLivePos: (id: string) => { x: number; y: number } | undefined;
-  cardSize: 's' | 'm' | 'l';
-  boardSize: { width: number; height: number };
-  isPaused: boolean;
-  isEnabled: boolean;
-  hoveredBlobId: string | null;
-  blobAreas: any[];
-  projects?: ActionProject[];
-}, ref) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const requestRef = useRef<number | undefined>(undefined);
-
-  const renderOnce = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: true });
-    if (!ctx || !isEnabled) return;
-
-    const parent = canvas.parentElement;
-    if (parent) {
-      const dpr = window.devicePixelRatio || 1;
-      const boardW = boardSize.width;
-      const boardH = boardSize.height;
-
-      // 캔버스 물리 해상도 설정 (Retina 대응)
-      if (canvas.width !== boardW * dpr || canvas.height !== boardH * dpr) {
-        canvas.width = boardW * dpr;
-        canvas.height = boardH * dpr;
-        canvas.style.width = `${boardW}px`;
-        canvas.style.height = `${boardH}px`;
-      }
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 연결선 전용 픽셀 크기 (더 세밀하게 표현)
-    const LINE_PIXEL_SIZE = 2;
-    const ARROW_PIXEL_SIZE = 4;
-
-    const drawPixelLine = (x1: number, y1: number, x2: number, y2: number, color: string, alpha: number) => {
-      let x1p = Math.round(x1 / LINE_PIXEL_SIZE);
-      let y1p = Math.round(y1 / LINE_PIXEL_SIZE);
-      const x2p = Math.round(x2 / LINE_PIXEL_SIZE);
-      const y2p = Math.round(y2 / LINE_PIXEL_SIZE);
-
-      const dx = Math.abs(x2p - x1p);
-      const dy = Math.abs(y2p - y1p);
-      const sx = x1p < x2p ? 1 : -1;
-      const sy = y1p < y2p ? 1 : -1;
-      let err = dx - dy;
-
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = color;
-
-      while (true) {
-        ctx.fillRect(x1p * LINE_PIXEL_SIZE, y1p * LINE_PIXEL_SIZE, LINE_PIXEL_SIZE, LINE_PIXEL_SIZE);
-        if (x1p === x2p && y1p === y2p) break;
-        const e2 = 2 * err;
-        if (e2 > -dy) { err -= dy; x1p += sx; }
-        if (e2 < dx) { err += dx; y1p += sy; }
-      }
-    };
-
-    const drawArrowhead = (tx: number, ty: number, angle: number, color: string, alpha: number) => {
-      ctx.save();
-      const ps = ARROW_PIXEL_SIZE;
-      const snapX = Math.round(tx / ps) * ps;
-      const snapY = Math.round(ty / ps) * ps;
-      ctx.translate(snapX, snapY);
-      ctx.rotate(angle);
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = color;
-      ctx.fillRect(-ps, -ps / 2, ps, ps);
-      ctx.fillRect(-ps * 2, -ps, ps, ps * 2);
-      ctx.restore();
-    };
-
-    connectionPairs.forEach(pair => {
-      const from = getLivePos(pair.from);
-      const to = getLivePos(pair.to);
-      if (!from || !to) return;
-
-      const isInBlobGroup = blobAreas.some(blob =>
-        blob.memoryIds.includes(pair.from) && blob.memoryIds.includes(pair.to)
-      );
-
-      const offsetIndex = (pair as any).offsetIndex || 0;
-      const totalConnections = (pair as any).totalConnections || 1;
-      const lineOffset = totalConnections > 1 ? (offsetIndex - (totalConnections - 1) / 2) * 12 : 0;
-
-      // 엔티티 타입별 중심점 계산
-      const getDimensions = (id: string) => {
-        const project = projects.find(p => p.id === id);
-        if (project) return { centerX: 180, centerY: 60 }; // 360/2, 상단 타이틀 부근
-        return CARD_DIMENSIONS[cardSize];
-      };
-
-      const fromDim = getDimensions(pair.from);
-      const toDim = getDimensions(pair.to);
-
-      // 시작점과 끝점은 절대 픽셀 스냅하지 않음 (카드 위치와 1:1 동기화)
-      const fromX = from.x + fromDim.centerX;
-      const fromY = from.y + fromDim.centerY;
-      const toX = to.x + toDim.centerX;
-      const toY = to.y + toDim.centerY;
-
-      const dx_full = toX - fromX;
-      const dy_full = toY - fromY;
-      const len = Math.max(1, Math.sqrt(dx_full * dx_full + dy_full * dy_full));
-      const perpX = -dy_full / (len || 1);
-      const perpY = dx_full / (len || 1);
-
-      const aFromX = fromX + perpX * lineOffset;
-      const aFromY = fromY + perpY * lineOffset;
-      const aToX = toX + perpX * lineOffset;
-      const aToY = toY + perpY * lineOffset;
-
-      const midX = (aFromX + aToX) / 2;
-      const midY = (aFromY + aToY) / 2;
-      // 곡률 강화: 더 유려한 곡선 표현
-      const curveOffset = Math.min(80, len * 0.25);
-      const cx = midX - (dy_full / (len || 1)) * curveOffset;
-      const cy = midY + (dx_full / (len || 1)) * curveOffset;
-
-      const isLineHovered = hoveredBlobId && blobAreas.some(blob =>
-        blob.id === hoveredBlobId && blob.memoryIds.includes(pair.from) && blob.memoryIds.includes(pair.to)
-      );
-      const alpha = isInBlobGroup ? (isLineHovered ? 0.7 : 0.4) : 1.0;
-
-      const steps = Math.max(10, Math.floor(len / 8));
-      let lx = aFromX;
-      let ly = aFromY;
-      for (let i = 1; i <= steps; i++) {
-        const t = i / steps;
-        const currX = (1 - t) * (1 - t) * aFromX + 2 * (1 - t) * t * cx + t * t * aToX;
-        const currY = (1 - t) * (1 - t) * aFromY + 2 * (1 - t) * t * cy + t * t * aToY;
-        drawPixelLine(lx, ly, currX, currY, pair.color, alpha);
-        lx = currX;
-        ly = currY;
-      }
-
-      if (!isInBlobGroup) {
-        const angle = Math.atan2(aToY - cy, aToX - cx);
-        drawArrowhead(aToX, aToY, angle, pair.color, alpha);
-      }
-    });
-  }, [connectionPairs, getLivePos, cardSize, boardSize, isEnabled, hoveredBlobId, blobAreas, projects]);
-
-  useImperativeHandle(ref, () => ({
-    redraw: () => {
-      renderOnce();
-    }
-  }), [renderOnce]);
-
-  useEffect(() => {
-    let animationId: number | undefined;
-    const renderLoop = () => {
-      renderOnce();
-      if (!isPaused) {
-        animationId = requestAnimationFrame(renderLoop);
-      }
-    };
-    renderLoop();
-    return () => {
-      if (animationId) cancelAnimationFrame(animationId);
-    };
-  }, [isPaused, renderOnce]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 pointer-events-none"
-      style={{ zIndex: 1, opacity: isEnabled ? 1 : 0 }}
-    />
-  );
-});
-PixelConnectionLayer.displayName = 'PixelConnectionLayer';
 
 interface MemoryViewProps {
   memories: Memory[];
@@ -448,9 +79,11 @@ interface MemoryViewProps {
 
 export default function MemoryView({ memories, onMemoryDeleted, personaId }: MemoryViewProps) {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
   const storageKey = selectedGroupId || 'all';
   const [draggedMemoryId, setDraggedMemoryId] = useState<string | null>(null);
   const [dropTargetGroupId, setDropTargetGroupId] = useState<string | null>(null);
+  const [isBoardDragging, setIsBoardDragging] = useState(false);
   const [linkManagerMemory, setLinkManagerMemory] = useState<Memory | null>(null);
   // 로컬 메모리 상태 (연결 추가 시 즉시 반영)
   const [localMemories, setLocalMemories] = useState<Memory[]>(memories);
@@ -610,280 +243,31 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
 
 
-  type ActivityMetrics = {
-    hoverMsTotal: number;
-    editMsTotal: number;
-    editCount: number;
-    lastActiveAt: number;
-    hoverStartAt?: number;
-    editStartAt?: number;
-  };
+  const {
+    activityByContentIdRef,
+    contentLayoutRef,
+    highlightedContentIds,
+    setHighlightedContentIds,
+    highlightedContentIdSet,
+    startEdit,
+    endEdit,
+    handleActivityPointerOverCapture,
+    handleActivityPointerOutCapture,
+    handleActivityPointerLeaveBoard,
+    handleActivityFocusCapture,
+    handleActivityBlurCapture,
+  } = useActivityTracking({ isHighlightMode });
 
-  type ContentLayout = {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    zIndex: number;
-  };
-
-  const activityByContentIdRef = useRef<Record<string, ActivityMetrics>>({});
-  const contentLayoutRef = useRef<Record<string, ContentLayout>>({});
-  const hoveredContentIdRef = useRef<string | null>(null);
-  const [highlightedContentIds, setHighlightedContentIds] = useState<string[]>([]);
-  const highlightedContentIdSet = useMemo(() => new Set(highlightedContentIds), [highlightedContentIds]);
-  const blocksRef = useRef<CanvasBlock[]>([]);
   const { blocks, setBlocks, visibleBlocks, createBlock, updateBlock: handleBlockUpdate, deleteBlock: handleBlockDelete } =
     useBoardBlocks({ boardSize, viewportBounds });
 
   useEffect(() => {
-    blocksRef.current = blocks;
-  }, [blocks]);
-
-  const getOrCreateMetrics = useCallback((contentId: string) => {
-    const existing = activityByContentIdRef.current[contentId];
-    if (existing) return existing;
-    const next: ActivityMetrics = {
-      hoverMsTotal: 0,
-      editMsTotal: 0,
-      editCount: 0,
-      lastActiveAt: Date.now(),
-    };
-    activityByContentIdRef.current[contentId] = next;
-    return next;
-  }, []);
-
-  const markActive = useCallback(
-    (contentId: string) => {
-      if (!isHighlightModeRef.current) return;
-      const metrics = getOrCreateMetrics(contentId);
-      metrics.lastActiveAt = Date.now();
-    },
-    [getOrCreateMetrics],
-  );
-
-  const startHover = useCallback(
-    (contentId: string) => {
-      if (!isHighlightModeRef.current) return;
-      const metrics = getOrCreateMetrics(contentId);
-      if (metrics.hoverStartAt == null) metrics.hoverStartAt = performance.now();
-      markActive(contentId);
-    },
-    [getOrCreateMetrics, markActive],
-  );
-
-  const endHover = useCallback(
-    (contentId: string) => {
-      if (!isHighlightModeRef.current) return;
-      const metrics = activityByContentIdRef.current[contentId];
-      if (!metrics || metrics.hoverStartAt == null) return;
-      const delta = performance.now() - metrics.hoverStartAt;
-      metrics.hoverMsTotal += Math.max(0, delta);
-      metrics.hoverStartAt = undefined;
-      markActive(contentId);
-    },
-    [markActive],
-  );
-
-  const startEdit = useCallback(
-    (contentId: string) => {
-      if (!isHighlightModeRef.current) return;
-      const metrics = getOrCreateMetrics(contentId);
-      if (metrics.editStartAt == null) metrics.editStartAt = performance.now();
-      markActive(contentId);
-    },
-    [getOrCreateMetrics, markActive],
-  );
-
-  const endEdit = useCallback(
-    (contentId: string, commit: boolean) => {
-      if (!isHighlightModeRef.current) return;
-      const metrics = activityByContentIdRef.current[contentId];
-      if (!metrics || metrics.editStartAt == null) return;
-      const delta = performance.now() - metrics.editStartAt;
-      metrics.editMsTotal += Math.max(0, delta);
-      metrics.editStartAt = undefined;
-      if (commit) metrics.editCount += 1;
-      markActive(contentId);
-    },
-    [markActive],
-  );
-
-  const getContentIdFromTarget = useCallback((target: EventTarget | null) => {
-    if (!(target instanceof Element)) return null;
-    const memoryId = target.closest('[data-memory-card]')?.getAttribute('data-memory-card');
-    if (memoryId) return `memory:${memoryId}`;
-    const calendarId = target.closest('[data-calendar-block]')?.getAttribute('data-calendar-block');
-    if (calendarId) return `block:${calendarId}`;
-    const viewerId = target.closest('[data-viewer-block]')?.getAttribute('data-viewer-block');
-    if (viewerId) return `block:${viewerId}`;
-    const meetingId = target.closest('[data-meeting-recorder-block]')?.getAttribute('data-meeting-recorder-block');
-    if (meetingId) return `block:${meetingId}`;
-    const databaseId = target.closest('[data-database-block]')?.getAttribute('data-database-block');
-    if (databaseId) return `block:${databaseId}`;
-    const minimapId = target.closest('[data-minimap-block]')?.getAttribute('data-minimap-block');
-    if (minimapId) return `block:${minimapId}`;
-    return null;
-  }, []);
-
-  const handleActivityPointerOverCapture = useCallback(
-    (e: ReactPointerEvent) => {
-      if (!isHighlightModeRef.current) return;
-      const nextId = getContentIdFromTarget(e.target);
-      if (!nextId) return;
-
-      const prevId = hoveredContentIdRef.current;
-      if (prevId === nextId) return;
-
-      if (prevId) endHover(prevId);
-      hoveredContentIdRef.current = nextId;
-      startHover(nextId);
-    },
-    [endHover, getContentIdFromTarget, startHover],
-  );
-
-  const handleActivityPointerOutCapture = useCallback(
-    (e: ReactPointerEvent) => {
-      if (!isHighlightModeRef.current) return;
-      const fromId = getContentIdFromTarget(e.target);
-      if (!fromId) return;
-
-      const toId = getContentIdFromTarget((e as any).relatedTarget);
-      if (toId === fromId) return;
-
-      if (hoveredContentIdRef.current === fromId) {
-        endHover(fromId);
-        hoveredContentIdRef.current = null;
-      }
-    },
-    [endHover, getContentIdFromTarget],
-  );
-
-  const handleActivityPointerLeaveBoard = useCallback(() => {
-    if (!isHighlightModeRef.current) return;
-    const prevId = hoveredContentIdRef.current;
-    if (prevId) endHover(prevId);
-    hoveredContentIdRef.current = null;
-  }, [endHover]);
-
-  const handleActivityFocusCapture = useCallback(
-    (e: ReactFocusEvent) => {
-      if (!isHighlightModeRef.current) return;
-      const contentId = getContentIdFromTarget(e.target);
-      if (!contentId) return;
-      if (contentId.startsWith('memory:')) return;
-      startEdit(contentId);
-    },
-    [getContentIdFromTarget, startEdit],
-  );
-
-  const handleActivityBlurCapture = useCallback(
-    (e: ReactFocusEvent) => {
-      if (!isHighlightModeRef.current) return;
-      const contentId = getContentIdFromTarget(e.target);
-      if (!contentId) return;
-      if (contentId.startsWith('memory:')) return;
-
-      const relatedContentId = getContentIdFromTarget((e as any).relatedTarget);
-      if (relatedContentId === contentId) return;
-      endEdit(contentId, true);
-    },
-    [endEdit, getContentIdFromTarget],
-  );
-
-  useEffect(() => {
     isHighlightModeRef.current = isHighlightMode;
     if (!isHighlightMode) {
-      hoveredContentIdRef.current = null;
-      activityByContentIdRef.current = {};
       setHighlightedContentIds([]);
     }
   }, [isHighlightMode]);
 
-  useEffect(() => {
-    if (!isHighlightMode) return;
-
-    const TOP_N = 5;
-    const HOVER_MIN_MS = 500;
-
-    const scoreOf = (hoverMs: number, editMs: number, editCount: number) =>
-      hoverMs + editMs * 2 + editCount * 2000;
-
-    const isExcludedContentId = (contentId: string) => {
-      if (!contentId.startsWith('block:')) return false;
-      const blockId = contentId.slice('block:'.length);
-      const block = blocksRef.current.find((b) => b.id === blockId);
-      return block?.type === 'viewer';
-    };
-
-    const ensureMetricsForLayouts = () => {
-      const now = Date.now();
-      Object.keys(contentLayoutRef.current).forEach((contentId) => {
-        if (isExcludedContentId(contentId)) return;
-        const m = getOrCreateMetrics(contentId);
-        m.lastActiveAt = m.lastActiveAt || now;
-      });
-    };
-
-    const recalc = (isJustEnabled: boolean) => {
-      const now = Date.now();
-      const nowPerf = performance.now();
-
-      ensureMetricsForLayouts();
-
-      const allContentIds = Array.from(
-        new Set([
-          ...Object.keys(contentLayoutRef.current),
-          ...Object.keys(activityByContentIdRef.current),
-        ]),
-      );
-
-      const entries = allContentIds
-        .map((contentId) => {
-          if (isExcludedContentId(contentId)) return null;
-          const metrics = getOrCreateMetrics(contentId);
-          const hoverMs =
-            metrics.hoverMsTotal + (metrics.hoverStartAt == null ? 0 : Math.max(0, nowPerf - metrics.hoverStartAt));
-          const editMs =
-            metrics.editMsTotal + (metrics.editStartAt == null ? 0 : Math.max(0, nowPerf - metrics.editStartAt));
-          const score = scoreOf(hoverMs, editMs, metrics.editCount);
-          return { contentId, hoverMs, editMs, editCount: metrics.editCount, score, lastActiveAt: metrics.lastActiveAt };
-        })
-        .filter((e): e is NonNullable<typeof e> => e != null)
-        .filter((e) => contentLayoutRef.current[e.contentId] != null);
-
-      const eligible = entries.filter((e) => e.hoverMs >= HOVER_MIN_MS || e.editCount >= 1 || e.score >= HOVER_MIN_MS);
-
-      const forcedIds = isJustEnabled
-        ? entries
-          .slice()
-          .sort((a, b) => (b.lastActiveAt || 0) - (a.lastActiveAt || 0))
-          .slice(0, 3)
-          .map((e) => e.contentId)
-        : [];
-
-      const nextIds = [
-        ...forcedIds,
-        ...eligible
-          .sort((a, b) => b.score - a.score)
-          .map((e) => e.contentId),
-      ]
-        .filter((id, idx, arr) => arr.indexOf(id) === idx)
-        .slice(0, TOP_N);
-
-      setHighlightedContentIds(nextIds);
-    };
-
-    ensureMetricsForLayouts();
-    recalc(true);
-    const immediateRetry = window.setTimeout(() => recalc(true), 120);
-
-    const interval = window.setInterval(() => recalc(false), 1200);
-    return () => {
-      window.clearInterval(interval);
-      window.clearTimeout(immediateRetry);
-    };
-  }, [getOrCreateMetrics, isHighlightMode]);
 
   // 연결 삭제 핸들러
   const handleDeleteLink = async () => {
@@ -954,46 +338,6 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     }
   };
 
-  // 위치 삭제 핸들러
-  const handleDeleteLocation = async () => {
-    if (!toast.data?.memoryId) return;
-
-    try {
-      const memory = localMemories.find(m => m.id === toast.data.memoryId);
-      if (!memory) return;
-
-      const res = await fetch(`/api/memories?id=${memory.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: memory.title || undefined,
-          content: memory.content,
-          location: null
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        // 로컬 상태 즉시 업데이트
-        setLocalMemories(prev => {
-          const updated = [...prev];
-          const index = updated.findIndex(m => m.id === memory.id);
-          if (index !== -1) {
-            updated[index] = { ...updated[index], location: undefined };
-          }
-          return updated;
-        });
-        setToast({ type: null });
-      } else {
-        setToast({ type: null });
-        alert('위치 정보 삭제에 실패했습니다');
-      }
-    } catch (error) {
-      console.error('Failed to delete location:', error);
-      setToast({ type: null });
-      alert('위치 정보 삭제에 실패했습니다');
-    }
-  };
   const flagsStore = useFlagsStore();
   const {
     flags,
@@ -1126,6 +470,19 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
   const handleDragLeave = () => {
     setDropTargetGroupId(null);
+    setIsBoardDragging(false);
+  };
+
+  const handleBoardDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsBoardDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      window.dispatchEvent(new CustomEvent('workless:files-dropped', {
+        detail: { files: e.dataTransfer.files }
+      }));
+    }
   };
 
   const handleDrop = async (e: React.DragEvent, groupId: string) => {
@@ -1820,296 +1177,21 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   // filteredClusters는 더 이상 사용하지 않음
 
   const cardSizeData = CARD_DIMENSIONS[cardSize];
-  const cardSizeClass = cardSize === 's' ? 'w-[260px]' : cardSize === 'l' ? 'w-[360px]' : 'w-[320px]';
   const cardSizeCenter = { x: cardSizeData.centerX, y: cardSizeData.centerY };
 
   const cardColorClass = 'bg-gray-50';
 
-  // 연결 그룹을 찾아서 색상 할당
-  const connectionPairsWithColor = useMemo(() => {
-    const set = new Set<string>();
-    const pairs: Array<{ from: string; to: string }> = [];
-    const visibleIds = new Set(filteredMemories.map(m => m.id));
-    const allMemoryIds = new Set(localMemories.map(m => m.id));
-    const invalidConnections: Array<{ memoryId: string; invalidRelatedId: string }> = [];
+  const { connectionPairsWithColor, blobAreas } = useBoardConnections({
+    localMemories,
+    filteredMemories,
+    linkInfo,
+    getLinkKey,
+    positions,
+    cardSize,
+  });
 
-    console.log('🔗 연결선 생성 시작:', {
-      totalLocalMemories: localMemories.length,
-      filteredMemories: filteredMemories.length,
-      visibleIds: Array.from(visibleIds),
-    });
+  const connectionPairsArray = connectionPairsWithColor.pairsWithColor;
 
-    // 연결 쌍 수집 (localMemories 전체를 기반으로, visibleIds에 있는 것만 필터링)
-    localMemories.forEach(memory => {
-      const related = memory.relatedMemoryIds || [];
-      if (related.length > 0) {
-        console.log('📌 메모리 연결 정보:', {
-          memoryId: memory.id,
-          content: memory.content.substring(0, 50),
-          relatedMemoryIds: related,
-          isVisible: visibleIds.has(memory.id),
-        });
-      }
-      related.forEach(relatedId => {
-        // 양쪽 모두 localMemories에 있고, visibleIds에 있는 것만 표시
-        if (!allMemoryIds.has(relatedId)) {
-          console.log('⚠️ 연결된 메모리가 localMemories에 없음:', relatedId, '- DB 정리 필요');
-          // 유효하지 않은 연결 정보를 수집 (실제 정리는 useEffect에서 처리)
-          invalidConnections.push({ memoryId: memory.id, invalidRelatedId: relatedId });
-          return;
-        }
-        if (!visibleIds.has(memory.id) || !visibleIds.has(relatedId)) {
-          console.log('⚠️ 연결된 메모리가 필터링됨:', { memoryId: memory.id, relatedId, memoryVisible: visibleIds.has(memory.id), relatedVisible: visibleIds.has(relatedId) });
-          return;
-        }
-        const key = [memory.id, relatedId].sort().join(':');
-        if (set.has(key)) return;
-        set.add(key);
-        pairs.push({ from: memory.id, to: relatedId });
-        console.log('✅ 연결 쌍 추가:', { from: memory.id, to: relatedId });
-      });
-    });
-
-    console.log('🔗 총 연결 쌍:', pairs.length, pairs);
-
-    // 연결 그룹 찾기 (독립적인 연결 네트워크별로 그룹화)
-    // 각 그룹은 서로 연결된 노드들의 집합
-    const connectionGroups: Array<Set<string>> = [];
-    const nodeToGroup = new Map<string, number>();
-
-    pairs.forEach(pair => {
-      const fromGroup = nodeToGroup.get(pair.from);
-      const toGroup = nodeToGroup.get(pair.to);
-
-      if (fromGroup === undefined && toGroup === undefined) {
-        // 새 그룹 생성
-        const newGroup = new Set<string>([pair.from, pair.to]);
-        connectionGroups.push(newGroup);
-        const groupIndex = connectionGroups.length - 1;
-        nodeToGroup.set(pair.from, groupIndex);
-        nodeToGroup.set(pair.to, groupIndex);
-      } else if (fromGroup !== undefined && toGroup === undefined) {
-        // from 그룹에 to 추가
-        connectionGroups[fromGroup].add(pair.to);
-        nodeToGroup.set(pair.to, fromGroup);
-      } else if (fromGroup === undefined && toGroup !== undefined) {
-        // to 그룹에 from 추가
-        connectionGroups[toGroup].add(pair.from);
-        nodeToGroup.set(pair.from, toGroup);
-      } else if (fromGroup !== undefined && toGroup !== undefined && fromGroup !== toGroup) {
-        // 두 그룹 병합
-        const merged = new Set([...connectionGroups[fromGroup], ...connectionGroups[toGroup]]);
-        connectionGroups[fromGroup] = merged;
-        connectionGroups[toGroup].forEach(node => nodeToGroup.set(node, fromGroup));
-        connectionGroups[toGroup] = new Set(); // 빈 그룹으로 표시
-      }
-    });
-
-    // 색상 팔레트 - 주황+인디고 계열로 통일
-    const colors = [
-      '#6366F1', // indigo
-      '#818CF8', // indigo-400
-      '#A5B4FC', // indigo-300
-      '#FB923C', // orange-400
-      '#FDBA74', // orange-300
-      '#FED7AA', // orange-200
-      '#4F46E5', // indigo-600
-      '#7C3AED', // indigo-700
-    ];
-
-    // 각 연결 쌍에 색상 할당 (연결 그룹별로)
-    const pairsWithColor = pairs.map(pair => {
-      const fromGroup = nodeToGroup.get(pair.from);
-      const toGroup = nodeToGroup.get(pair.to);
-      // 두 노드가 같은 그룹에 속하면 그 그룹의 색상 사용
-      const groupIndex = fromGroup !== undefined ? fromGroup : (toGroup !== undefined ? toGroup : -1);
-      const colorIndex = groupIndex >= 0 ? groupIndex % colors.length : 0;
-      return {
-        ...pair,
-        color: colors[colorIndex],
-        groupIndex: groupIndex,
-      };
-    });
-
-    // 같은 두 카드 사이의 연결 개수 계산 (병렬 선 표시용)
-    // 양방향 연결을 고려 (A->B와 B->A는 같은 연결)
-    const pairKeyToCount = new Map<string, number>();
-    const pairKeyToConnections = new Map<string, Array<typeof pairsWithColor[0]>>();
-
-    pairsWithColor.forEach(pair => {
-      const key = [pair.from, pair.to].sort().join(':');
-      pairKeyToCount.set(key, (pairKeyToCount.get(key) || 0) + 1);
-
-      if (!pairKeyToConnections.has(key)) {
-        pairKeyToConnections.set(key, []);
-      }
-      pairKeyToConnections.get(key)!.push(pair);
-    });
-
-    // 각 연결 쌍에 오프셋 인덱스 할당 (같은 두 카드 사이의 여러 연결을 병렬로 표시)
-    const pairKeyToIndex = new Map<string, number>();
-    pairsWithColor.forEach(pair => {
-      const key = [pair.from, pair.to].sort().join(':');
-      const count = pairKeyToCount.get(key) || 1;
-      const currentIndex = pairKeyToIndex.get(key) || 0;
-      pairKeyToIndex.set(key, currentIndex + 1);
-      (pair as any).offsetIndex = currentIndex;
-      (pair as any).totalConnections = count; // 같은 두 카드 사이의 총 연결 개수
-
-      // 디버깅용 로그
-      if (count > 1) {
-        console.log(`🔗 병렬 연결 감지: ${pair.from} <-> ${pair.to}, 총 ${count}개, 인덱스 ${currentIndex}`);
-      }
-    });
-
-    const validGroups = connectionGroups.filter(g => g.size > 0);
-    if (pairsWithColor.length > 0) {
-      console.log('🔗 연결선 개수:', pairsWithColor.length, '그룹 수:', validGroups.length);
-    }
-
-    return {
-      pairsWithColor,
-      connectionGroups: validGroups,
-      nodeToGroup,
-      invalidConnections,
-    };
-  }, [localMemories, filteredMemories, linkInfo, getLinkKey]);
-
-  // 유효하지 않은 연결 정리 (부작용을 useEffect로 분리)
-  useEffect(() => {
-    const { invalidConnections } = connectionPairsWithColor;
-    if (!invalidConnections || invalidConnections.length === 0) return;
-
-    // 중복 제거를 위한 Set 사용
-    const cleanupSet = new Set<string>();
-    invalidConnections.forEach(({ memoryId, invalidRelatedId }) => {
-      cleanupSet.add(`${memoryId}:${invalidRelatedId}`);
-    });
-
-    // 디바운싱: 너무 자주 호출되지 않도록 타이머 사용
-    const timer = setTimeout(() => {
-      // 각 유효하지 않은 연결을 정리 (백그라운드에서 조용히 실행)
-      cleanupSet.forEach(key => {
-        const [memoryId, invalidRelatedId] = key.split(':');
-        fetch('/api/memories/cleanup-relations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ memoryId, invalidRelatedId }),
-        })
-          .then(res => {
-            if (!res.ok) {
-              console.warn('연결 정리 응답 실패:', res.status);
-            }
-          })
-          .catch(err => {
-            // 에러를 조용히 처리 (백그라운드 작업이므로)
-            console.warn('연결 정리 요청 실패 (무시됨):', err.message);
-          });
-      });
-    }, 1000); // 1초 디바운싱
-
-    return () => clearTimeout(timer);
-  }, [connectionPairsWithColor.invalidConnections?.length, localMemories.length]);
-
-  // 간단한 시드 기반 랜덤 함수 (groupId 기반 고정 랜덤)
-  const seededRandom = useCallback((seed: number) => {
-    const x = Math.sin(seed) * 10000;
-    return x - Math.floor(x);
-  }, []);
-
-  // Blob Area 생성 (연결 그룹에서 자동 생성)
-  const blobAreas = useMemo(() => {
-    const { connectionGroups, pairsWithColor } = connectionPairsWithColor;
-    const blobs: Array<{
-      id: string;
-      memoryIds: string[];
-      color: string;
-      bounds: { minX: number; minY: number; maxX: number; maxY: number };
-      seed: number;
-      center: { x: number; y: number };
-      radius: { x: number; y: number };
-    }> = [];
-
-    connectionGroups.forEach((group, groupIndex) => {
-      const memoryIds = Array.from(group);
-
-      // Blob 생성 조건 확인
-      // 연결된 컴포넌트(connected component)면 블롭 생성
-      // 최소 조건: 그룹 내 카드 수 >= 3 (2개는 선과 겹쳐서 애매함)
-      if (memoryIds.length < 2) return;
-
-      // 연결선 개수 체크는 제거 - 연결된 컴포넌트면 무조건 블롭 생성
-      // (트리/스타 형태도 포함)
-
-      // 카드 위치 기반 bounding box 계산
-      const cardPositions = memoryIds
-        .map(id => {
-          const pos = positions[id];
-          if (!pos) return null;
-          const cardData = CARD_DIMENSIONS[cardSize];
-          return {
-            x: pos.x,
-            y: pos.y,
-            width: cardData.width,
-            height: cardData.height,
-          };
-        })
-        .filter((p): p is NonNullable<typeof p> => p !== null);
-
-      if (cardPositions.length === 0) return;
-
-      // Bounding box 계산 (padding에 랜덤 지터 적용)
-      const basePadding = 40;
-      const seed = groupIndex * 1000 + memoryIds.length; // 그룹별 고정 시드
-      const paddingX = basePadding + (seededRandom(seed) - 0.5) * 20; // ±10px
-      const paddingY = basePadding + (seededRandom(seed + 1) - 0.5) * 20; // ±10px
-
-      const minX = Math.min(...cardPositions.map(p => p.x)) - paddingX;
-      const minY = Math.min(...cardPositions.map(p => p.y)) - paddingY;
-      const maxX = Math.max(...cardPositions.map(p => p.x + p.width)) + paddingX;
-      const maxY = Math.max(...cardPositions.map(p => p.y + p.height)) + paddingY;
-
-      // 주황+인디고 파스텔 색상 팔레트
-      const pastelColors = [
-        '#E0E7FF', // indigo-100
-        '#C7D2FE', // indigo-200
-        '#A5B4FC', // indigo-300
-        '#FED7AA', // orange-200
-        '#FDBA74', // orange-300
-        '#FED7AA', // orange-200 (반복)
-        '#DDD6FE', // indigo-100 (보라 계열)
-        '#E9D5FF', // indigo-50 (연한 보라)
-      ];
-
-      // 원/타원 기반 Blob을 위한 중심점과 반지름 계산
-      const cx = (minX + maxX) / 2;
-      const cy = (minY + maxY) / 2;
-      const rx = (maxX - minX) / 2;
-      const ry = (maxY - minY) / 2;
-
-      blobs.push({
-        id: `blob-${groupIndex}`,
-        memoryIds,
-        color: pastelColors[groupIndex % pastelColors.length],
-        bounds: { minX, minY, maxX, maxY },
-        seed,
-        center: { x: cx, y: cy },
-        radius: { x: rx, y: ry },
-      });
-    });
-
-    // 디버깅 로그 추가
-    console.log('🎨 blobAreas 생성:', blobs.length, '개', blobs.map(b => ({ id: b.id, memoryCount: b.memoryIds.length })));
-
-    return blobs;
-  }, [connectionPairsWithColor, positions, cardSize, seededRandom, linkInfo]);
-
-  // connectionPairsWithColor를 배열로 변환 (기존 코드 호환성)
-  const connectionPairsArray = useMemo(() => {
-    return connectionPairsWithColor.pairsWithColor;
-  }, [connectionPairsWithColor]);
-
-  // connectionPairsArray를 ref에도 저장 (드래그 중 업데이트 함수에서 사용)
   useEffect(() => {
     connectionPairsArrayRef.current = connectionPairsArray;
   }, [connectionPairsArray]);
@@ -2142,15 +1224,13 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
     return { minX, minY, maxX, maxY };
   }, [cardSize]);
-
-  // groups 기반 blobAreas for Minimap
   const minimapBlobAreas = useMemo(() => {
     return groups
       .filter(g => g.memoryIds && g.memoryIds.length > 0)
       .map(g => ({
         id: g.id,
         bounds: calculateGroupBounds(g.memoryIds, positions, cardSize),
-        color: '#A5B4FC', // 테마 색 (indigo-300)
+        color: '#A5B4FC',
       }));
   }, [groups, positions, cardSize, calculateGroupBounds]);
 
@@ -2243,104 +1323,6 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
   return (
     <div className="w-full mx-auto space-y-6 font-galmuri11">
-      {/* 필터 바 - 폴더 스타일 */}
-      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3 flex-wrap">
-          {(() => {
-            const folderColorMap: Record<string, string> = {
-              orange: '#fb923c', // 주황 키 컬러
-              indigo: '#6366f1', // 인디고 키 컬러
-            };
-
-            const folderButtonBase =
-              'flex flex-col items-center gap-1 p-3 rounded-xl border transition-all w-[92px]';
-
-            return (
-              <>
-                {/* 전체 */}
-                <button
-                  onClick={() => setSelectedGroupId(null)}
-                  className={`${folderButtonBase} ${selectedGroupId === null
-                    ? 'bg-gray-900 border-transparent scale-105'
-                    : 'hover:bg-gray-50 border-transparent'
-                    }`}
-                >
-                  <div className="relative">
-                    <PixelIcon
-                      name="folder"
-                      size={40}
-                      className=""
-                      style={{ color: selectedGroupId === null ? '#FFFFFF' : '#6B7280' }}
-                    />
-                    {/* 픽셀 스타일 뱃지 */}
-                    <div className={`absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border-2 ${
-                      selectedGroupId === null 
-                        ? 'bg-white border-white text-gray-900' 
-                        : 'bg-gray-900 border-gray-900 text-white'
-                    } text-[9px] font-bold shadow-[1px_1px_0px_0px_rgba(0,0,0,0.2)]`}>
-                      {memories.length}
-                    </div>
-                  </div>
-                  <span className={`text-xs font-medium ${selectedGroupId === null ? 'text-white' : 'text-gray-600'}`}>
-                    전체
-                  </span>
-                </button>
-
-                {/* 그룹 폴더들 */}
-                {groups.map((group, index) => {
-                  const palette = Object.values(folderColorMap);
-                  // 주황/인디고를 번갈아가며 사용
-                  const fallbackColor = palette[index % palette.length] || '#6366f1';
-                  const folderColor = folderColorMap[group.color || ''] || fallbackColor;
-
-                  return (
-                    <button
-                      key={group.id}
-                      onClick={() => setSelectedGroupId(group.id)}
-                      onDragOver={(e) => handleDragOver(e, group.id)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, group.id)}
-                      className={`${folderButtonBase} relative ${selectedGroupId === group.id
-                        ? 'bg-gray-900 border-transparent scale-105'
-                        : dropTargetGroupId === group.id
-                          ? 'bg-indigo-50 border-transparent scale-105'
-                          : 'hover:bg-gray-50 border-transparent'
-                        }`}
-                    >
-                      <div className="relative">
-                        <PixelIcon
-                          name="folder"
-                          size={40}
-                          className=""
-                          style={{ color: selectedGroupId === group.id ? '#FFFFFF' : folderColor }}
-                        />
-                        {/* 픽셀 스타일 뱃지 */}
-                        <div className={`absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border-2 ${
-                          selectedGroupId === group.id 
-                            ? 'bg-white border-white text-gray-900' 
-                            : 'bg-gray-900 border-gray-900 text-white'
-                        } text-[9px] font-bold shadow-[1px_1px_0px_0px_rgba(0,0,0,0.2)]`}>
-                          {group.memoryIds.length}
-                        </div>
-                      </div>
-                      <span className={`text-xs font-medium max-w-[80px] truncate ${selectedGroupId === group.id ? 'text-white' : 'text-gray-600'
-                        }`}>
-                        {group.name}
-                      </span>
-                      {dropTargetGroupId === group.id && (
-                        <div className="absolute -top-1 -right-1">
-                          <PixelIcon name="download" size={16} className="text-indigo-500" />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </>
-            );
-          })()}
-        </div>
-      </div>
-
       {/* 그룹 설명 */}
       {selectedGroupId && (
         <div className="mb-4 p-4 bg-gradient-to-r from-orange-50 to-indigo-50 border border-indigo-300">
@@ -2406,7 +1388,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   {isAutoArranging ? '배열 중...' : '맞춤 배열'}
                 </button>
 
-                <GmailImportButton 
+                <GmailImportButton
                   onImportComplete={(count) => {
                     console.log(`Gmail에서 ${count}개의 이메일을 가져왔습니다.`);
                     // 메모리 새로고침은 부모에서 처리
@@ -2418,8 +1400,23 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
                 <WidgetCreateButton
                   isOpen={isWidgetMenuOpen}
-                  onClick={() => setIsWidgetMenuOpen((prev) => !prev)}
+                  onClick={() => {
+                    setIsWidgetMenuOpen((prev) => !prev);
+                    setIsGroupMenuOpen(false);
+                  }}
                 />
+
+                <button
+                  onClick={() => {
+                    setIsGroupMenuOpen((prev) => !prev);
+                    setIsWidgetMenuOpen(false);
+                  }}
+                  className={`px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 flex items-center gap-1 ${isGroupMenuOpen ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'text-gray-700'}`}
+                  title="그룹"
+                >
+                  <PixelIcon name="folder" size={16} />
+                  <span>그룹</span>
+                </button>
               </div>
               <div className="flex items-center gap-1">
                 <button
@@ -2462,7 +1459,43 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
               />
             )}
 
-            <div className="flex-1 min-h-0 overflow-auto bg-white relative" ref={boardContainerRef}>
+            {/* 그룹 메뉴 바 */}
+            {isGroupMenuOpen && (
+              <GroupMenuBar
+                groups={groups}
+                selectedGroupId={selectedGroupId}
+                onSelectGroup={setSelectedGroupId}
+                totalMemoriesCount={memories.length}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                dropTargetGroupId={dropTargetGroupId}
+              />
+            )}
+
+            <div
+              className={`flex-1 min-h-0 overflow-auto bg-white relative transition-colors duration-200 ${isBoardDragging ? 'bg-indigo-50/50' : ''}`}
+              ref={boardContainerRef}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsBoardDragging(true);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!isBoardDragging) setIsBoardDragging(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Check if we are really leaving the board
+                if (e.currentTarget === e.target) {
+                  setIsBoardDragging(false);
+                }
+              }}
+              onDrop={handleBoardDrop}
+            >
               <div
                 className={`relative ${isPlacingFlag ? 'cursor-crosshair' : ''}`}
                 style={{
@@ -3173,246 +2206,6 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   </div>
                 )}
 
-                {/* 드래그 선택 박스 */}
-                {selectionBox && (() => {
-                  const left = Math.min(selectionBox.startX, selectionBox.endX);
-                  const top = Math.min(selectionBox.startY, selectionBox.endY);
-                  const width = Math.abs(selectionBox.endX - selectionBox.startX);
-                  const height = Math.abs(selectionBox.endY - selectionBox.startY);
-
-                  // 최소 크기 보장 (너무 작으면 보이지 않음)
-                  // 드래그 방향과 관계없이 항상 표시
-                  if (width < 0.5 && height < 0.5) return null;
-
-                  return (
-                    <div
-                      className="absolute border-[3px] border-gray-800 bg-gray-200/10 pointer-events-none"
-                      style={{
-                        left: `${Math.max(0, left)}px`,
-                        top: `${Math.max(0, top)}px`,
-                        width: `${Math.max(1, width)}px`,
-                        height: `${Math.max(1, height)}px`,
-                        zIndex: 10001,
-                      }}
-                    />
-                  );
-                })()}
-
-                {/* 다중 선택 안내 */}
-                {selectedMemoryIds.size > 0 && (
-                  <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-indigo-500 text-white px-4 py-2 border border-indigo-600 flex items-center gap-2 z-30">
-                    <span className="text-sm font-medium">
-                      {selectedMemoryIds.size}개 카드 선택됨
-                    </span>
-                    <button
-                      onClick={() => setSelectedMemoryIds(new Set())}
-                      className="text-white hover:text-gray-200"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-
-                {/* @ 태그 관련 기록 토스트들 (여러 개 중첩 가능) */}
-                {mentionToasts.length > 0 && (
-                  <>
-                    {/* 바깥 클릭 시 모든 토스트 닫기용 오버레이 */}
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setMentionToasts([])}
-                    />
-                    {mentionToasts.map((toast) => {
-                      const toastMemory = localMemories.find(m => m.id === toast.memoryId);
-                      if (!toastMemory) return null;
-
-                      const safeHtml = sanitizeHtml(toastMemory.content);
-                      const timeAgo = formatDistanceToNow(resolveTimestamp(toastMemory.createdAt), {
-                        addSuffix: true,
-                        locale: ko
-                      });
-
-                      return (
-                        <div
-                          key={toast.id}
-                          className="absolute bg-white border border-indigo-400 z-50 p-3 min-w-[280px] max-w-[320px] max-h-[500px] overflow-y-auto cursor-pointer"
-                          style={{
-                            left: `${toast.x}px`,
-                            top: `${toast.y}px`,
-                          }}
-                          onClick={(e) => {
-                            // 버튼이나 링크 클릭이 아닐 때만 기록으로 이동
-                            const target = e.target as HTMLElement;
-                            if (!target.closest('button') && !target.closest('a')) {
-                              const element = document.getElementById(`memory-${toast.memoryId}`);
-                              if (element) {
-                                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                              }
-                            }
-                            e.stopPropagation();
-                          }}
-                        >
-                          {/* 헤더 */}
-                          <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
-                            <h4 className="text-xs font-semibold text-gray-800">관련 기록</h4>
-                            <button
-                              onClick={() => setMentionToasts(prev => prev.filter(t => t.id !== toast.id))}
-                              className="text-gray-400 hover:text-gray-600 text-lg leading-none"
-                              title="닫기"
-                            >
-                              ×
-                            </button>
-                          </div>
-
-                          {/* 제목 */}
-                          {toastMemory.title && (
-                            <h3 className="text-sm font-semibold text-gray-900 mb-2">
-                              {toastMemory.title}
-                            </h3>
-                          )}
-
-                          {/* 내용 */}
-                          <div
-                            className="text-xs text-gray-800 leading-relaxed whitespace-pre-wrap mb-2"
-                            dangerouslySetInnerHTML={{ __html: safeHtml }}
-                          />
-
-                          {/* 첨부 파일 */}
-                          {toastMemory.attachments && toastMemory.attachments.length > 0 && (
-                            <div className="mb-2 space-y-1">
-                              {toastMemory.attachments.map((attachment) => {
-                                const isImage = attachment.mimetype.startsWith('image/');
-
-                                if (isImage) {
-                                  return (
-                                    <div key={attachment.id}>
-                                      <img
-                                        src={attachment.filepath}
-                                        alt={attachment.filename}
-                                        className="max-w-full h-auto rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-                                        onClick={() => window.open(attachment.filepath, '_blank')}
-                                        style={{ maxHeight: '150px' }}
-                                      />
-                                      <p className="text-[10px] text-gray-500 mt-0.5">{attachment.filename}</p>
-                                    </div>
-                                  );
-                                } else {
-                                  return (
-                                    <a
-                                      key={attachment.id}
-                                      href={attachment.filepath}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                                    >
-                                      <PixelIcon
-                                        name={attachment.mimetype.includes('pdf') ? 'pdf' : 'attachment'}
-                                        size={16}
-                                      />
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-[10px] text-gray-700 truncate">{attachment.filename}</p>
-                                        <p className="text-[9px] text-gray-500">
-                                          {(attachment.size / 1024).toFixed(1)} KB
-                                        </p>
-                                      </div>
-                                      <span className="text-indigo-500 text-[10px]">열기</span>
-                                    </a>
-                                  );
-                                }
-                              })}
-                            </div>
-                          )}
-
-                          {/* 연결된 기록 */}
-                          {toastMemory.relatedMemoryIds && toastMemory.relatedMemoryIds.length > 0 && (
-                            <div className="mt-2 pt-2 border-t border-gray-100">
-                              <div className="flex items-start gap-1">
-                                <svg className="w-2.5 h-2.5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                                </svg>
-                                <div className="flex-1">
-                                  <div className="text-[10px] text-gray-500 mb-1">연결된 기록</div>
-                                  <div className="flex flex-wrap gap-1">
-                                    {toastMemory.relatedMemoryIds.slice(0, 3).map(relatedId => {
-                                      const relatedMemory = localMemories.find(m => m.id === relatedId);
-                                      if (!relatedMemory) return null;
-                                      const relatedContent = stripHtmlClient(relatedMemory.content);
-                                      const relatedTitle = relatedMemory.title || relatedContent.substring(0, 20);
-
-                                      return (
-                                        <button
-                                          key={relatedId}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            // 연결된 기록 클릭 시 새로운 토스트 추가 (기존 토스트는 유지)
-                                            const toastWidth = 320;
-                                            const currentToastX = toast.x;
-                                            const currentToastY = toast.y;
-
-                                            // 현재 토스트 오른쪽에 새 토스트 표시 (공간 부족하면 왼쪽)
-                                            const rightSpace = boardSize.width - (currentToastX + toastWidth);
-                                            const leftSpace = currentToastX;
-
-                                            let newToastX: number;
-                                            if (rightSpace >= toastWidth + 20) {
-                                              newToastX = currentToastX + toastWidth + 10;
-                                            } else if (leftSpace >= toastWidth + 20) {
-                                              newToastX = currentToastX - toastWidth - 10;
-                                            } else {
-                                              newToastX = currentToastX + toastWidth + 10;
-                                            }
-
-                                            const newToastY = Math.max(0, Math.min(currentToastY, boardSize.height - 200));
-
-                                            // 새로운 토스트를 배열에 추가
-                                            const newToastId = `toast-${Date.now()}-${Math.random()}`;
-                                            setMentionToasts(prev => [...prev, {
-                                              id: newToastId,
-                                              memoryId: relatedId,
-                                              x: newToastX,
-                                              y: newToastY,
-                                              relatedIds: [relatedId],
-                                            }]);
-                                          }}
-                                          className="text-[10px] px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors border border-indigo-200 hover:border-indigo-300 line-clamp-1 max-w-[150px] text-left"
-                                          title={relatedTitle}
-                                        >
-                                          {relatedTitle}...
-                                        </button>
-                                      );
-                                    })}
-                                    {toastMemory.relatedMemoryIds.length > 3 && (
-                                      <span className="text-[10px] text-gray-400 self-center">
-                                        +{toastMemory.relatedMemoryIds.length - 3}개 더
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* 시간 정보 (위치 제외) */}
-                          <div className="mt-2 pt-2 border-t border-gray-100">
-                            <span className="text-[10px] text-gray-500">{timeAgo}</span>
-                            {toastMemory.topic && (
-                              <span className="ml-2 px-1 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] border border-indigo-200">
-                                {toastMemory.topic}
-                              </span>
-                            )}
-                            {toastMemory.nature && (
-                              <span className="ml-1 px-1 py-0.5 bg-orange-50 text-orange-600 text-[10px] border border-orange-200">
-                                {toastMemory.nature}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </>
-                )}
-
                 {/* 메모리 카드들 (가상화 적용) */}
                 {visibleMemories.map((memory, memoryIndex) => {
                   const position = positions[memory.id] || { x: 0, y: 0 };
@@ -3482,6 +2275,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       }}
                       style={{
                         transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
+                        width: `${cardSizeData.width}px`,
                         willChange: isDragging ? 'transform' : 'auto',
                         opacity: isDragging ? 0.85 : 1,
                         zIndex: memoryZIndex,
@@ -3491,7 +2285,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         transformOrigin: 'center center',
                         overflow: 'visible',
                       }}
-                      className={`absolute ${cardSizeClass} select-none touch-none cursor-grab active:cursor-grabbing ${isDragging ? 'cursor-grabbing border border-indigo-500' : ''
+                      className={`absolute select-none touch-none cursor-grab active:cursor-grabbing ${isDragging ? 'cursor-grabbing border border-indigo-500' : ''
                         } ${isSelected ? 'ring-2 ring-blue-300/50 ring-offset-1' : ''} ${isBlobHovered ? 'ring-2 ring-blue-200/60 ring-offset-1' : ''
                         }`}
                     >
@@ -3534,9 +2328,6 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         }
                         onRequestDelete={(memoryId) =>
                           setToast({ type: 'delete-memory', data: { memoryId } })
-                        }
-                        onRequestDeleteLocation={(memoryId) =>
-                          setToast({ type: 'delete-location', data: { memoryId } })
                         }
                         onCreateSummaryCard={handleCreateSummaryCard}
                         onActivityEditStart={(memoryId) => startEdit(`memory:${memoryId}`)}
@@ -3587,7 +2378,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       <ActionProjectCard
                         project={project}
                         isDragging={isDragging}
-                        onUpdate={(id, updates) => {
+                        onUpdate={(id: string, updates: Partial<ActionProject>) => {
                           setLocalProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
                           fetch('/api/projects', {
                             method: 'PUT',
@@ -3595,7 +2386,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                             body: JSON.stringify({ id, ...updates }),
                           }).catch(err => console.error(err));
                         }}
-                        onDelete={async (id) => {
+                        onDelete={async (id: string) => {
                           if (confirm('프로젝트를 삭제하시겠습니까?')) {
                             setLocalProjects(prev => prev.filter(p => p.id !== id));
                             await fetch(`/api/projects?id=${id}`, { method: 'DELETE' });
@@ -3606,14 +2397,6 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   );
                 })}
 
-                <BlobLayer
-                  blobAreas={blobAreas}
-                  hoveredBlobId={hoveredBlobId}
-                  hoveredMemoryId={hoveredMemoryId}
-                  isPaused={!!draggingEntity}
-                  isEnabled={isBlobEnabled}
-                  isHighlightMode={isHighlightMode}
-                />
 
                 {isHighlightMode &&
                   highlightedContentIds.map((contentId) => {
@@ -3639,310 +2422,34 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         </div>
       </div>
 
-      {/* 링크 관리 모달 */}
-      {linkManagerMemory && (
-        <div data-tutorial-target="link-memories">
-          <LinkManager
-            currentMemory={linkManagerMemory}
-            allMemories={localMemories}
-            onClose={() => setLinkManagerMemory(null)}
-            onLinked={async (updatedMemory1, updatedMemory2) => {
-              // 로컬 상태 즉시 업데이트 (페이지 리로드 없이)
-              setLocalMemories(prev => {
-                const updated = [...prev];
-                const index1 = updated.findIndex(m => m.id === updatedMemory1.id);
-                const index2 = updated.findIndex(m => m.id === updatedMemory2.id);
-
-                if (index1 !== -1) {
-                  updated[index1] = updatedMemory1;
-                }
-                if (index2 !== -1) {
-                  updated[index2] = updatedMemory2;
-                }
-
-                return updated;
-              });
-
-              // linkManagerMemory도 업데이트
-              if (linkManagerMemory.id === updatedMemory1.id) {
-                setLinkManagerMemory(updatedMemory1);
-              } else if (linkManagerMemory.id === updatedMemory2.id) {
-                setLinkManagerMemory(updatedMemory2);
-              }
-            }}
-          />
-        </div>
-      )}
-
-      {/* AI 자동 묶기 토스트 팝업 */}
-      <GroupToasts
+      <BoardOverlay
+        linkManagerMemory={linkManagerMemory}
+        setLinkManagerMemory={setLinkManagerMemory}
+        localMemories={localMemories}
+        setLocalMemories={setLocalMemories}
         toast={toast}
+        setToast={setToast}
         editableGroupName={editableGroupName}
         setEditableGroupName={setEditableGroupName}
         editableRelatedMemories={editableRelatedMemories}
         setEditableRelatedMemories={setEditableRelatedMemories}
         groupModalMemory={groupModalMemory}
-        localMemories={localMemories}
-        onCancelGroup={handleCancelGroup}
-        onConfirmGroup={handleConfirmGroup}
+        handleCancelGroup={handleCancelGroup}
+        handleConfirmGroup={handleConfirmGroup}
+        handleDeleteLink={handleDeleteLink}
+        handleDeleteMemory={handleDeleteMemory}
+        selectedMemoryIds={selectedMemoryIds}
+        setSelectedMemoryIds={setSelectedMemoryIds}
+        projectPrompt={projectPrompt}
+        setProjectPrompt={setProjectPrompt}
+        setLocalProjects={setLocalProjects}
+        mentionToasts={mentionToasts}
+        setMentionToasts={setMentionToasts}
+        resolveTimestamp={resolveTimestamp}
+        sanitizeHtml={sanitizeHtml}
+        stripHtmlClient={stripHtmlClient}
+        boardSize={boardSize}
       />
-
-      {toast.type === 'success' && (
-        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-          <div className="bg-green-500 text-white border-4 border-gray-900 p-5 min-w-[300px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
-            {/* 픽셀 코너 장식 */}
-            <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
-            
-            <div className="flex items-center gap-3">
-              <PixelIcon name="success" size={24} />
-              <div>
-                <p className="text-sm font-black uppercase tracking-tight">{toast.data?.message || '완료되었습니다!'}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {toast.type === 'delete-link' && (
-        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-          <div className="bg-white border-4 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
-            {/* 픽셀 코너 장식 */}
-            <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
-            
-            <div className="flex items-start gap-3 mb-4">
-              <PixelIcon name="link" size={24} />
-              <div className="flex-1">
-                <h3 className="text-base font-black text-gray-900 mb-1 uppercase tracking-tight">
-                  연결을 삭제하시겠습니까?
-                </h3>
-                <p className="text-sm text-gray-600">
-                  이 연결을 삭제하면 두 기록 간의 연결이 끊어집니다.
-                </p>
-              </div>
-              <button
-                onClick={() => setToast({ type: null })}
-                className="p-1 hover:bg-gray-100 border-2 border-transparent hover:border-gray-300 transition-all"
-              >
-                <PixelIcon name="close" size={16} className="text-gray-600" />
-              </button>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setToast({ type: null })}
-                className="flex-1 px-4 py-2 text-xs font-bold border-2 border-gray-900 text-gray-700 bg-white hover:bg-gray-100 transition-all uppercase tracking-tight shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleDeleteLink}
-                className="flex-1 px-4 py-2 text-xs font-black bg-red-500 text-white border-2 border-gray-900 hover:bg-red-600 transition-all uppercase tracking-tight shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
-              >
-                삭제
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {toast.type === 'delete-memory' && (
-        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-          <div className="bg-white border-4 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
-            {/* 픽셀 코너 장식 */}
-            <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
-            
-            <div className="flex items-start gap-3 mb-4">
-              <PixelIcon name="delete" size={24} />
-              <div className="flex-1">
-                <h3 className="text-base font-black text-gray-900 mb-1 uppercase tracking-tight">
-                  기록을 삭제하시겠습니까?
-                </h3>
-                <p className="text-sm text-gray-600">
-                  이 기록을 삭제하면 복구할 수 없습니다.
-                </p>
-              </div>
-              <button
-                onClick={() => setToast({ type: null })}
-                className="p-1 hover:bg-gray-100 border-2 border-transparent hover:border-gray-300 transition-all"
-              >
-                <PixelIcon name="close" size={16} className="text-gray-600" />
-              </button>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setToast({ type: null })}
-                className="flex-1 px-4 py-2 text-xs font-bold border-2 border-gray-900 text-gray-700 bg-white hover:bg-gray-100 transition-all uppercase tracking-tight shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleDeleteMemory}
-                className="flex-1 px-4 py-2 text-xs font-black bg-red-500 text-white border-2 border-gray-900 hover:bg-red-600 transition-all uppercase tracking-tight shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
-              >
-                삭제
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {toast.type === 'delete-location' && (
-        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-          <div className="bg-white border-4 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
-            {/* 픽셀 코너 장식 */}
-            <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
-            
-            <div className="flex items-start gap-3 mb-4">
-              <PixelIcon name="location" size={24} />
-              <div className="flex-1">
-                <h3 className="text-base font-black text-gray-900 mb-1 uppercase tracking-tight">
-                  위치 정보를 삭제하시겠습니까?
-                </h3>
-                <p className="text-sm text-gray-600">
-                  이 위치 정보를 삭제하면 복구할 수 없습니다.
-                </p>
-              </div>
-              <button
-                onClick={() => setToast({ type: null })}
-                className="p-1 hover:bg-gray-100 border-2 border-transparent hover:border-gray-300 transition-all"
-              >
-                <PixelIcon name="close" size={16} className="text-gray-600" />
-              </button>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setToast({ type: null })}
-                className="flex-1 px-4 py-2 text-xs font-bold border-2 border-gray-900 text-gray-700 bg-white hover:bg-gray-100 transition-all uppercase tracking-tight shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleDeleteLocation}
-                className="flex-1 px-4 py-2 text-xs font-black bg-red-500 text-white border-2 border-gray-900 hover:bg-red-600 transition-all uppercase tracking-tight shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
-              >
-                삭제
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {toast.type === 'confirm' && toast.data?.type === 'create-project' && (
-        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-          <div className="bg-white border-4 border-gray-900 p-6 min-w-[400px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
-            {/* 픽셀 코너 장식 */}
-            <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
-            
-            <div className="flex items-start gap-4 mb-4">
-              <div className="w-12 h-12 bg-indigo-100 border-2 border-gray-900 flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)]">
-                <PixelIcon name="target" size={24} className="text-indigo-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-black text-gray-900 mb-1 uppercase tracking-tight">액션 프로젝트 생성</h3>
-                <p className="text-sm text-gray-600 font-medium">선택한 {selectedMemoryIds.size}개의 기록을 바탕으로 계획을 세웁니다.</p>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-xs font-black text-gray-500 mb-1.5 uppercase tracking-widest">
-                어떤 프로젝트를 생성할까요?
-              </label>
-              <textarea
-                value={projectPrompt}
-                onChange={(e) => setProjectPrompt(e.target.value)}
-                placeholder="예: 안티 그라비티 학습 프로젝트, 2주 습관 만들기 등"
-                className="w-full h-24 p-3 bg-gray-50 border-2 border-gray-900 text-sm font-medium focus:ring-0 focus:border-indigo-500 transition-colors resize-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]"
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setToast({ type: null });
-                  setProjectPrompt('');
-                }}
-                className="flex-1 px-4 py-3 text-sm font-black border-2 border-gray-900 bg-white hover:bg-gray-100 transition-all uppercase tracking-widest shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
-              >
-                취소
-              </button>
-              <button
-                disabled={!projectPrompt.trim()}
-                onClick={async () => {
-                  try {
-                    setToast({ type: 'loading', data: { message: 'AI가 실천 계획을 세우는 중...' } });
-
-                    const res = await fetch('/api/projects', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        sourceMemoryIds: Array.from(selectedMemoryIds),
-                        userPrompt: projectPrompt,
-                        x: 100,
-                        y: 100,
-                        color: 'indigo'
-                      }),
-                    });
-
-                    if (res.ok) {
-                      const data = await res.json();
-                      setLocalProjects(prev => [data.project, ...prev]);
-                      setToast({ type: 'success', data: { message: '액션 프로젝트가 생성되었습니다!' } });
-                      setSelectedMemoryIds(new Set());
-                      setProjectPrompt('');
-                    } else {
-                      setToast({ type: 'error', data: { message: '프로젝트 생성 실패' } });
-                    }
-                  } catch (error) {
-                    setToast({ type: 'error', data: { message: '오류가 발생했습니다' } });
-                  }
-                }}
-                className="flex-1 px-4 py-3 text-sm font-black bg-indigo-500 text-white border-2 border-gray-900 hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] disabled:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] disabled:transform-none"
-              >
-                프로젝트 생성
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {toast.type === 'error' && (
-        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-          <div className="bg-red-500 text-white border-4 border-gray-900 p-5 min-w-[300px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
-            {/* 픽셀 코너 장식 */}
-            <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
-            <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
-            
-            <div className="flex items-center gap-3">
-              <PixelIcon name="error" size={24} />
-              <div className="flex-1">
-                <p className="text-sm font-black uppercase tracking-tight">{toast.data?.message || '오류가 발생했습니다'}</p>
-              </div>
-              <button
-                onClick={() => setToast({ type: null })}
-                className="p-1 hover:bg-red-600 border-2 border-transparent hover:border-white/30 transition-all"
-              >
-                <PixelIcon name="close" size={16} className="text-white" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

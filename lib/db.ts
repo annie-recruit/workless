@@ -286,17 +286,6 @@ try {
   console.warn('Skipping ingestId index creation until column exists:', error);
 }
 
-// 마이그레이션: memories 테이블에 location 컬럼 추가 (없으면)
-try {
-  const columns = db.prepare("PRAGMA table_info(memories)").all() as any[];
-  const hasLocation = columns.some((col: any) => col.name === 'location');
-  if (!hasLocation) {
-    console.log('📊 Adding location column to memories table...');
-    db.exec('ALTER TABLE memories ADD COLUMN location TEXT');
-  }
-} catch (error) {
-  console.error('Failed to add location column:', error);
-}
 
 // 마이그레이션: 모든 테이블에 userId 컬럼 추가 (없으면)
 try {
@@ -475,7 +464,6 @@ export const memoryDb = {
       'repeatCount',
       'lastMentionedAt',
       'attachments',
-      'location',
       'source',
       'sourceId',
       'sourceLink',
@@ -503,7 +491,6 @@ export const memoryDb = {
       memory.repeatCount || 0,
       memory.lastMentionedAt || null,
       memory.attachments ? JSON.stringify(memory.attachments) : null,
-      memory.location ? JSON.stringify(memory.location) : null,
       memory.source || 'manual',
       memory.sourceId || null,
       memory.sourceLink || null,
@@ -564,8 +551,6 @@ export const memoryDb = {
       fields.push(`${key} = ?`);
       if (key === 'relatedMemoryIds' && Array.isArray(value)) {
         values.push(JSON.stringify(value));
-      } else if (key === 'location' && value) {
-        values.push(JSON.stringify(value));
       } else if (key === 'attachments' && Array.isArray(value)) {
         values.push(JSON.stringify(value));
       } else {
@@ -616,7 +601,6 @@ export const memoryDb = {
       ...row,
       relatedMemoryIds: row.relatedMemoryIds ? JSON.parse(row.relatedMemoryIds) : undefined,
       attachments: row.attachments ? JSON.parse(row.attachments) : undefined,
-      location: row.location ? JSON.parse(row.location) : undefined,
     };
   },
 };
@@ -1232,9 +1216,9 @@ export const userDb = {
   // 사용자 탈퇴 및 데이터 전체 삭제 (법적 준수 사항)
   deleteUser(userId: string): void {
     const tables = [
-      'memories', 'groups', 'goals', 'personas', 'board_positions', 
-      'board_settings', 'board_card_colors', 'board_blocks', 
-      'memory_links', 'projects', 'clusters', 'ingest_items', 
+      'memories', 'groups', 'goals', 'personas', 'board_positions',
+      'board_settings', 'board_card_colors', 'board_blocks',
+      'memory_links', 'projects', 'clusters', 'ingest_items',
       'user_api_keys'
     ];
 

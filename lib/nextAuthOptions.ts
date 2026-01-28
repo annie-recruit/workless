@@ -3,25 +3,14 @@ import GoogleProvider from 'next-auth/providers/google';
 import { userDb } from '@/lib/db';
 
 const getBaseUrl = () => {
-  if (process.env.NEXTAUTH_URL) {
-    return process.env.NEXTAUTH_URL;
-  }
-  if (process.env.NODE_ENV === 'development') {
-    return process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : 'http://localhost:3000';
-  }
-  throw new Error('NEXTAUTH_URL 환경 변수가 설정되지 않았습니다.');
+  if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return 'http://localhost:3000';
 };
 
 const baseUrl = getBaseUrl();
 
-if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-  console.warn('⚠️ Google OAuth 환경 변수가 설정되지 않았습니다. GOOGLE_CLIENT_ID와 GOOGLE_CLIENT_SECRET을 설정해주세요.');
-}
-
-console.log('📌 NEXTAUTH_URL:', baseUrl);
-console.log('📌 예상 리디렉션 URI:', `${baseUrl}/api/auth/callback/google`);
+console.log('📌 NextAuth Base URL:', baseUrl);
 
 if (!process.env.NEXTAUTH_SECRET) {
   console.warn('⚠️ NEXTAUTH_SECRET이 설정되지 않았습니다. 개발 환경에서는 기본값을 사용합니다.');
