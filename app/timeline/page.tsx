@@ -6,6 +6,7 @@ import { format, startOfDay, endOfDay, subDays, eachDayOfInterval } from 'date-f
 import { ko } from 'date-fns/locale';
 import Link from 'next/link';
 import ProcessingLoader from '@/components/ProcessingLoader';
+import PixelIcon from '@/components/PixelIcon';
 
 export default function TimelinePage() {
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -40,8 +41,8 @@ export default function TimelinePage() {
   const getDayData = (day: Date) => {
     const dayStart = startOfDay(day).getTime();
     const dayEnd = endOfDay(day).getTime();
-    
-    const dayMemories = memories.filter(m => 
+
+    const dayMemories = memories.filter(m =>
       m.createdAt >= dayStart && m.createdAt <= dayEnd
     );
 
@@ -112,21 +113,23 @@ export default function TimelinePage() {
             <Link href="/" className="text-sm text-blue-500 hover:text-blue-600 mb-2 inline-block">
               ← 돌아가기
             </Link>
-            <h1 className="text-3xl font-black text-gray-900">📊 타임라인</h1>
+            <h1 className="text-3xl font-black text-gray-900 flex items-center gap-2">
+              <PixelIcon name="timeline" size={28} className="text-indigo-600" />
+              <span>타임라인</span>
+            </h1>
             <p className="text-sm text-gray-500 mt-1">당신의 기록 활동을 시간대별로 분석해요</p>
           </div>
-          
+
           {/* 기간 선택 */}
           <div className="flex gap-2">
             {[7, 14, 30].map(days => (
               <button
                 key={days}
                 onClick={() => setDateRange(days)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  dateRange === days
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${dateRange === days
                     ? 'bg-blue-500 text-white'
                     : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 {days}일
               </button>
@@ -166,7 +169,7 @@ export default function TimelinePage() {
         {days.reverse().map(day => {
           const data = getDayData(day);
           const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-          
+
           return (
             <div key={day.toISOString()} className="bg-white rounded-xl shadow-sm p-6">
               {/* 날짜 헤더 */}
@@ -199,7 +202,7 @@ export default function TimelinePage() {
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-xs text-gray-500 w-16">활동량</span>
                     <div className="flex-1 h-8 bg-gray-100 rounded-full overflow-hidden relative">
-                      <div 
+                      <div
                         className={`h-full transition-all ${getTemperatureColor(data.count, maxDayCount)}`}
                         style={{ width: `${(data.count / maxDayCount) * 100}%` }}
                       >
@@ -217,9 +220,8 @@ export default function TimelinePage() {
                       {data.hourlyActivity.map((count, hour) => (
                         <div
                           key={hour}
-                          className={`flex-1 rounded-sm transition-all ${
-                            count > 0 ? getTemperatureColor(count, data.maxActivity) : 'bg-gray-50'
-                          }`}
+                          className={`flex-1 rounded-sm transition-all ${count > 0 ? getTemperatureColor(count, data.maxActivity) : 'bg-gray-50'
+                            }`}
                           style={{ height: count > 0 ? '24px' : '12px' }}
                           title={`${hour}시: ${count}개`}
                         />
@@ -230,7 +232,10 @@ export default function TimelinePage() {
                   {/* 피크 시간대 */}
                   {data.peakHours.length > 0 && (
                     <div className="mt-3 flex items-center gap-2 text-xs text-gray-600">
-                      <span className="text-gray-500">🔥 활발한 시간:</span>
+                      <span className="text-gray-500 flex items-center gap-1">
+                        <PixelIcon name="zap" size={12} className="text-orange-500" />
+                        <span>활발한 시간:</span>
+                      </span>
                       {data.peakHours.map((h, idx) => (
                         <span key={idx} className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full">
                           {h.hour}시 ({h.count}개)

@@ -26,14 +26,14 @@ const galmuri = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Workless - 사고의 흐름을 보는 비정형 워크스페이스",
-  description: "Workless는 Gmail 연동을 통해 이메일을 자동으로 메모로 변환하고, 무한 캔버스에서 아이디어를 자유롭게 배치하고 연결할 수 있는 개인 비서입니다.",
+  title: "WORKLESS - 맥락을 구체화. 비정형 애자일 워크스페이스",
+  description: "WORKLESS는 Gmail 연동을 통해 이메일을 자동으로 메모로 변환하고, 무한 캔버스에서 아이디어를 자유롭게 배치하고 연결할 수 있는 개인 비서입니다.",
   manifest: "/manifest.json",
-  themeColor: "#0f172a",
+  themeColor: "#4f46e5",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Workless",
+    title: "WORKLESS",
   },
   viewport: {
     width: "device-width",
@@ -42,24 +42,24 @@ export const metadata: Metadata = {
     userScalable: false,
   },
   openGraph: {
-    title: "Workless - 개인 비서",
-    description: "알아서 정리해주는 개인 비서",
+    title: "WORKLESS - 맥락을 구체화",
+    description: "비정형 애자일 워크스페이스. 무한 캔버스에서 아이디어를 자유롭게 배치하고 연결하세요.",
     type: "website",
     url: process.env.NEXTAUTH_URL || "https://workless.app",
-    siteName: "Workless",
+    siteName: "WORKLESS",
     images: [
       {
         url: "/opengraph-image", // Next.js가 자동으로 생성하는 Open Graph 이미지
         width: 1200,
         height: 630,
-        alt: "Workless - 알아서 정리해주는 개인 비서",
+        alt: "WORKLESS - 맥락을 구체화. 비정형 애자일 워크스페이스",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Workless - 개인 비서",
-    description: "알아서 정리해주는 개인 비서",
+    title: "WORKLESS - 맥락을 구체화",
+    description: "비정형 애자일 워크스페이스. 무한 캔버스에서 아이디어를 자유롭게 배치하고 연결하세요.",
     images: ["/opengraph-image"],
   },
 };

@@ -1,11 +1,11 @@
 {
-  "name": "Workless - 개인 비서",
-  "short_name": "Workless",
-  "description": "알아서 정리해주는 개인 비서",
+  "name": "WORKLESS - 비정형 애자일 워크스페이스",
+  "short_name": "WORKLESS",
+  "description": "맥락을 구체화. 비정형 애자일 워크스페이스",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#4f46e5",
+  "theme_color": "#4f46e5",
   "orientation": "portrait-primary",
   "icons": [
     {

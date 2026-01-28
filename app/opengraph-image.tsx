@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 
 // Image metadata
-export const alt = 'Workless - 알아서 정리해주는 개인 비서';
+export const alt = 'WORKLESS - 맥락을 구체화. 비정형 애자일 워크스페이스';
 export const size = {
   width: 1200,
   height: 630,
@@ -15,7 +15,7 @@ export default async function Image() {
     (
       <div
         style={{
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+          background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%)',
           width: '100%',
           height: '100%',
           display: 'flex',
@@ -26,32 +26,17 @@ export default async function Image() {
           fontFamily: 'system-ui, -apple-system, sans-serif',
         }}
       >
-        {/* 배경 장식 */}
+        {/* 픽셀 도트 배경 */}
         <div
           style={{
             position: 'absolute',
-            top: 0,
-            right: 0,
-            width: '400px',
-            height: '400px',
-            background: 'radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%)',
-            borderRadius: '50%',
-            filter: 'blur(60px)',
+            inset: 0,
+            opacity: 0.1,
+            backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
+            backgroundSize: '20px 20px',
           }}
         />
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            width: '400px',
-            height: '400px',
-            background: 'radial-gradient(circle, rgba(147, 51, 234, 0.1) 0%, transparent 70%)',
-            borderRadius: '50%',
-            filter: 'blur(60px)',
-          }}
-        />
-        
+
         {/* 메인 콘텐츠 */}
         <div
           style={{
@@ -60,12 +45,22 @@ export default async function Image() {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1,
+            background: 'rgba(0, 0, 0, 0.3)',
+            padding: '60px 80px',
+            border: '8px solid white',
+            position: 'relative',
           }}
         >
+          {/* 코너 장식 */}
+          <div style={{ position: 'absolute', top: '-12px', left: '-12px', width: '24px', height: '24px', background: 'white' }} />
+          <div style={{ position: 'absolute', top: '-12px', right: '-12px', width: '24px', height: '24px', background: 'white' }} />
+          <div style={{ position: 'absolute', bottom: '-12px', left: '-12px', width: '24px', height: '24px', background: 'white' }} />
+          <div style={{ position: 'absolute', bottom: '-12px', right: '-12px', width: '24px', height: '24px', background: 'white' }} />
+
           {/* 제목 */}
           <h1
             style={{
-              fontSize: '96px',
+              fontSize: '120px',
               fontWeight: '900',
               color: 'white',
               margin: 0,
@@ -73,58 +68,58 @@ export default async function Image() {
               textTransform: 'uppercase',
               lineHeight: 1,
               marginBottom: '24px',
+              textShadow: '8px 8px 0px rgba(0,0,0,0.5)',
             }}
           >
-            Workless
+            WORKLESS
           </h1>
-          
+
           {/* 구분선 */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '12px',
+              gap: '16px',
               marginBottom: '32px',
             }}
           >
             <div
               style={{
-                width: '48px',
-                height: '2px',
-                background: 'linear-gradient(to right, #60a5fa, #a78bfa)',
+                width: '60px',
+                height: '4px',
+                background: 'white',
               }}
             />
             <p
               style={{
-                fontSize: '24px',
-                color: '#cbd5e1',
-                fontWeight: '300',
+                fontSize: '28px',
+                color: 'white',
+                fontWeight: '400',
                 margin: 0,
               }}
             >
-              알아서 정리해주는 개인 비서
+              맥락을 구체화
             </p>
             <div
               style={{
-                width: '48px',
-                height: '2px',
-                background: 'linear-gradient(to left, #a78bfa, #60a5fa)',
+                width: '60px',
+                height: '4px',
+                background: 'white',
               }}
             />
           </div>
-          
+
           {/* 부제목 */}
           <p
             style={{
-              fontSize: '32px',
-              color: '#94a3b8',
-              fontWeight: '400',
+              fontSize: '36px',
+              color: 'rgba(255, 255, 255, 0.9)',
+              fontWeight: '600',
               margin: 0,
               textAlign: 'center',
             }}
           >
-            일상의 기억, 아이디어, 할 일을<br />
-            AI가 알아서 정리해드립니다
+            비정형 애자일 워크스페이스
           </p>
         </div>
       </div>

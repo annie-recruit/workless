@@ -250,7 +250,10 @@ export default function IntegrationsPage() {
                 </div>
 
                 <div className="bg-indigo-50 border border-indigo-200 p-4" style={{ borderRadius: '2px' }}>
-                  <p className="text-sm text-indigo-900 font-bold mb-2">💡 빠른 설정:</p>
+                  <p className="text-sm text-indigo-900 font-bold mb-2 flex items-center gap-1.5">
+                    <PixelIcon name="bulb" size={14} className="text-indigo-700" />
+                    <span>빠른 설정:</span>
+                  </p>
                   <ol className="text-sm text-indigo-800 space-y-1 pl-4">
                     <li>1. Shortcuts 앱 → 새 단축어</li>
                     <li>2. 위 설정 따라 액션 추가</li>
@@ -279,10 +282,11 @@ URL="${apiUrl}"
                     navigator.clipboard.writeText(config);
                     alert('설정이 클립보드에 복사되었습니다!');
                   }}
-                  className="w-full py-3 bg-orange-400 text-white font-bold hover:bg-orange-500 transition-colors"
+                  className="w-full py-3 bg-orange-400 text-white font-bold hover:bg-orange-500 transition-colors flex items-center justify-center gap-2"
                   style={{ borderRadius: '2px' }}
                 >
-                  📋 설정 복사하기
+                  <PixelIcon name="clipboard" size={16} className="text-white" />
+                  <span>설정 복사하기</span>
                 </button>
               </div>
             )}
@@ -307,7 +311,10 @@ URL="${apiUrl}"
             <div className="space-y-6">
               {/* 사용 방법 1 */}
               <div className="border-l-4 border-orange-400 pl-4">
-                <h3 className="font-bold text-gray-900 mb-2">✨ 어디서든 텍스트 공유</h3>
+                <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-1.5">
+                  <PixelIcon name="sparkles" size={16} className="text-orange-500" />
+                  <span>어디서든 텍스트 공유</span>
+                </h3>
                 <p className="text-sm text-gray-700 mb-2">
                   Safari, 메모, 메일 등 어떤 앱에서든:
                 </p>
@@ -321,7 +328,10 @@ URL="${apiUrl}"
 
               {/* 사용 방법 2 */}
               <div className="border-l-4 border-indigo-400 pl-4">
-                <h3 className="font-bold text-gray-900 mb-2">⚡️ 빠른 메모</h3>
+                <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-1.5">
+                  <PixelIcon name="zap" size={16} className="text-indigo-600" />
+                  <span>빠른 메모</span>
+                </h3>
                 <p className="text-sm text-gray-700 mb-2">
                   Spotlight로 즉시 메모:
                 </p>
@@ -334,7 +344,10 @@ URL="${apiUrl}"
 
               {/* 사용 방법 3 */}
               <div className="border-l-4 border-orange-400 pl-4">
-                <h3 className="font-bold text-gray-900 mb-2">🔗 URL과 함께 저장</h3>
+                <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-1.5">
+                  <PixelIcon name="link" size={16} className="text-orange-500" />
+                  <span>URL과 함께 저장</span>
+                </h3>
                 <p className="text-sm text-gray-700 mb-2">
                   웹페이지와 함께 메모:
                 </p>
@@ -352,7 +365,7 @@ URL="${apiUrl}"
         <section>
           <div className="bg-gray-50 border-2 border-gray-300 p-6" style={{ borderRadius: '2px' }}>
             <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-              <span>🔒</span>
+              <PixelIcon name="lock" size={18} className="text-gray-700" />
               <span>보안 안내</span>
             </h3>
             <ul className="text-sm text-gray-700 space-y-2 pl-6">

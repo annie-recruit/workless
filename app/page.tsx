@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import PixelGradientBanner from '@/components/PixelGradientBanner';
 import PixelIcon from '@/components/PixelIcon';
+import PixelAdSense from '@/components/PixelAdSense';
 
 export default function LandingPage() {
   const { data: session, status } = useSession();
@@ -18,18 +19,6 @@ export default function LandingPage() {
       return;
     }
   }, [status, session, router]);
-
-  // 로딩 중이거나 이미 로그인한 경우 로딩 화면 표시
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">로딩 중...</p>
-        </div>
-      </div>
-    );
-  }
 
   // 로그인한 사용자는 리디렉션 중이므로 아무것도 표시하지 않음
   if (status === 'authenticated' && session) {
@@ -52,28 +41,30 @@ export default function LandingPage() {
           <div className="text-center space-y-4">
             <div className="space-y-2">
               <h1 className="text-6xl font-black text-white mb-3 tracking-tighter" style={{ letterSpacing: '-0.05em' }}>
-                Workless
+                WORKLESS
               </h1>
               <div className="flex items-center justify-center gap-4">
                 <div className="h-0.5 w-12 bg-white"></div>
                 <p className="text-white/90 text-base font-light">
-                  사고의 흐름을 보는 비정형 워크스페이스
+                  맥락을 구체화. 비정형 애자일 워크스페이스
                 </p>
                 <div className="h-0.5 w-12 bg-white"></div>
               </div>
             </div>
 
-            <p className="text-white/80 text-sm tracking-wide">
-              맥락을 구체화. 비정형 애자일 워크스페이스
-            </p>
-
             {/* 앱 목적 설명 */}
-            <div className="bg-white/10 backdrop-blur-sm border border-white/30 p-6 mt-6 max-w-3xl mx-auto">
-              <h2 className="text-white font-bold text-lg mb-3">애플리케이션 목적</h2>
-              <p className="text-white/90 text-sm leading-relaxed">
-                <strong className="text-white">Workless</strong>는 비정형 사고를 위한 무한 캔버스 워크스페이스입니다. 
-                Gmail 연동을 통해 &quot;Workless&quot; 라벨이 지정된 이메일을 자동으로 메모로 변환하고, 
-                AI 어시스턴트가 메모 간의 연관성을 분석하여 인사이트를 제공합니다. 
+            <div className="relative bg-white border-2 border-gray-800 p-6 mt-6 max-w-3xl mx-auto shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-[1.02]">
+              {/* 픽셀 코너 포인트 */}
+              <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
+
+              <h2 className="text-gray-900 font-bold text-lg mb-3">애플리케이션 목적</h2>
+              <p className="text-gray-800 text-sm leading-relaxed">
+                <strong className="text-gray-900">WORKLESS</strong>는 비정형 사고를 위한 무한 캔버스 워크스페이스입니다.
+                Gmail 연동을 통해 &quot;WORKLESS&quot; 라벨이 지정된 이메일을 자동으로 메모로 변환하고,
+                AI 어시스턴트가 메모 간의 연관성을 분석하여 인사이트를 제공합니다.
                 폴더나 계층 구조 없이 태그와 공간적 맥락으로 정보를 자유롭게 연결하고 시각화할 수 있습니다.
               </p>
             </div>
@@ -83,32 +74,15 @@ export default function LandingPage() {
           <div className="flex flex-col items-center gap-2">
             <Link
               href="/auth/signin"
-              className="group relative w-full max-w-md flex items-center justify-center gap-4 px-8 py-5 bg-white/10 hover:bg-white/20 border border-white/30 transition-all duration-300 backdrop-blur-sm"
+              className="group relative w-full max-w-md flex items-center justify-center gap-4 px-8 py-5 bg-white hover:bg-gray-50 border-2 border-gray-800 transition-all duration-300 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] hover:scale-105"
             >
-              {/* 버튼 내부 장식 */}
-              <div className="absolute inset-0 border border-white/0 group-hover:border-white/40 transition-all duration-300"></div>
+              {/* 픽셀 코너 포인트 */}
+              <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
 
-              <div className="bg-white p-2 rounded-sm group-hover:scale-110 transition-transform duration-300">
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  />
-                </svg>
-              </div>
-              <span className="text-white text-lg font-bold tracking-wider">
+              <span className="text-gray-900 text-lg font-bold tracking-wider">
                 시작하기
               </span>
             </Link>
@@ -120,92 +94,129 @@ export default function LandingPage() {
           {/* 3개 박스: 가로 배치 */}
           <div className="grid md:grid-cols-3 gap-4">
             {/* 연동 서비스 */}
-            <div className="space-y-3 bg-white/5 backdrop-blur-sm border border-white/20 p-5">
-              <h3 className="text-white font-bold text-base mb-2 flex items-center gap-2">
-                <PixelIcon name="link" size={20} className="text-orange-400" />
+            <div className="relative space-y-3 bg-white border-2 border-gray-800 p-5 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-105">
+              {/* 픽셀 코너 포인트 */}
+              <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
+
+              <h3 className="text-gray-900 font-bold text-base mb-2 flex items-center gap-2">
+                <PixelIcon name="link" size={20} className="text-orange-500" />
                 <span>연동 가능한 서비스</span>
               </h3>
-              <div className="space-y-2 text-white/80 text-xs">
+              <div className="space-y-2 text-gray-700 text-xs">
                 <div className="flex items-start gap-2">
-                  <PixelIcon name="file" size={16} className="text-white/70 mt-0.5 flex-shrink-0" />
+                  <PixelIcon name="file" size={16} className="text-gray-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <div className="font-semibold text-white">Gmail</div>
-                    <div className="text-white/60">"Workless" 라벨 이메일 자동 캔버스화</div>
+                    <div className="font-semibold text-gray-900">Gmail</div>
+                    <div className="text-gray-600">&quot;Workless&quot; 라벨 이메일 자동 캔버스화</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
-                  <PixelIcon name="settings" size={16} className="text-white/70 mt-0.5 flex-shrink-0" />
+                  <PixelIcon name="settings" size={16} className="text-gray-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <div className="font-semibold text-white">AI 어시스턴트</div>
-                    <div className="text-white/60">메모 연관성 분석 및 인사이트</div>
+                    <div className="font-semibold text-gray-900">AI 어시스턴트</div>
+                    <div className="text-gray-600">메모 연관성 분석 및 인사이트</div>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* 핵심 기능 */}
-            <div className="space-y-3 bg-white/5 backdrop-blur-sm border border-white/20 p-5">
-              <h3 className="text-white font-bold text-base mb-2 flex items-center gap-2">
-                <PixelIcon name="apps" size={20} className="text-indigo-400" />
+            <div className="relative space-y-3 bg-white border-2 border-gray-800 p-5 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-105">
+              {/* 픽셀 코너 포인트 */}
+              <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
+
+              <h3 className="text-gray-900 font-bold text-base mb-2 flex items-center gap-2">
+                <PixelIcon name="apps" size={20} className="text-indigo-500" />
                 <span>핵심 기능</span>
               </h3>
-              <div className="space-y-2 text-white/80 text-xs">
+              <div className="space-y-2 text-gray-700 text-xs">
                 <div className="flex items-start gap-2">
-                  <PixelIcon name="apps" size={16} className="text-white/70 mt-0.5 flex-shrink-0" />
+                  <PixelIcon name="apps" size={16} className="text-gray-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <div className="font-semibold text-white">무한 캔버스</div>
-                    <div className="text-white/60">끝없는 2D 공간에서 자유롭게 사고</div>
+                    <div className="font-semibold text-gray-900">무한 캔버스</div>
+                    <div className="text-gray-600">끝없는 2D 공간에서 자유롭게 사고</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
-                  <PixelIcon name="tag" size={16} className="text-white/70 mt-0.5 flex-shrink-0" />
+                  <PixelIcon name="tag" size={16} className="text-gray-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <div className="font-semibold text-white">비정형 구조</div>
-                    <div className="text-white/60">폴더 없이 태그와 맥락으로 연결</div>
+                    <div className="font-semibold text-gray-900">비정형 구조</div>
+                    <div className="text-gray-600">폴더 없이 태그와 맥락으로 연결</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
-                  <PixelIcon name="tag" size={16} className="text-white/70 mt-0.5 flex-shrink-0" />
+                  <PixelIcon name="tag" size={16} className="text-gray-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <div className="font-semibold text-white">맥락 시각화</div>
-                    <div className="text-white/60">태깅으로 관계 자동 분석</div>
+                    <div className="font-semibold text-gray-900">맥락 시각화</div>
+                    <div className="text-gray-600">태깅으로 관계 자동 분석</div>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* 유저 가치 */}
-            <div className="space-y-3 bg-gradient-to-br from-orange-500/20 to-indigo-500/20 backdrop-blur-sm border border-white/30 p-5">
-              <h3 className="text-white font-bold text-base mb-2 flex items-center gap-2">
-                <PixelIcon name="star" size={20} className="text-yellow-300" />
+            <div className="relative space-y-3 bg-white border-2 border-gray-800 p-5 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-105">
+              {/* 픽셀 코너 포인트 */}
+              <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
+              <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
+
+              <h3 className="text-gray-900 font-bold text-base mb-2 flex items-center gap-2">
+                <PixelIcon name="star" size={20} className="text-yellow-500" />
                 <span>제공하는 가치</span>
               </h3>
-              <div className="space-y-2 text-white/90 text-xs leading-relaxed">
+              <div className="space-y-2 text-gray-800 text-xs leading-relaxed">
                 <p>
-                  <span className="font-bold text-orange-300">틀에 박힌 워크플로우는 이제 그만.</span> 
-                  <br/>당신의 사고방식대로 자유롭게
+                  <span className="font-bold text-orange-600">틀에 박힌 워크플로우는 이제 그만.</span>
+                  <br />당신의 사고방식대로 자유롭게
                 </p>
                 <p>
-                  <span className="font-bold text-indigo-300">흩어진 정보를 하나로.</span>
-                  <br/>공간적 맥락과 태그로 연결
+                  <span className="font-bold text-indigo-600">흩어진 정보를 하나로.</span>
+                  <br />공간적 맥락과 태그로 연결
                 </p>
                 <p>
-                  <span className="font-bold text-pink-300">아이디어를 시각화.</span>
-                  <br/>생각의 흐름이 보이면 일이 쉬워짐
+                  <span className="font-bold text-pink-600">아이디어를 시각화.</span>
+                  <br />생각의 흐름이 보이면 일이 쉬워짐
                 </p>
               </div>
             </div>
           </div>
 
           {/* Google 심사 필수: 데이터 사용 명시 */}
-          <div className="bg-white/10 backdrop-blur-sm border border-white/30 p-4 text-xs text-white/80 leading-relaxed">
-            <p className="mb-2">
-              <strong className="text-white">📧 Gmail 데이터 사용:</strong> "Workless" 라벨이 지정된 이메일만 <strong>읽기 전용</strong>으로 접근하며, 
-              이메일을 메모로 변환하는 데만 사용됩니다. 이메일을 보내거나 수정하지 않습니다.
+          <div className="relative bg-white border-2 border-gray-800 p-4 text-xs text-gray-800 leading-relaxed shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-[1.02]">
+            {/* 픽셀 코너 포인트 */}
+            <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
+            <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
+            <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
+            <p className="mb-2 flex items-start gap-2">
+              <PixelIcon name="email" size={16} className="text-gray-900 mt-0.5 flex-shrink-0" />
+              <span>
+                <strong className="text-gray-900">Gmail 데이터 사용:</strong> "WORKLESS" 라벨이 지정된 이메일만 <strong>읽기 전용</strong>으로 접근하며,
+                이메일을 메모로 변환하는 데만 사용됩니다. 이메일을 보내거나 수정하지 않습니다.
+              </span>
             </p>
-            <p>
-              <strong className="text-white">🔒 개인정보 보호:</strong> 수집된 데이터는 서비스 제공 목적으로만 사용되며 제3자에게 판매하지 않습니다.
+            <p className="flex items-start gap-2">
+              <PixelIcon name="lock" size={16} className="text-gray-900 mt-0.5 flex-shrink-0" />
+              <span>
+                <strong className="text-gray-900">개인정보 보호:</strong> 수집된 데이터는 서비스 제공 목적으로만 사용되며 제3자에게 판매하지 않습니다.
+              </span>
             </p>
+          </div>
+
+          {/* 픽셀 스타일 광고 */}
+          <div className="max-w-4xl mx-auto">
+            <PixelAdSense
+              borderColor="purple"
+              className="my-8"
+            />
           </div>
 
           {/* 하단 링크 */}

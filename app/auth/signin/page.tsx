@@ -2,6 +2,7 @@
 
 import { signIn } from 'next-auth/react';
 import PixelGradientBanner from '@/components/PixelGradientBanner';
+import OnboardingMiniBoard from '@/components/OnboardingMiniBoard';
 
 export default function SignInPage() {
   return (
@@ -13,18 +14,18 @@ export default function SignInPage() {
         <div className="absolute inset-0 bg-indigo-900/10 backdrop-blur-[2px]"></div>
       </div>
 
-      {/* 중앙: 로그인 폼 */}
-      <div className="relative z-10 w-full flex items-center justify-center p-8">
+      {/* 왼쪽: 로그인 폼 */}
+      <div className="relative z-10 w-1/2 flex items-center justify-center p-8">
         <div className="max-w-md w-full space-y-12">
           <div className="text-center space-y-6">
             <div className="space-y-2">
               <h1 className="text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ letterSpacing: '-0.05em' }}>
-                Workless
+                WORKLESS
               </h1>
               <div className="flex items-center justify-center gap-4">
                 <div className="h-0.5 w-12 bg-white"></div>
                 <p className="text-white/90 text-base font-light">
-                  사고의 흐름을 보는 비정형 워크스페이스
+                  맥락을 구체화. 비정형 애자일 워크스페이스
                 </p>
                 <div className="h-0.5 w-12 bg-white"></div>
               </div>
@@ -70,11 +71,26 @@ export default function SignInPage() {
           </div>
 
           {/* 하단 데코레이션 */}
-          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-2 opacity-30">
+          <div className="flex justify-center gap-2 opacity-30 mt-8">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="w-2 h-2 bg-white rounded-none"></div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* 오른쪽: 온보딩 미니 보드 */}
+      <div className="relative z-10 w-1/2 flex items-center justify-center p-8">
+        <div className="space-y-4">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-white mb-2">
+              이렇게 사용해요 👇
+            </h2>
+            <p className="text-white/70 text-sm">
+              로그인하면 바로 시작할 수 있어요
+            </p>
+          </div>
+          <OnboardingMiniBoard />
         </div>
       </div>
 

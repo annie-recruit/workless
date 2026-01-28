@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import PixelIcon from '@/components/PixelIcon';
 
 export default function LandingPage() {
   return (
@@ -11,7 +12,7 @@ export default function LandingPage() {
         backgroundImage: 'radial-gradient(circle, #00ff00 1px, transparent 1px)',
         backgroundSize: '20px 20px'
       }} />
-      
+
       {/* 그리드 오버레이 */}
       <div className="absolute inset-0 opacity-5" style={{
         backgroundImage: 'linear-gradient(#00ffff 1px, transparent 1px), linear-gradient(90deg, #00ffff 1px, transparent 1px)',
@@ -23,7 +24,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-5xl font-bold text-white mb-2 tracking-tight uppercase pixel-text" style={{ 
+              <h1 className="text-5xl font-bold text-white mb-2 tracking-tight uppercase pixel-text" style={{
                 textShadow: '4px 4px 0px rgba(0,0,0,0.5), 2px 2px 0px rgba(255,255,255,0.3)'
               }}>
                 WORKLESS
@@ -47,24 +48,25 @@ export default function LandingPage() {
         {/* 히어로 섹션 */}
         <section className="text-center mb-32">
           <div className="mb-8 inline-block px-6 py-2 bg-gradient-to-r from-cyan-400 to-purple-500 border-4 border-white">
-            <span className="text-white text-sm font-bold uppercase tracking-widest">
-              🎮 New Generation Workspace
+            <span className="text-white text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+              <PixelIcon name="apps" size={16} className="text-white" />
+              <span>New Generation Workspace</span>
             </span>
           </div>
-          
+
           <h2 className="text-6xl md:text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 mb-8 leading-tight" style={{
             textShadow: '0 0 30px rgba(0,255,255,0.5)'
           }}>
             사고의 흐름을<br />
             픽셀로 그리다
           </h2>
-          
+
           <p className="text-xl md:text-2xl text-cyan-300 mb-12 max-w-4xl mx-auto leading-relaxed">
             틀에 박힌 워크플로우는 이제 그만.<br />
             무한 캔버스 위에서 아이디어를 자유롭게 배치하고,<br />
             맥락으로 연결하여 당신만의 비정형 워크스페이스를 만드세요.
           </p>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link
               href="/auth/signin"
@@ -72,8 +74,9 @@ export default function LandingPage() {
             >
               ▶ 지금 시작하기
             </Link>
-            <div className="text-pink-400 text-sm font-bold">
-              ⚡ 무료로 체험하기
+            <div className="text-pink-400 text-sm font-bold flex items-center gap-1.5">
+              <PixelIcon name="zap" size={14} className="text-pink-400" />
+              <span>무료로 체험하기</span>
             </div>
           </div>
         </section>
@@ -94,10 +97,10 @@ export default function LandingPage() {
             <div className="bg-gradient-to-br from-cyan-900/50 to-purple-900/50 backdrop-blur-sm p-8 border-4 border-cyan-400 relative group hover:border-pink-400 transition-all hover:scale-105">
               <div className="absolute top-0 right-0 w-8 h-8 bg-cyan-400 border-2 border-white"></div>
               <div className="w-20 h-20 bg-cyan-400 border-4 border-white flex items-center justify-center mb-6 mx-auto relative">
-                <Image 
-                  src="/assets/icons/pixel_flag.png" 
-                  alt="Canvas" 
-                  width={48} 
+                <Image
+                  src="/assets/icons/pixel_flag.png"
+                  alt="Canvas"
+                  width={48}
                   height={48}
                   className="pixelated"
                 />
@@ -107,8 +110,8 @@ export default function LandingPage() {
                 ∞ 무한 캔버스
               </h4>
               <p className="text-gray-300 leading-relaxed">
-                끝없는 2D 공간에서 자유롭게 사고하세요. 
-                메모, 이미지, 링크를 원하는 곳에 배치하고 
+                끝없는 2D 공간에서 자유롭게 사고하세요.
+                메모, 이미지, 링크를 원하는 곳에 배치하고
                 공간적 맥락으로 정보를 구조화합니다.
               </p>
             </div>
@@ -117,10 +120,10 @@ export default function LandingPage() {
             <div className="bg-gradient-to-br from-purple-900/50 to-pink-900/50 backdrop-blur-sm p-8 border-4 border-purple-400 relative group hover:border-cyan-400 transition-all hover:scale-105">
               <div className="absolute top-0 right-0 w-8 h-8 bg-purple-400 border-2 border-white"></div>
               <div className="w-20 h-20 bg-purple-400 border-4 border-white flex items-center justify-center mb-6 mx-auto relative">
-                <Image 
-                  src="/assets/icons/bundle.png" 
-                  alt="Agile" 
-                  width={48} 
+                <Image
+                  src="/assets/icons/bundle.png"
+                  alt="Agile"
+                  width={48}
                   height={48}
                   className="pixelated"
                 />
@@ -130,8 +133,8 @@ export default function LandingPage() {
                 ◇ 비정형 애자일
               </h4>
               <p className="text-gray-300 leading-relaxed">
-                폴더나 계층 구조 없이, 당신의 사고방식대로. 
-                태그와 연결로 맥락을 만들고, 
+                폴더나 계층 구조 없이, 당신의 사고방식대로.
+                태그와 연결로 맥락을 만들고,
                 프로젝트를 유연하게 진화시킵니다.
               </p>
             </div>
@@ -140,10 +143,10 @@ export default function LandingPage() {
             <div className="bg-gradient-to-br from-pink-900/50 to-yellow-900/50 backdrop-blur-sm p-8 border-4 border-pink-400 relative group hover:border-yellow-400 transition-all hover:scale-105">
               <div className="absolute top-0 right-0 w-8 h-8 bg-pink-400 border-2 border-white"></div>
               <div className="w-20 h-20 bg-pink-400 border-4 border-white flex items-center justify-center mb-6 mx-auto relative">
-                <Image 
-                  src="/assets/icons/check.png" 
-                  alt="Context" 
-                  width={48} 
+                <Image
+                  src="/assets/icons/check.png"
+                  alt="Context"
+                  width={48}
                   height={48}
                   className="pixelated"
                 />
@@ -153,8 +156,8 @@ export default function LandingPage() {
                 ⚡ 맥락 시각화
               </h4>
               <p className="text-gray-300 leading-relaxed">
-                @ 태깅으로 연결하면 AI가 관계를 분석하고 
-                시각화합니다. 흩어진 생각들이 
+                @ 태깅으로 연결하면 AI가 관계를 분석하고
+                시각화합니다. 흩어진 생각들이
                 하나의 큰 그림으로 완성됩니다.
               </p>
             </div>
@@ -176,12 +179,12 @@ export default function LandingPage() {
             <div className="bg-gradient-to-br from-yellow-900/30 to-orange-900/30 backdrop-blur-sm p-8 border-4 border-yellow-400">
               <div className="flex items-start gap-4">
                 <div className="w-16 h-16 bg-yellow-400 border-4 border-white flex items-center justify-center flex-shrink-0">
-                  <span className="text-3xl">📧</span>
+                  <PixelIcon name="email" size={32} className="text-gray-900" />
                 </div>
                 <div>
                   <h4 className="text-xl font-bold text-yellow-300 mb-3 uppercase">Gmail 연동</h4>
                   <p className="text-gray-300 text-sm leading-relaxed">
-                    "Workless" 라벨이 붙은 이메일을 자동으로 캔버스에 가져옵니다. 
+                    "Workless" 라벨이 붙은 이메일을 자동으로 캔버스에 가져옵니다.
                     외부 정보를 워크스페이스로 손쉽게 통합하세요.
                   </p>
                 </div>
@@ -191,12 +194,12 @@ export default function LandingPage() {
             <div className="bg-gradient-to-br from-green-900/30 to-cyan-900/30 backdrop-blur-sm p-8 border-4 border-green-400">
               <div className="flex items-start gap-4">
                 <div className="w-16 h-16 bg-green-400 border-4 border-white flex items-center justify-center flex-shrink-0">
-                  <span className="text-3xl">🤖</span>
+                  <PixelIcon name="user" size={32} className="text-gray-900" />
                 </div>
                 <div>
                   <h4 className="text-xl font-bold text-green-300 mb-3 uppercase">AI 어시스턴트</h4>
                   <p className="text-gray-300 text-sm leading-relaxed">
-                    AI가 메모 간의 연관성을 분석하고, 
+                    AI가 메모 간의 연관성을 분석하고,
                     새로운 인사이트와 다음 액션을 제안합니다.
                   </p>
                 </div>
@@ -209,35 +212,36 @@ export default function LandingPage() {
         <section className="mb-32 bg-gradient-to-br from-purple-900/50 to-blue-900/50 backdrop-blur-sm p-12 border-4 border-purple-400 relative">
           <div className="absolute top-4 right-4 w-4 h-4 bg-cyan-400 animate-pulse"></div>
           <div className="absolute bottom-4 left-4 w-4 h-4 bg-pink-400 animate-pulse"></div>
-          
-          <h3 className="text-3xl font-bold text-white mb-8 uppercase text-center" style={{
+
+          <h3 className="text-3xl font-bold text-white mb-8 uppercase text-center flex items-center justify-center gap-3" style={{
             textShadow: '2px 2px 0px rgba(255,0,255,0.5)'
           }}>
-            🔒 데이터 투명성
+            <PixelIcon name="lock" size={28} className="text-white" />
+            <span>데이터 투명성</span>
           </h3>
-          
+
           <div className="space-y-6 text-gray-300 max-w-4xl mx-auto">
             <div className="bg-black/40 p-6 border-2 border-cyan-400">
               <h4 className="text-xl font-bold text-cyan-300 mb-3 flex items-center gap-2">
                 <span className="text-2xl">▸</span> Google 계정 정보
               </h4>
               <p className="leading-relaxed">
-                Google OAuth를 통해 이메일, 이름, 프로필 사진을 수집합니다. 
+                Google OAuth를 통해 이메일, 이름, 프로필 사진을 수집합니다.
                 이 정보는 사용자 인증 및 계정 관리 목적으로만 사용됩니다.
               </p>
             </div>
-            
+
             <div className="bg-black/40 p-6 border-2 border-purple-400">
               <h4 className="text-xl font-bold text-purple-300 mb-3 flex items-center gap-2">
                 <span className="text-2xl">▸</span> Gmail 데이터 (선택적)
               </h4>
               <p className="leading-relaxed">
-                사용자가 Gmail 연동을 선택한 경우에만, "Workless" 라벨이 지정된 이메일의 
-                <strong className="text-yellow-400"> 읽기 전용</strong> 권한을 요청합니다. 
+                사용자가 Gmail 연동을 선택한 경우에만, "Workless" 라벨이 지정된 이메일의
+                <strong className="text-yellow-400"> 읽기 전용</strong> 권한을 요청합니다.
                 이메일을 보내거나 수정하지 않습니다.
               </p>
             </div>
-            
+
             <div className="bg-black/40 p-6 border-2 border-pink-400">
               <h4 className="text-xl font-bold text-pink-300 mb-3 flex items-center gap-2">
                 <span className="text-2xl">▸</span> 사용자 생성 콘텐츠
@@ -246,11 +250,14 @@ export default function LandingPage() {
                 사용자가 생성한 메모, 프로젝트, 목표 등은 서비스 제공 및 개선 목적으로만 사용됩니다.
               </p>
             </div>
-            
+
             <div className="bg-gradient-to-r from-yellow-400/20 to-pink-400/20 p-6 border-4 border-yellow-400">
               <p className="text-sm leading-relaxed">
-                <strong className="text-yellow-300 text-lg">⚠️ 중요:</strong><br />
-                Workless는 사용자의 데이터를 제3자에게 판매하지 않으며, 
+                <strong className="text-yellow-300 text-lg flex items-center gap-2">
+                  <PixelIcon name="alert" size={18} className="text-yellow-300" />
+                  <span>중요:</span>
+                </strong><br />
+                Workless는 사용자의 데이터를 제3자에게 판매하지 않으며,
                 서비스 제공 목적으로만 사용합니다. 자세한 내용은{" "}
                 <Link href="/privacy" className="text-cyan-400 hover:text-cyan-300 font-bold underline">
                   개인정보처리방침
@@ -279,8 +286,10 @@ export default function LandingPage() {
               >
                 ▶▶ 무료로 시작하기 ◀◀
               </Link>
-              <div className="mt-6 text-cyan-400 text-sm font-bold animate-pulse">
-                ⚡ Google 계정으로 간편 로그인 ⚡
+              <div className="mt-6 text-cyan-400 text-sm font-bold animate-pulse flex items-center justify-center gap-2">
+                <PixelIcon name="zap" size={14} className="text-cyan-400" />
+                <span>Google 계정으로 간편 로그인</span>
+                <PixelIcon name="zap" size={14} className="text-cyan-400" />
               </div>
             </div>
           </div>
@@ -300,20 +309,20 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="flex gap-6">
-              <Link 
-                href="/privacy" 
+              <Link
+                href="/privacy"
                 className="text-cyan-400 text-sm hover:text-cyan-300 transition-colors font-bold border-b-2 border-transparent hover:border-cyan-400"
               >
                 개인정보처리방침
               </Link>
-              <Link 
-                href="/terms" 
+              <Link
+                href="/terms"
                 className="text-purple-400 text-sm hover:text-purple-300 transition-colors font-bold border-b-2 border-transparent hover:border-purple-400"
               >
                 서비스 약관
               </Link>
-              <a 
-                href="mailto:support@workless.app" 
+              <a
+                href="mailto:support@workless.app"
                 className="text-pink-400 text-sm hover:text-pink-300 transition-colors font-bold border-b-2 border-transparent hover:border-pink-400"
               >
                 문의하기
