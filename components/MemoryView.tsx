@@ -874,8 +874,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       const blockData = blocks.map(b => ({
         id: b.id,
         type: b.type,
-        width: b.width || (b.type === 'calendar' ? 350 : 240),
-        height: b.height || (b.type === 'calendar' ? 400 : 180),
+        width: b.width || (b.type === 'calendar' ? 245 : 240),
+        height: b.height || (b.type === 'calendar' ? 280 : 180),
       }));
 
       // AI 레이아웃 생성 API 호출
@@ -1862,8 +1862,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     contentLayoutRef.current[`block:${block.id}`] = {
                       x: block.x,
                       y: block.y,
-                      width: block.width || 350,
-                      height: block.height || 240,
+                      width: block.width || 245,
+                      height: block.height || 280,
                       zIndex: blockZIndex,
                     };
                     return (

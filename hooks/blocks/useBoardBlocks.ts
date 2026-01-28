@@ -85,8 +85,8 @@ export function useBoardBlocks({ boardSize, viewportBounds }: UseBoardBlocksArgs
               type: 'calendar',
               x: 100,
               y: 100,
-              width: 350,
-              height: 400,
+              width: 245,
+              height: 280,
               config: {
                 view: 'month',
                 selectedDate: Date.now(),
