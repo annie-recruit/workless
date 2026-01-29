@@ -22,7 +22,7 @@ export default function Footer() {
               개인정보처리방침
             </Link>
             <a
-              href="mailto:support@workless.app"
+              href="mailto:rkdhs326@gmail.com"
               className="text-gray-600 hover:text-gray-900 transition-colors"
             >
               문의하기
