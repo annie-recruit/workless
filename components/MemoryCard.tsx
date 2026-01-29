@@ -458,7 +458,7 @@ const MemoryCard = memo(
             />
           </div>
         ) : (
-          <div className="mb-2 pr-8">
+          <div className="mb-2">
             {/* 제목 */}
             {localMemory.title && (
               <h3 className="text-[11px] md:text-xs font-semibold text-gray-900 mb-1">
@@ -764,7 +764,7 @@ const MemoryCard = memo(
         </div>
 
         {/* 관련 기록 링크 */}
-        <div className="mt-1.5 pt-1.5 border-t border-gray-100">
+        <div className="mt-1 pt-1 border-t border-gray-100">
           <div className="flex items-start gap-1">
             <svg className="w-2.5 h-2.5 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />

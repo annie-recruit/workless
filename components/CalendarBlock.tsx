@@ -83,11 +83,25 @@ export default function CalendarBlock({
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
   const handlePrevMonth = () => {
-    setCurrentDate(prev => subMonths(prev, 1));
+    const newDate = subMonths(currentDate, 1);
+    setCurrentDate(newDate);
+    onUpdate(blockId, {
+      config: {
+        ...config,
+        selectedDate: newDate.getTime(),
+      },
+    });
   };
 
   const handleNextMonth = () => {
-    setCurrentDate(prev => addMonths(prev, 1));
+    const newDate = addMonths(currentDate, 1);
+    setCurrentDate(newDate);
+    onUpdate(blockId, {
+      config: {
+        ...config,
+        selectedDate: newDate.getTime(),
+      },
+    });
   };
 
   const handleDateClick = (date: Date, e?: React.MouseEvent) => {
@@ -150,7 +164,7 @@ export default function CalendarBlock({
       }}
     >
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+      <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-200">
         <div className="flex items-center gap-2">
           <PixelIcon name="calendar" size={18} />
           <h3 className="text-sm font-semibold text-gray-800">캘린더</h3>
@@ -230,6 +244,13 @@ export default function CalendarBlock({
               const isLinked = config.linkedMemoryIds?.some(id =>
                 dayMemories.some(m => m.id === id)
               );
+              
+              // 해당 날짜의 투두 개수 계산
+              const dayTodos = (config.todos || []).filter(todo => {
+                const todoDateKey = format(new Date(todo.date), 'yyyy-MM-dd');
+                return todoDateKey === dateKey;
+              });
+              const hasTodos = dayTodos.length > 0;
 
               return (
                 <button
@@ -244,20 +265,28 @@ export default function CalendarBlock({
                     ${!isCurrentMonth ? 'text-gray-300' : 'text-gray-700'}
                     ${isToday ? 'bg-blue-100 font-bold' : 'hover:bg-gray-100'}
                     ${isLinked ? 'ring-2 ring-blue-400' : ''}
+                    ${hasTodos && !isToday ? 'bg-purple-50' : ''}
                   `}
-                  title={dayMemories.length > 0 ? `${dayMemories.length}개의 기록` : ''}
+                  title={
+                    dayMemories.length > 0 || hasTodos
+                      ? `${dayMemories.length > 0 ? `${dayMemories.length}개의 기록` : ''}${dayMemories.length > 0 && hasTodos ? ', ' : ''}${hasTodos ? `${dayTodos.length}개의 할일` : ''}`
+                      : ''
+                  }
                 >
                   <div className="text-center">{format(day, 'd')}</div>
-                  {dayMemories.length > 0 && (
+                  {(dayMemories.length > 0 || hasTodos) && (
                     <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-0.5">
-                      {dayMemories.slice(0, 3).map((_, i) => (
+                      {dayMemories.slice(0, 2).map((_, i) => (
                         <div
-                          key={i}
+                          key={`mem-${i}`}
                           className="w-1 h-1 bg-blue-500 rounded-full"
                         />
                       ))}
-                      {dayMemories.length > 3 && (
-                        <div className="w-1 h-1 bg-blue-300 rounded-full" />
+                      {hasTodos && (
+                        <div className="w-1 h-1 bg-purple-500 rounded-full" />
+                      )}
+                      {(dayMemories.length + (hasTodos ? 1 : 0)) > 3 && (
+                        <div className="w-1 h-1 bg-gray-300 rounded-full" />
                       )}
                     </div>
                   )}
@@ -271,7 +300,7 @@ export default function CalendarBlock({
       {/* 주 뷰 */}
       {view === 'week' && (
         <div className="flex flex-col h-[calc(100%-60px)] overflow-y-auto">
-          <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-200">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
@@ -465,7 +494,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
   return (
     <div className="flex flex-col h-[calc(100%-60px)] overflow-y-auto">
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+      <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-200">
         <div className="flex items-center gap-2">
           <button
             onClick={(e) => {

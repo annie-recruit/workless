@@ -35,6 +35,7 @@ import GroupMenuBar from './GroupMenuBar';
 import { GmailImportButton } from './GmailImportButton';
 import { useBoardFlags } from '@/hooks/flags/useBoardFlags';
 import ActionProjectCard from './ActionProjectCard';
+import WidgetSynergyToast from './WidgetSynergyToast';
 
 // 위젯 로딩 플레이스홀더
 const WidgetPlaceholder = () => (
@@ -182,6 +183,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [isBlobEnabled, setIsBlobEnabled] = useState(true);
   const [isWidgetMenuOpen, setIsWidgetMenuOpen] = useState(false);
   const [isFlagMenuOpen, setIsFlagMenuOpen] = useState(false);
+  const [isSynergyModalOpen, setIsSynergyModalOpen] = useState(false);
 
   // Blob 설정 불러오기
   useEffect(() => {
@@ -259,7 +261,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     handleActivityBlurCapture,
   } = useActivityTracking({ isHighlightMode });
 
-  const { blocks, setBlocks, visibleBlocks, createBlock, updateBlock: handleBlockUpdate, deleteBlock: handleBlockDelete } =
+  const { blocks, setBlocks, visibleBlocks, fetchBlocks, createBlock, updateBlock: handleBlockUpdate, deleteBlock: handleBlockDelete } =
     useBoardBlocks({ boardSize, viewportBounds });
 
   useEffect(() => {
@@ -1357,7 +1359,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
       {/* 화이트보드 뷰 */}
       <div data-tutorial-target="board-view" className="h-[calc(300vh-280px)] min-h-[1500px]">
-        <div className="w-full h-full bg-white border border-gray-300 font-galmuri11 flex overflow-hidden">
+        <div className="w-full h-full bg-white border-y border-gray-300 font-galmuri11 flex overflow-hidden">
           <div className="flex-1 bg-white relative flex flex-col min-w-0 overflow-hidden">
             {/* 컨트롤 바 - (좌측 깃발 사이드바처럼) 스크롤과 무관하게 상단 고정 */}
             <div className="shrink-0 sticky top-0 z-30 flex items-center justify-between py-2 text-xs text-gray-500 bg-white border-b border-gray-200 shadow-sm">
@@ -1426,6 +1428,22 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   <PixelIcon name="flag" size={16} />
                   <span>깃발</span>
                 </button>
+                {/* 위젯 시너지 버튼 - 2개 이상 선택 시 활성화 */}
+                {(selectedMemoryIds.size + selectedBlockIds.size) >= 2 && (
+                  <button
+                    onClick={() => {
+                      setIsSynergyModalOpen(true);
+                      setIsWidgetMenuOpen(false);
+                      setIsGroupMenuOpen(false);
+                      setIsFlagMenuOpen(false);
+                    }}
+                    className="px-2 py-1 text-xs rounded border-2 border-purple-500 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold flex items-center gap-1"
+                    title="위젯 시너지"
+                  >
+                    <PixelIcon name="link" size={16} />
+                    <span>위젯시너지</span>
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-1">
                 <button
@@ -1918,6 +1936,24 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                               target.closest('textarea') ||
                               target.closest('canvas');
 
+                            // Ctrl/Cmd 키로 다중 선택 모드
+                            const isMultiSelect = e.ctrlKey || e.metaKey;
+
+                            if (isMultiSelect) {
+                              // 다중 선택 토글
+                              setSelectedBlockIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(block.id)) {
+                                  next.delete(block.id);
+                                } else {
+                                  next.add(block.id);
+                                }
+                                return next;
+                              });
+                              // 다중 선택 모드에서는 드래그 시작하지 않음
+                              return;
+                            }
+
                             // 조작 요소가 아니면 먼저 bring-to-front 처리
                             if (!isInteractiveElement) {
                               bringToFrontBlock(block.id);
@@ -1963,7 +1999,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       zIndex: blockZIndex,
                     };
                     return (
-                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-purple-400 rounded-lg' : ''}>
                         <ViewerBlock
                           blockId={block.id}
                           x={block.x}
@@ -1978,9 +2014,24 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                           isClicked={clickedBlockId === block.id}
                           zIndex={blockZIndex}
                           onPointerDown={(e) => {
-                            // 버튼이나 링크 클릭이 아닐 때만 드래그 시작
                             const target = e.target as HTMLElement;
                             if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('canvas')) {
+                              return;
+                            }
+
+                            // Ctrl/Cmd 키로 다중 선택 모드
+                            const isMultiSelect = e.ctrlKey || e.metaKey;
+
+                            if (isMultiSelect) {
+                              setSelectedBlockIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(block.id)) {
+                                  next.delete(block.id);
+                                } else {
+                                  next.add(block.id);
+                                }
+                                return next;
+                              });
                               return;
                             }
 
@@ -2098,7 +2149,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     };
 
                     return (
-                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-purple-400 rounded-lg' : ''}>
                         <DatabaseBlock
                           blockId={block.id}
                           x={block.x}
@@ -2118,6 +2169,22 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                               target.closest('input') ||
                               target.closest('select') ||
                               target.closest('table');
+
+                            // Ctrl/Cmd 키로 다중 선택 모드
+                            const isMultiSelect = e.ctrlKey || e.metaKey;
+
+                            if (isMultiSelect) {
+                              setSelectedBlockIds(prev => {
+                                const next = new Set(prev);
+                                if (next.has(block.id)) {
+                                  next.delete(block.id);
+                                } else {
+                                  next.add(block.id);
+                                }
+                                return next;
+                              });
+                              return;
+                            }
 
                             if (!isInteractiveElement) {
                               bringToFrontBlock(block.id);
@@ -2364,6 +2431,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 {/* 액션 프로젝트 카드들 */}
                 {localProjects.map((project) => {
                   const isDragging = draggingEntity?.type === 'project' && draggingEntity.id === project.id;
+                  const isSelected = selectedMemoryIds.has(project.id);
 
                   return (
                     <div
@@ -2375,7 +2443,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         transition: isDragging ? 'none' : 'transform 0.2s ease-out',
                         transformOrigin: 'center center',
                       }}
-                      className="absolute cursor-grab active:cursor-grabbing"
+                      className={`absolute cursor-grab active:cursor-grabbing ${isSelected ? 'ring-2 ring-blue-300/50 ring-offset-1' : ''}`}
                       onPointerDown={(e) => {
                         const target = e.target as HTMLElement;
                         if (
@@ -2384,6 +2452,22 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                           target.closest('textarea') ||
                           target.closest('[data-interactive="true"]')
                         ) return;
+
+                        // Ctrl/Cmd 키로 다중 선택 모드
+                        const isMultiSelect = e.ctrlKey || e.metaKey;
+
+                        if (isMultiSelect) {
+                          setSelectedMemoryIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(project.id)) {
+                              next.delete(project.id);
+                            } else {
+                              next.add(project.id);
+                            }
+                            return next;
+                          });
+                          return;
+                        }
 
                         if (!boardRef.current) return;
                         e.preventDefault();
@@ -2473,6 +2557,24 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         sanitizeHtml={sanitizeHtml}
         stripHtmlClient={stripHtmlClient}
         boardSize={boardSize}
+      />
+
+      <WidgetSynergyToast
+        isOpen={isSynergyModalOpen}
+        onClose={() => setIsSynergyModalOpen(false)}
+        selectedMemoryIds={selectedMemoryIds}
+        selectedBlockIds={selectedBlockIds}
+        memories={localMemories}
+        blocks={blocks}
+        projects={localProjects}
+        onSynergyComplete={async () => {
+          // 시너지 완료 후 블록 데이터 다시 불러오기
+          await fetchBlocks();
+          // 메모리 데이터도 새로고침
+          if (onMemoryDeleted) {
+            onMemoryDeleted();
+          }
+        }}
       />
     </div>
   );
