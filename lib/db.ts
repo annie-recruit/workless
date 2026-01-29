@@ -54,6 +54,11 @@ try {
 const dbPath = join(dataDir, 'workless.db');
 const db = new Database(dbPath);
 
+// WAL 모드 활성화 (동시 읽기/쓰기 향상)
+db.pragma('journal_mode = WAL');
+db.pragma('busy_timeout = 10000'); // 10초 타임아웃
+db.pragma('synchronous = NORMAL'); // 성능 향상
+
 console.log(`📊 Database path: ${dbPath}`);
 
 let memoryTableHasIngestId = false;
