@@ -3,10 +3,13 @@
 > **큰 도화지에 마음대로 위젯과 기록들을 펼쳐놓고 연결하는 비정형 워크스페이스**  
 > 생각과 아이디어의 흐름을 시각적으로 탐색하고 연결하는 지도
 
-![Workless](https://img.shields.io/badge/Next.js-16.1-black?style=for-the-badge&logo=next.js)
+[![Website](https://img.shields.io/badge/🌐_workless.me-Visit_Site-4f46e5?style=for-the-badge)](https://workless.me)
+![Next.js](https://img.shields.io/badge/Next.js-16.1-black?style=for-the-badge&logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.0-38bdf8?style=for-the-badge&logo=tailwind-css)
 ![OpenAI](https://img.shields.io/badge/OpenAI-GPT-412991?style=for-the-badge&logo=openai)
+
+**🌐 Production**: [https://workless.me](https://workless.me)
 
 ## 📖 프로젝트 소개
 
