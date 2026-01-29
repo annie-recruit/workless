@@ -11,7 +11,7 @@ export default function SignInClient() {
 
     useEffect(() => {
         // 약관 동의 확인
-        const isAgreed = sessionStorage.getItem('terms_agreed');
+        const isAgreed = localStorage.getItem('terms_agreed');
         if (!isAgreed) {
             alert('약관 동의가 필요합니다.');
             router.replace('/');

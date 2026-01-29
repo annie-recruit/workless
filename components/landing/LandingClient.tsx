@@ -162,7 +162,7 @@ export default function LandingClient() {
                         <button
                             onClick={() => {
                                 if (isAgreed) {
-                                    sessionStorage.setItem('terms_agreed', 'true');
+                                    localStorage.setItem('terms_agreed', 'true');
                                     router.push('/auth/signin');
                                 }
                             }}
