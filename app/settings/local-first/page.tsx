@@ -24,6 +24,7 @@ export default function LocalFirstSettings() {
     changeSyncMode,
     performSync,
     restoreFromServer,
+    forceRestoreFromServer,
   } = useLocalSync(userId);
 
   const { exportData, importData, getStats } = useLocalExport(userId);
@@ -239,6 +240,29 @@ export default function LocalFirstSettings() {
                 >
                   <PixelIcon name="download" size={20} />
                   서버 데이터로 복원
+                </button>
+              </div>
+            )}
+
+            {syncMode !== 'disabled' && (
+              <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
+                <button
+                  onClick={async () => {
+                    const data = await dataLayer.debugGetAllLocalData();
+                    console.log('🔍 [Debug] Local Data:', data);
+                    alert(`로컬 데이터: ${data.memories.length}개의 기록, ${data.groups.length}개의 그룹\n유저 ID 목록: ${data.userIds.join(', ')}\n\n상세 내용은 브라우저 콘솔(F12)을 확인하세요.`);
+                  }}
+                  className="text-[10px] text-gray-400 hover:underline flex items-center gap-1"
+                >
+                  <PixelIcon name="info" size={12} />
+                  로컬 데이터 진단하기
+                </button>
+                <button
+                  onClick={forceRestoreFromServer}
+                  className="text-[10px] text-red-500 hover:underline flex items-center gap-1"
+                >
+                  <PixelIcon name="warning" size={12} />
+                  데이터가 안 보이나요? 서버에서 강제 복원하기
                 </button>
               </div>
             )}

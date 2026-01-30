@@ -1422,16 +1422,16 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         <div className="w-full h-full bg-white border-y border-gray-300 font-galmuri11 flex overflow-hidden">
           <div className="flex-1 bg-white relative flex flex-col min-w-0 overflow-hidden">
             {/* 컨트롤 바 - (좌측 깃발 사이드바처럼) 스크롤과 무관하게 상단 고정 */}
-            <div className="shrink-0 sticky top-0 z-30 flex items-center justify-between py-2 text-xs text-gray-500 bg-white border-b border-gray-200 shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-gray-700">화이트보드</span>
-                <span className="text-[11px] text-gray-400">
+            <div className="shrink-0 sticky top-0 z-30 flex items-center justify-between py-2 text-xs text-gray-500 bg-white border-b border-gray-200 shadow-sm overflow-x-auto no-scrollbar">
+              <div className="flex items-center gap-2 px-3 min-w-max">
+                <span className="font-semibold text-gray-700 whitespace-nowrap">화이트보드</span>
+                <span className="text-[11px] text-gray-400 whitespace-nowrap">
                   {Math.round(boardSize.width)}×{Math.round(boardSize.height)}
                 </span>
                 {previousPositions && (
                   <button
                     onClick={handleRestoreLayout}
-                    className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600"
+                    className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 whitespace-nowrap"
                     title="이전 배열로 되돌리기"
                   >
                     이전 배열로
@@ -1440,7 +1440,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 <button
                   onClick={handleAutoArrange}
                   disabled={isAutoArranging}
-                  className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700"
+                  className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 whitespace-nowrap"
                   title="연결선 기반으로 자동 배열"
                 >
                   {isAutoArranging ? '배열 중...' : '맞춤 배열'}
@@ -1461,6 +1461,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   onClick={() => {
                     setIsWidgetMenuOpen((prev) => !prev);
                     setIsGroupMenuOpen(false);
+                    setIsFlagMenuOpen(false);
                   }}
                 />
 
@@ -1468,8 +1469,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   onClick={() => {
                     setIsGroupMenuOpen((prev) => !prev);
                     setIsWidgetMenuOpen(false);
+                    setIsFlagMenuOpen(false);
                   }}
-                  className={`px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 flex items-center gap-1 ${isGroupMenuOpen ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'text-gray-700'}`}
+                  className={`px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 flex items-center gap-1 whitespace-nowrap ${isGroupMenuOpen ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'text-gray-700'}`}
                   title="그룹"
                 >
                   <PixelIcon name="folder" size={16} />
@@ -1482,7 +1484,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     setIsWidgetMenuOpen(false);
                     setIsGroupMenuOpen(false);
                   }}
-                  className={`px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 flex items-center gap-1 ${isFlagMenuOpen ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'text-gray-700'}`}
+                  className={`px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 flex items-center gap-1 whitespace-nowrap ${isFlagMenuOpen ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'text-gray-700'}`}
                   title="깃발"
                 >
                   <PixelIcon name="flag" size={16} />
@@ -1497,7 +1499,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       setIsGroupMenuOpen(false);
                       setIsFlagMenuOpen(false);
                     }}
-                    className="px-2 py-1 text-xs rounded border-2 border-purple-500 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold flex items-center gap-1"
+                    className="px-2 py-1 text-xs rounded border-2 border-purple-500 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold flex items-center gap-1 whitespace-nowrap"
                     title="위젯 시너지"
                   >
                     <PixelIcon name="link" size={16} />
@@ -1505,7 +1507,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 px-3 shrink-0 bg-white/90 backdrop-blur-sm sticky right-0">
                 <button
                   onClick={() => changeZoom(-0.1)}
                   className="px-2 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
@@ -1513,7 +1515,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 >
                   -
                 </button>
-                <span className="text-xs font-semibold">{Math.round(zoom * 100)}%</span>
+                <span className="text-xs font-semibold min-w-[35px] text-center">{Math.round(zoom * 100)}%</span>
                 <button
                   onClick={() => changeZoom(0.1)}
                   className="px-2 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
@@ -1521,12 +1523,14 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 >
                   +
                 </button>
-                <button
-                  onClick={resetZoom}
-                  className="px-2 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50"
-                >
-                  초기화
-                </button>
+                {!isMobile && (
+                  <button
+                    onClick={resetZoom}
+                    className="px-2 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50 whitespace-nowrap ml-1"
+                  >
+                    초기화
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2284,8 +2288,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   getLivePos={getLivePos}
                   cardSize={cardSize}
                   boardSize={boardSize}
-                  isPaused={!draggingEntity && hoveredBlobId === null}
+                  isPaused={!!draggingEntity || hoveredBlobId !== null}
                   isEnabled={true}
+                  isMobile={isMobile}
                   hoveredBlobId={hoveredBlobId}
                   blobAreas={blobAreas}
                   projects={localProjects}

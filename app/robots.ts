@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function robots(): MetadataRoute.Robots {
-    const baseUrl = process.env.NEXTAUTH_URL || 'https://workless.app';
+    const baseUrl = 'https://workless.app';
     return {
         rules: {
             userAgent: '*',

@@ -26,9 +26,13 @@ const galmuri = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://workless.app'),
   title: "WORKLESS - 맥락을 구체화. 비정형 애자일 워크스페이스",
   description: "WORKLESS는 Gmail 연동을 통해 이메일을 자동으로 메모로 변환하고, 무한 캔버스에서 아이디어를 자유롭게 배치하고 연결할 수 있는 개인 비서입니다.",
   manifest: "/manifest.json",
+  alternates: {
+    canonical: '/',
+  },
   themeColor: "#4f46e5",
   appleWebApp: {
     capable: true,

@@ -17,12 +17,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const formData = await req.formData();
-    const title = (formData.get('title') as string) || undefined;
-    const content = formData.get('content') as string;
-    const derivedFromCardId = (formData.get('derivedFromCardId') as string) || undefined;
-    const files = formData.getAll('files') as File[];
-    const relatedMemoryIdsRaw = formData.get('relatedMemoryIds') as string | null;
+    let title, content, derivedFromCardId, files: File[] = [], relatedMemoryIdsRaw;
+    const contentType = req.headers.get('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+      const body = await req.json();
+      title = body.title;
+      content = body.content;
+      derivedFromCardId = body.derivedFromCardId;
+      relatedMemoryIdsRaw = body.relatedMemoryIds ? JSON.stringify(body.relatedMemoryIds) : null;
+      // JSON 요청에서는 파일 처리를 생략하거나 이미 업로드된 파일 경로를 받을 수 있음
+    } else {
+      const formData = await req.formData();
+      title = (formData.get('title') as string) || undefined;
+      content = formData.get('content') as string;
+      derivedFromCardId = (formData.get('derivedFromCardId') as string) || undefined;
+      files = formData.getAll('files') as File[];
+      relatedMemoryIdsRaw = formData.get('relatedMemoryIds') as string | null;
+    }
 
 
     if (!content || typeof content !== 'string') {

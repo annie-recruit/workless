@@ -33,7 +33,19 @@ export const metadata: Metadata = {
 };
 
 export default function LandingPage() {
-  const jsonLd = {
+  const websiteJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'WORKLESS',
+    url: 'https://workless.app',
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: 'https://workless.app/search?q={search_term_string}',
+      'query-input': 'required name=search_term_string',
+    },
+  };
+
+  const softwareJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
     name: 'WORKLESS',
@@ -56,7 +68,11 @@ export default function LandingPage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd) }}
       />
       <LandingClient />
     </>

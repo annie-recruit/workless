@@ -38,27 +38,21 @@ export default function Home() {
   const fetchDashboardData = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [memoriesRes, blocksRes] = await Promise.all([
-        fetch('/api/memories'),
-        fetch('/api/board/blocks')
+      // 로컬 우선 데이터 로드
+      const [localMemories, localBlocks] = await Promise.all([
+        dataLayer.getMemories(userId),
+        dataLayer.getBlocks(userId),
       ]);
 
-      if (memoriesRes.ok) {
-        const data = await memoriesRes.json();
-        const sortedMemories = data.memories.sort((a: Memory, b: Memory) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        setMemories(sortedMemories);
-      }
-
-      if (blocksRes.ok) {
-        const data = await blocksRes.json();
-        setBlocks(data.blocks || []);
-      }
+      const sortedMemories = localMemories.sort((a: Memory, b: Memory) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      setMemories(sortedMemories);
+      setBlocks(localBlocks);
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
-      setLoading(false); // 무조건 false로 설정
+      setLoading(false);
     }
   };
 

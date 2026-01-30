@@ -26,7 +26,7 @@ export default function FlagMenuBar({
     onHoverFlag,
 }: Props) {
     return (
-        <div className="shrink-0 border-b border-gray-200 bg-white px-3 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar flex-nowrap flex-row">
+        <div className="shrink-0 sticky top-[44px] md:top-[41px] z-20 border-b border-gray-200 bg-white px-3 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar flex-nowrap flex-row">
             <button
                 type="button"
                 onClick={onAddFlag}

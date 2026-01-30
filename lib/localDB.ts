@@ -194,17 +194,39 @@ export class WorklessDB extends Dexie {
    * Dirty 플래그 설정
    */
   async markDirty(userId: string) {
-    await this.syncMetadata.update('user_' + userId, { dirty: true });
+    const key = 'user_' + userId;
+    const metadata = await this.syncMetadata.get(key);
+    if (metadata) {
+      await this.syncMetadata.update(key, { dirty: true });
+    } else {
+      await this.syncMetadata.put({
+        key,
+        lastSyncedAt: 0,
+        version: 1,
+        dirty: true,
+      });
+    }
   }
 
   /**
    * Dirty 플래그 해제
    */
   async markClean(userId: string) {
-    await this.syncMetadata.update('user_' + userId, { 
-      dirty: false,
-      lastSyncedAt: Date.now(),
-    });
+    const key = 'user_' + userId;
+    const metadata = await this.syncMetadata.get(key);
+    if (metadata) {
+      await this.syncMetadata.update(key, { 
+        dirty: false,
+        lastSyncedAt: Date.now(),
+      });
+    } else {
+      await this.syncMetadata.put({
+        key,
+        lastSyncedAt: Date.now(),
+        version: 1,
+        dirty: false,
+      });
+    }
   }
 }
 

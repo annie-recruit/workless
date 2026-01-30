@@ -582,6 +582,58 @@ export const memoryDb = {
     return this.parseRow(row);
   },
 
+  // 벌크 업서트 (동기화용)
+  upsertMany(userId: string, memories: Memory[]): void {
+    const now = Date.now();
+    const columns = [
+      'id', 'userId', 'title', 'content', 'createdAt', 'derivedFromCardId',
+      'topic', 'nature', 'timeContext', 'relatedMemoryIds', 'clusterTag',
+      'repeatCount', 'lastMentionedAt', 'attachments', 'source',
+      'sourceId', 'sourceLink', 'sourceSender', 'sourceSubject', 'dedupeKey'
+    ];
+    
+    const placeholders = columns.map(() => '?').join(', ');
+    const updateSet = columns
+      .filter(c => c !== 'id' && c !== 'userId' && c !== 'createdAt')
+      .map(c => `${c} = excluded.${c}`)
+      .join(', ');
+
+    const stmt = db.prepare(`
+      INSERT INTO memories (${columns.join(', ')})
+      VALUES (${placeholders})
+      ON CONFLICT(id) DO UPDATE SET ${updateSet}
+    `);
+
+    const transaction = db.transaction((rows: Memory[]) => {
+      for (const m of rows) {
+        stmt.run(
+          m.id,
+          userId,
+          m.title || null,
+          m.content,
+          m.createdAt || now,
+          m.derivedFromCardId || null,
+          m.topic || null,
+          m.nature || null,
+          m.timeContext || null,
+          m.relatedMemoryIds ? JSON.stringify(m.relatedMemoryIds) : null,
+          m.clusterTag || null,
+          m.repeatCount || 0,
+          m.lastMentionedAt || null,
+          m.attachments ? JSON.stringify(m.attachments) : null,
+          m.source || 'manual',
+          m.sourceId || null,
+          m.sourceLink || null,
+          m.sourceSender || null,
+          m.sourceSubject || null,
+          (m as any).dedupeKey || null
+        );
+      }
+    });
+
+    transaction(memories);
+  },
+
   // dedupeKey로 조회 (중복 방지용)
   getByDedupeKey(dedupeKey: string, userId: string): Memory | null {
     const stmt = db.prepare('SELECT * FROM memories WHERE dedupeKey = ? AND userId = ?');
@@ -802,6 +854,38 @@ export const groupDb = {
     return rows.map(row => this.parseRow(row));
   },
 
+  // 벌크 업서트 (동기화용)
+  upsertMany(userId: string, groups: Group[]): void {
+    const now = Date.now();
+    const stmt = db.prepare(`
+      INSERT INTO groups (id, userId, name, color, memoryIds, isAIGenerated, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        name = excluded.name,
+        color = excluded.color,
+        memoryIds = excluded.memoryIds,
+        isAIGenerated = excluded.isAIGenerated,
+        updatedAt = excluded.updatedAt
+    `);
+
+    const transaction = db.transaction((rows: Group[]) => {
+      for (const g of rows) {
+        stmt.run(
+          g.id,
+          userId,
+          g.name,
+          g.color || null,
+          JSON.stringify(g.memoryIds),
+          g.isAIGenerated ? 1 : 0,
+          g.createdAt || now,
+          g.updatedAt || now
+        );
+      }
+    });
+
+    transaction(groups);
+  },
+
   // 업데이트
   update(id: string, userId: string, updates: Partial<Group>): void {
     const fields = ['updatedAt = ?'];
@@ -903,6 +987,51 @@ export const goalDb = {
     const stmt = db.prepare('SELECT * FROM goals WHERE userId = ? AND status = ? ORDER BY updatedAt DESC');
     const rows = stmt.all(userId, status) as any[];
     return rows.map(row => this.parseRow(row));
+  },
+
+  // 벌크 업서트 (동기화용)
+  upsertMany(userId: string, goals: Goal[]): void {
+    const now = Date.now();
+    const stmt = db.prepare(`
+      INSERT INTO goals (
+        id, userId, title, description, category, status, progress, 
+        sourceMemoryIds, milestones, targetDate, createdAt, updatedAt, completedAt
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        title = excluded.title,
+        description = excluded.description,
+        category = excluded.category,
+        status = excluded.status,
+        progress = excluded.progress,
+        sourceMemoryIds = excluded.sourceMemoryIds,
+        milestones = excluded.milestones,
+        targetDate = excluded.targetDate,
+        updatedAt = excluded.updatedAt,
+        completedAt = excluded.completedAt
+    `);
+
+    const transaction = db.transaction((rows: Goal[]) => {
+      for (const g of rows) {
+        stmt.run(
+          g.id,
+          userId,
+          g.title,
+          g.description || null,
+          g.category,
+          g.status,
+          g.progress || 0,
+          JSON.stringify(g.sourceMemoryIds),
+          g.milestones ? JSON.stringify(g.milestones) : null,
+          g.targetDate || null,
+          g.createdAt || now,
+          g.updatedAt || now,
+          g.completedAt || null
+        );
+      }
+    });
+
+    transaction(goals);
   },
 
   // 업데이트
@@ -1341,6 +1470,42 @@ export const boardBlocksDb = {
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
+  },
+
+  // 벌크 업서트 (동기화용)
+  upsertMany(userId: string, blocks: CanvasBlock[]): void {
+    const now = Date.now();
+    const stmt = db.prepare(`
+      INSERT INTO board_blocks (id, userId, type, x, y, width, height, config, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        type = excluded.type,
+        x = excluded.x,
+        y = excluded.y,
+        width = excluded.width,
+        height = excluded.height,
+        config = excluded.config,
+        updatedAt = excluded.updatedAt
+    `);
+
+    const transaction = db.transaction((rows: CanvasBlock[]) => {
+      for (const b of rows) {
+        stmt.run(
+          b.id,
+          userId,
+          b.type,
+          b.x,
+          b.y,
+          b.width || null,
+          b.height || null,
+          JSON.stringify(b.config),
+          b.createdAt || now,
+          b.updatedAt || now
+        );
+      }
+    });
+
+    transaction(blocks);
   },
 
   // 업데이트
