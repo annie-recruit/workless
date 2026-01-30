@@ -225,7 +225,7 @@ export default function LocalFirstSettings() {
             {syncMode !== 'disabled' && (
               <div className="flex flex-col md:flex-row gap-3 mt-6">
                 <button
-                  onClick={performSync}
+                  onClick={() => performSync()}
                   disabled={isSyncing || !isOnline}
                   className="flex-1 bg-black text-white px-6 py-4 font-bold border-b-4 border-r-4 border-gray-700 active:translate-x-1 active:translate-y-1 active:border-0 transition-all disabled:bg-gray-400 disabled:border-gray-300 flex items-center justify-center gap-2"
                 >
@@ -234,7 +234,7 @@ export default function LocalFirstSettings() {
                 </button>
 
                 <button
-                  onClick={restoreFromServer}
+                  onClick={() => restoreFromServer()}
                   disabled={isSyncing || !isOnline}
                   className="flex-1 bg-white text-black px-6 py-4 font-bold border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-none transition-all disabled:text-gray-400 disabled:border-gray-200 flex items-center justify-center gap-2"
                 >
@@ -258,7 +258,7 @@ export default function LocalFirstSettings() {
                   로컬 데이터 진단하기
                 </button>
                 <button
-                  onClick={forceRestoreFromServer}
+                  onClick={() => forceRestoreFromServer()}
                   className="text-[10px] text-red-500 hover:underline flex items-center gap-1"
                 >
                   <PixelIcon name="warning" size={12} />
@@ -287,7 +287,7 @@ export default function LocalFirstSettings() {
                 백업 파일을 직접 관리하고 싶을 때 사용하세요.
               </p>
               <button
-                onClick={exportData}
+                onClick={() => exportData()}
                 className="w-full bg-indigo-600 text-white px-6 py-3 font-bold border-b-4 border-r-4 border-indigo-900 active:translate-x-1 active:translate-y-1 active:border-0 transition-all flex items-center justify-center gap-2"
               >
                 📥 데이터 파일 다운로드
