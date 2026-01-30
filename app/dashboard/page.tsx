@@ -15,7 +15,7 @@ import GlobalSearch from '@/components/GlobalSearch';
 import PixelIcon from '@/components/PixelIcon';
 import ProcessingLoader from '@/components/ProcessingLoader';
 import { useLocalSync } from '@/hooks/useLocalSync';
-import * as dataLayer from '@/lib/dataLayer';
+import { dataLayer } from '@/lib/dataLayer';
 import { Memory, CanvasBlock } from '@/types';
 
 export default function Home() {
