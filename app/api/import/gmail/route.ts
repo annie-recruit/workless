@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserId } from '@/lib/auth';
 import { fetchWorklessEmails } from '@/lib/gmail';
-import { summarizeGmailEmail } from '@/lib/ai';
+import { summarizeGmailEmail, summarizeAttachments } from '@/lib/ai';
 import { memoryDb } from '@/lib/db';
 
 const MAX_IMPORT_PER_RUN = 10;
@@ -82,7 +82,6 @@ export async function POST(req: NextRequest) {
                         // Note: memoryDb.create 이후에 AI가 추가 분석을 할 수 있는 구조라면 
                         // 여기서 fileContext를 활용한 추가 로직을 넣을 수 있습니다.
                         
-                        return { id: memory.id, success: true };
                         return { id: memory.id, success: true };
                     } catch (error) {
                         return { messageId: email.messageId, success: false, error: String(error) };

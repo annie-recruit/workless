@@ -38,6 +38,8 @@ export default function OnboardingMiniBoard({
         viewer: { x: 380, y: 200 },
     });
     const [scale, setScale] = useState(1);
+    const [dragging, setDragging] = useState<keyof CardPositions | null>(null);
+    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
     // 컨테이너 크기 관측 및 스케일링 계산
     useEffect(() => {

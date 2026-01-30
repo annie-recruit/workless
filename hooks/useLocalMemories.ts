@@ -7,6 +7,7 @@
 
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import { localDB } from '@/lib/localDB';
 import { dataLayer } from '@/lib/dataLayer';
 import type { Memory } from '@/types';
