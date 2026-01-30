@@ -54,8 +54,17 @@ export async function POST(req: NextRequest) {
             const chunkResults = await Promise.all(
                 chunk.map(async (email) => {
                     try {
+                        // 1. 메일 본문 요약
                         const summaryData = await summarizeGmailEmail(email);
                         const content = `${summaryData.summary}\n\nKey Points:\n${summaryData.key_points.map(p => `- ${p}`).join('\n')}`;
+                        
+                        // 2. 첨부파일 내용 분석 (있을 경우)
+                        let fileContext = '';
+                        if (email.attachments && email.attachments.length > 0) {
+                            fileContext = await summarizeAttachments(email.attachments, content);
+                        }
+
+                        // 3. 기억 생성
                         const memory = memoryDb.create(content, userId, {
                             title: summaryData.title,
                             source: 'gmail',
@@ -65,8 +74,15 @@ export async function POST(req: NextRequest) {
                             sourceSubject: email.subject,
                             topic: summaryData.tags[0] || '기타',
                             nature: '단순기록',
-                            timeContext: '언젠가'
+                            timeContext: '언젠가',
+                            attachments: email.attachments,
                         });
+
+                        // 4. 분석된 파일 내용이 있으면 업데이트 (분류 등에 활용될 수 있도록)
+                        // Note: memoryDb.create 이후에 AI가 추가 분석을 할 수 있는 구조라면 
+                        // 여기서 fileContext를 활용한 추가 로직을 넣을 수 있습니다.
+                        
+                        return { id: memory.id, success: true };
                         return { id: memory.id, success: true };
                     } catch (error) {
                         return { messageId: email.messageId, success: false, error: String(error) };

@@ -524,29 +524,39 @@ async function summarizeWebContent(text: string): Promise<string> {
 
 // 첨부 파일 내용 요약
 export async function summarizeAttachments(attachments: Attachment[], content?: string): Promise<string> {
-  if (!attachments || attachments.length === 0) {
-    // 첨부파일이 없어도 내용에서 URL 추출
-    if (content) {
-      const urls = extractUrls(content);
-      if (urls.length > 0) {
-        console.log('🌐 [URL] 기록 내용에서 URL 발견:', urls.length, '개');
-        const urlDescriptions: string[] = [];
-        for (let i = 0; i < urls.length; i++) {
-          const url = urls[i];
-          console.log(`🌐 [URL ${i + 1}/${urls.length}] 요약 시작:`, url);
-          const summary = await fetchAndSummarizeUrl(url);
-          urlDescriptions.push(`[링크: ${url}]\n요약: ${summary}`);
+  let urlContext = '';
+  // 내용에서 URL 추출 및 요약
+  if (content) {
+    const urls = extractUrls(content);
+    if (urls.length > 0) {
+      console.log('🌐 [URL] 기록 내용에서 URL 발견:', urls.length, '개');
+      const urlDescriptions: string[] = [];
+      for (let i = 0; i < urls.length; i++) {
+        const url = urls[i];
+        // 캐시 확인
+        const cachedUrlContent = attachmentCacheDb.get(url);
+        if (cachedUrlContent) {
+          console.log(`💾 [URL ${i + 1}] 캐시에서 발견! 요약 건너뛰기`);
+          urlDescriptions.push(cachedUrlContent);
+          continue;
         }
-        if (urlDescriptions.length > 0) {
-          return urlDescriptions.join('\n\n');
-        }
+
+        console.log(`🌐 [URL ${i + 1}/${urls.length}] 요약 시작:`, url);
+        const summary = await fetchAndSummarizeUrl(url);
+        const urlDescription = `[링크: ${url}]\n요약: ${summary}`;
+        attachmentCacheDb.set(url, urlDescription);
+        urlDescriptions.push(urlDescription);
       }
+      urlContext = urlDescriptions.join('\n\n');
     }
-    return '';
+  }
+
+  if (!attachments || attachments.length === 0) {
+    return urlContext;
   }
 
   console.log('📦 [summarizeAttachments] 시작 - 파일 개수:', attachments.length);
-  const descriptions: string[] = [];
+  const descriptions: string[] = [urlContext].filter(Boolean);
 
   for (let i = 0; i < attachments.length; i++) {
     const attachment = attachments[i];
@@ -613,32 +623,6 @@ export async function summarizeAttachments(attachments: Attachment[], content?: 
       attachmentCacheDb.set(attachment.filepath, parsedContent);
       console.log(`💾 [파일 ${i + 1}] 캐시에 저장 완료`);
       descriptions.push(parsedContent);
-    }
-  }
-
-  // 내용에서 URL 추출 및 요약 (캐시 확인)
-  if (content) {
-    const urls = extractUrls(content);
-    if (urls.length > 0) {
-      console.log('🌐 [URL] 기록 내용에서 URL 발견:', urls.length, '개');
-      for (let i = 0; i < urls.length; i++) {
-        const url = urls[i];
-        // URL도 캐시 확인 (filepath 대신 URL 사용)
-        const cachedUrlContent = attachmentCacheDb.get(url);
-        if (cachedUrlContent) {
-          console.log(`💾 [URL ${i + 1}] 캐시에서 발견! 요약 건너뛰기`);
-          descriptions.push(cachedUrlContent);
-          continue;
-        }
-
-        console.log(`🌐 [URL ${i + 1}/${urls.length}] 요약 시작:`, url);
-        const summary = await fetchAndSummarizeUrl(url);
-        const urlDescription = `[링크: ${url}]\n요약: ${summary}`;
-        // URL 요약도 캐시에 저장
-        attachmentCacheDb.set(url, urlDescription);
-        console.log(`💾 [URL ${i + 1}] 캐시에 저장 완료`);
-        descriptions.push(urlDescription);
-      }
     }
   }
 

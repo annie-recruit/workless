@@ -7,8 +7,16 @@ import { ko } from 'date-fns/locale';
 import Link from 'next/link';
 import ProcessingLoader from '@/components/ProcessingLoader';
 import PixelIcon from '@/components/PixelIcon';
+import { useSession } from 'next-auth/react';
+import { useLocalSync } from '@/hooks/useLocalSync';
 
 export default function TimelinePage() {
+  const { data: session } = useSession();
+  const userId = (session?.user as any)?.id || session?.user?.email || '';
+  
+  // 동기화 및 마이그레이션 관리
+  useLocalSync(userId);
+
   const [memories, setMemories] = useState<Memory[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState(7); // 기본 7일

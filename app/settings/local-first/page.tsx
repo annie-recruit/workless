@@ -13,7 +13,7 @@ import Link from 'next/link';
 
 export default function LocalFirstSettings() {
   const { data: session } = useSession();
-  const userId = session?.user?.email || '';
+  const userId = (session?.user as any)?.id || session?.user?.email || '';
 
   const {
     syncMode,

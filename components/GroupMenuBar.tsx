@@ -29,7 +29,7 @@ export default function GroupMenuBar({
   };
 
   return (
-    <div className="shrink-0 sticky top-[41px] z-20 flex items-center gap-2 px-3 py-2 text-xs text-gray-500 bg-gray-50 border-b border-gray-200 shadow-sm overflow-x-auto no-scrollbar">
+    <div className="shrink-0 sticky top-[41px] z-20 flex items-center gap-2 px-3 py-2 text-xs text-gray-500 bg-gray-50 border-b border-gray-200 shadow-sm overflow-x-auto no-scrollbar flex-nowrap">
       {/* 전체 버튼 */}
       <button
         onClick={() => onSelectGroup(null)}

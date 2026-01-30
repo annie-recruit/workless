@@ -65,6 +65,7 @@ export interface GmailEmail {
   snippet: string;
   bodyText?: string;
   gmailLink?: string;
+  attachments?: Attachment[];
 }
 
 // 맥락 묶음

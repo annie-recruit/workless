@@ -60,7 +60,7 @@ export default function LandingClient() {
                     <section className="flex flex-col items-center justify-center mt-8 w-full" aria-label="서비스 소개">
                         {/* 앱 목적 설명 (보드 배경으로 확장) */}
                         <article
-                            className="relative bg-white border-2 border-gray-800 p-8 w-full max-w-5xl min-h-[500px] flex flex-col justify-center items-center text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-[1.01] overflow-hidden"
+                            className="relative bg-white border-2 border-gray-800 p-4 md:p-8 w-full max-w-5xl min-h-[400px] md:min-h-[500px] flex flex-col justify-center items-center text-center shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-[1.01] overflow-hidden"
                             style={{ backgroundColor: '#ffffff' }}
                         >
                             {/* 픽셀 코너 포인트 */}

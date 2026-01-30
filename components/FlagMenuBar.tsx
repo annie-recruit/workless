@@ -26,7 +26,7 @@ export default function FlagMenuBar({
     onHoverFlag,
 }: Props) {
     return (
-        <div className="shrink-0 border-b border-gray-200 bg-white px-3 py-2 flex items-center gap-2 overflow-x-auto">
+        <div className="shrink-0 border-b border-gray-200 bg-white px-3 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
             <button
                 type="button"
                 onClick={onAddFlag}
@@ -34,16 +34,16 @@ export default function FlagMenuBar({
                 title="Flag 추가"
             >
                 <PixelIcon name="flag" size={16} />
-                <span className="font-medium text-gray-700">깃발 추가</span>
+                <span className="font-medium text-gray-700 whitespace-nowrap">깃발 추가</span>
             </button>
 
             {isPlacing && (
-                <div className="text-[11px] text-indigo-600 font-medium">
+                <div className="text-[11px] text-indigo-600 font-medium whitespace-nowrap">
                     📍 보드에 클릭하여 깃발을 배치하세요 (ESC: 취소)
                 </div>
             )}
 
-            <div className="flex items-center gap-2 flex-1 overflow-x-auto">
+            <div className="flex items-center gap-2 flex-1 overflow-x-auto no-scrollbar">
                 {flags.map((flag) => {
                     const isSelected = selectedFlagId === flag.id;
                     const isActive = activeFlagId === flag.id;

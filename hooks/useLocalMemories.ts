@@ -12,38 +12,42 @@ import { dataLayer } from '@/lib/dataLayer';
 import type { Memory } from '@/types';
 
 export function useLocalMemories(userId: string) {
+  // session에서 실제 ID 가져오기 (이메일 대신 내부 ID 사용 권장)
+  const { data: session } = useSession();
+  const actualUserId = (session?.user as any)?.id || userId;
+
   // IndexedDB에서 실시간 쿼리
   const memories = useLiveQuery(
     () => localDB.memories
       .where('userId')
-      .equals(userId)
+      .equals(actualUserId)
       .reverse()
       .sortBy('createdAt'),
-    [userId]
+    [actualUserId]
   );
 
   // 메모리 생성
   const createMemory = useCallback(
     async (content: string, classification?: Partial<Memory>) => {
-      return await dataLayer.createMemory(userId, content, classification);
+      return await dataLayer.createMemory(actualUserId, content, classification);
     },
-    [userId]
+    [actualUserId]
   );
 
   // 메모리 업데이트
   const updateMemory = useCallback(
     async (id: string, updates: Partial<Memory>) => {
-      await dataLayer.updateMemory(id, userId, updates);
+      await dataLayer.updateMemory(id, actualUserId, updates);
     },
-    [userId]
+    [actualUserId]
   );
 
   // 메모리 삭제
   const deleteMemory = useCallback(
     async (id: string) => {
-      await dataLayer.deleteMemory(id, userId);
+      await dataLayer.deleteMemory(id, actualUserId);
     },
-    [userId]
+    [actualUserId]
   );
 
   // 메모리 통계
@@ -51,11 +55,11 @@ export function useLocalMemories(userId: string) {
     async () => {
       const count = await localDB.memories
         .where('userId')
-        .equals(userId)
+        .equals(actualUserId)
         .count();
       return { count };
     },
-    [userId]
+    [actualUserId]
   );
 
   return {

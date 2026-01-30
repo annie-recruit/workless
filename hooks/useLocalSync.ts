@@ -3,16 +3,56 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import { localDB } from '@/lib/localDB';
 import { dataLayer } from '@/lib/dataLayer';
 import type { SyncMode } from '@/lib/dataLayer';
 
 export function useLocalSync(userId: string) {
+  const { data: session, status } = useSession();
   const [syncMode, setSyncMode] = useState<SyncMode>('disabled');
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<number>(0);
   const [needsSync, setNeedsSync] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+
+  // 초기 마이그레이션 체크
+  useEffect(() => {
+    const autoMigrate = async () => {
+      if (status !== 'authenticated' || !userId || !isOnline) return;
+      
+      const email = session?.user?.email || '';
+      const numericId = (session?.user as any)?.id || '';
+
+      // 1. 로컬 ID 마이그레이션 (email -> numericId)
+      if (email && numericId && email !== numericId) {
+        await dataLayer.migrateLocalData(email, numericId);
+      }
+
+      const activeUserId = numericId || email || userId;
+
+      // 2. 로컬에 데이터가 아예 없는지 확인 (어떤 유저의 데이터라도 있으면 복원 안 함)
+      const stats = await localDB.getStats(activeUserId);
+      if (stats.totalGlobalItems === 0) {
+        console.log('Local DB is empty, attempting auto-migration from server...');
+        try {
+          await dataLayer.restoreFromServer(activeUserId);
+          console.log('Auto-migration successful');
+          window.location.reload(); 
+        } catch (error) {
+          console.error('Auto-migration failed:', error);
+        }
+      }
+    };
+
+    // 로컬스토리지에 마이그레이션 시도 여부 저장하여 중복 실행 방지
+    const migrateKey = `workless:migrated:${userId}`;
+    if (!localStorage.getItem(migrateKey)) {
+      autoMigrate().then(() => {
+        localStorage.setItem(migrateKey, 'true');
+      });
+    }
+  }, [userId, isOnline, status]);
 
   // 동기화 설정 로드
   useEffect(() => {

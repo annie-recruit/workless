@@ -14,10 +14,16 @@ import PersonaSelector from '@/components/PersonaSelector';
 import GlobalSearch from '@/components/GlobalSearch';
 import PixelIcon from '@/components/PixelIcon';
 import ProcessingLoader from '@/components/ProcessingLoader';
+import { useLocalSync } from '@/hooks/useLocalSync';
 import { Memory, CanvasBlock } from '@/types';
 
 export default function Home() {
   const { data: session, status } = useSession();
+  const userId = (session?.user as any)?.id || session?.user?.email || '';
+  
+  // 동기화 및 마이그레이션 관리
+  useLocalSync(userId);
+
   const router = useRouter();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [blocks, setBlocks] = useState<CanvasBlock[]>([]); // Page level blocks state
@@ -198,14 +204,14 @@ export default function Home() {
       {/* 메인 콘텐츠 영역 */}
       <div className="flex-1 overflow-y-auto">
         <header className="relative overflow-hidden bg-indigo-600 border-b-2 border-indigo-500 font-galmuri11">
-          <div className="container mx-auto px-4 py-12">
+          <div className="container mx-auto px-4 py-6 md:py-12">
             <div className="relative z-10">
-              <h1 className="text-4xl md:text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ letterSpacing: '-0.05em' }}>
+              <h1 className="text-3xl md:text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ letterSpacing: '-0.05em' }}>
                 Workless
               </h1>
               <div className="flex items-center gap-3">
-                <div className="h-0.5 w-12 bg-white"></div>
-                <p className="text-white/90 text-sm md:text-base font-light">
+                <div className="h-0.5 w-8 md:w-12 bg-white"></div>
+                <p className="text-white/90 text-xs md:text-base font-light">
                   사고의 흐름을 보는 비정형 워크스페이스
                 </p>
               </div>
@@ -215,86 +221,50 @@ export default function Home() {
 
 
         <div
-          className="py-8 w-full font-galmuri11"
+          className="py-4 md:py-8 w-full font-galmuri11"
         >
           {/* 상단 메뉴바 */}
-          <div className="mb-6 flex items-center justify-between border-b border-gray-200 pb-2">
-            <div className="flex items-center gap-3">
+          <div className="mb-6 flex items-center justify-between border-b border-gray-200 pb-2 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-2 md:gap-3 shrink-0">
               <button
                 onClick={() => setShowModal('groups')}
-                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-xs md:text-sm font-medium"
+                className="px-2 md:px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-[10px] md:text-sm font-medium whitespace-nowrap"
               >
                 그룹 관리
               </button>
               <button
                 onClick={() => setShowModal('memory_manager')}
-                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-xs md:text-sm font-medium flex items-center gap-1"
+                className="px-2 md:px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-[10px] md:text-sm font-medium flex items-center gap-1 whitespace-nowrap"
               >
-                <PixelIcon name="list" size={16} />
+                <PixelIcon name="list" size={14} />
                 기억 관리
               </button>
               <Link
                 href="/settings/local-first"
-                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-xs md:text-sm font-medium flex items-center gap-1"
+                className="px-2 md:px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-[10px] md:text-sm font-medium flex items-center gap-1 whitespace-nowrap"
               >
-                <PixelIcon name="settings" size={16} />
+                <PixelIcon name="settings" size={14} />
                 설정
               </Link>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 shrink-0">
               {session ? (
-                <div className="flex items-center gap-2">
-                  {session.user?.image ? (
-                    <img
-                      src={session.user.image}
-                      alt={session.user.name || 'User'}
-                      className="w-6 h-6 rounded-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center">
-                      <span className="text-xs text-gray-600">
-                        {(session.user?.name || session.user?.email || 'U')[0].toUpperCase()}
-                      </span>
-                    </div>
-                  )}
-                  <span className="px-2 text-gray-600 text-xs md:text-sm">
+                <div className="flex items-center gap-1 md:gap-2">
+                  <span className="px-1 md:px-2 text-gray-600 text-[10px] md:text-sm whitespace-nowrap max-w-[80px] md:max-w-none truncate">
                     {session.user?.name || session.user?.email}
                   </span>
                   <button
                     onClick={() => signOut()}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-xs md:text-sm font-medium"
+                    className="px-2 md:px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-[10px] md:text-sm font-medium whitespace-nowrap"
                   >
                     로그아웃
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (confirm('정말로 계정을 탈퇴하시겠습니까? 모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.')) {
-                        try {
-                          const res = await fetch('/api/user/delete', { method: 'DELETE' });
-                          if (res.ok) {
-                            alert('그동안 이용해주셔서 감사합니다. 계정이 삭제되었습니다.');
-                            signOut({ callbackUrl: '/' });
-                          } else {
-                            alert('계정 삭제 중 오류가 발생했습니다.');
-                          }
-                        } catch (error) {
-                          alert('계정 삭제 처리 중 오류가 발생했습니다.');
-                        }
-                      }
-                    }}
-                    className="px-4 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors text-xs md:text-sm font-medium"
-                  >
-                    계정 탈퇴
                   </button>
                 </div>
               ) : (
                 <button
                   onClick={() => signIn('google')}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-xs md:text-sm font-medium"
+                  className="px-2 md:px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-[10px] md:text-sm font-medium whitespace-nowrap"
                 >
                   로그인
                 </button>

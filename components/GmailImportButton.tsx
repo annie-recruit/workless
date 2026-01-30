@@ -158,20 +158,20 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                                     emails.map((email) => (
                                         <div 
                                             key={email.messageId}
-                                            onClick={() => !email.isImported && toggleSelect(email.messageId)}
+                                            onClick={() => toggleSelect(email.messageId)}
                                             className={`
                                                 p-3 border-2 transition-all cursor-pointer relative group
-                                                ${email.isImported 
-                                                    ? 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed' 
-                                                    : selectedIds.has(email.messageId)
-                                                        ? 'border-indigo-500 bg-indigo-50'
+                                                ${selectedIds.has(email.messageId)
+                                                    ? 'border-indigo-500 bg-indigo-50'
+                                                    : email.isImported 
+                                                        ? 'border-gray-200 bg-gray-50/50 opacity-80' 
                                                         : 'border-gray-200 bg-white hover:border-gray-400'
                                                 }
                                             `}
                                         >
                                             <div className="flex justify-between items-start gap-2">
                                                 <div className="flex-1 min-w-0">
-                                                    <p className={`text-xs font-bold truncate ${email.isImported ? 'text-gray-400' : 'text-gray-800'}`}>
+                                                    <p className={`text-xs font-bold truncate ${email.isImported && !selectedIds.has(email.messageId) ? 'text-gray-500' : 'text-gray-800'}`}>
                                                         {email.subject || '(제목 없음)'}
                                                     </p>
                                                     <p className="text-[10px] text-gray-500 truncate mt-0.5">
@@ -179,10 +179,13 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                                                     </p>
                                                 </div>
                                                 <div className="flex-shrink-0 pt-0.5">
-                                                    {email.isImported ? (
-                                                        <span className="text-[10px] bg-gray-200 text-gray-500 px-1 font-bold">이미 추가됨</span>
-                                                    ) : selectedIds.has(email.messageId) ? (
+                                                    {selectedIds.has(email.messageId) ? (
                                                         <PixelIcon name="success" size={14} className="text-indigo-600" />
+                                                    ) : email.isImported ? (
+                                                        <div className="flex flex-col items-end gap-1">
+                                                            <span className="text-[10px] bg-gray-200 text-gray-500 px-1 font-bold">이미 추가됨</span>
+                                                            <div className="w-3.5 h-3.5 border-2 border-gray-300 group-hover:border-gray-400" />
+                                                        </div>
                                                     ) : (
                                                         <div className="w-3.5 h-3.5 border-2 border-gray-300 group-hover:border-gray-400" />
                                                     )}

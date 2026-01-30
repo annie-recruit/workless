@@ -573,7 +573,7 @@ ${summary}`;
       </div>
 
       {/* 중앙 입력 폼 영역 - 토스트 디자인으로 변경 */}
-      <div className="fixed bottom-8 right-8 z-[100] w-full max-w-md px-4 animate-slide-up font-galmuri11">
+      <div className="fixed bottom-4 md:bottom-8 left-1/2 -translate-x-1/2 z-[100] w-[92%] max-w-md animate-slide-up font-galmuri11">
         <div className="bg-white border-4 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative p-1 overflow-visible">
           {/* 픽셀 코너 장식 */}
           <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
@@ -814,7 +814,7 @@ ${summary}`;
 
       {/* 조건부 제안 (입력창 근처 토스트로) */}
       {suggestions.length > 0 && (
-        <div className="fixed bottom-32 right-8 w-full max-w-md z-[90] animate-slide-up font-galmuri11 pr-4">
+        <div className="fixed bottom-[400px] left-1/2 -translate-x-1/2 w-full max-w-md z-[90] animate-slide-up font-galmuri11 px-4">
           <div className="bg-amber-50 border-4 border-amber-900 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]">
             <h3 className="text-xs font-bold text-amber-900 mb-2 flex items-center gap-2">
               <PixelIcon name="lightbulb" size={14} />
@@ -837,8 +837,8 @@ ${summary}`;
 
       {/* 연결 제안 토스트 (기존 스타일 유지하되 일관성 보완) */}
       {showConnectionModal && connectionSuggestions.length > 0 && (
-        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-          <div className="bg-white border-4 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-md px-4 animate-slide-up font-galmuri11">
+          <div className="bg-white border-4 border-gray-900 p-5 min-w-[350px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
             <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
             <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
             <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
@@ -933,7 +933,7 @@ ${summary}`;
 
       {/* 성공 토스트 */}
       {toast.type === 'success' && (
-        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
+        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-md px-4 animate-slide-up font-galmuri11">
           <div className="bg-green-500 text-white border-4 border-gray-900 p-4 min-w-[250px] shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] relative">
             <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
             <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />

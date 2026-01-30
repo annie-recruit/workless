@@ -1,6 +1,18 @@
-import { google } from 'googleapis';
+import { google, gmail_v1 } from 'googleapis';
 import { userDb } from './db';
-import { GmailEmail } from '@/types';
+import { Attachment, GmailEmail } from '@/types';
+import { saveFile } from './fileUpload';
+
+// File 객체 폴리필 (Node.js 환경용)
+class NodeFile extends Blob {
+    name: string;
+    lastModified: number;
+    constructor(chunks: any[], name: string, options?: any) {
+        super(chunks, options);
+        this.name = name;
+        this.lastModified = options?.lastModified || Date.now();
+    }
+}
 
 export async function getGmailClient(userId: string) {
     const user = userDb.getById(userId);
@@ -80,6 +92,31 @@ export async function fetchWorklessEmails(userId: string, limit: number = 10): P
         const snippet = msg.snippet || '';
         const gmailLink = `https://mail.google.com/mail/u/0/#inbox/${msg.id}`;
 
+        // 4. 첨부 파일 처리
+        const attachments: Attachment[] = [];
+        if (msg.payload?.parts) {
+            for (const part of msg.payload.parts) {
+                if (part.filename && part.body?.attachmentId) {
+                    try {
+                        const attachmentRes = await gmail.users.messages.attachments.get({
+                            userId: 'me',
+                            messageId: msg.id!,
+                            id: part.body.attachmentId,
+                        });
+
+                        if (attachmentRes.data.data) {
+                            const buffer = Buffer.from(attachmentRes.data.data, 'base64');
+                            const file = new NodeFile([buffer], part.filename, { type: part.mimeType }) as unknown as File;
+                            const savedAttachment = await saveFile(file);
+                            attachments.push(savedAttachment);
+                        }
+                    } catch (error) {
+                        console.error(`Failed to download attachment ${part.filename}:`, error);
+                    }
+                }
+            }
+        }
+
         result.push({
             messageId: msg.id!,
             threadId: msg.threadId || undefined,
@@ -89,6 +126,7 @@ export async function fetchWorklessEmails(userId: string, limit: number = 10): P
             snippet,
             bodyText,
             gmailLink,
+            attachments,
         });
     }
 

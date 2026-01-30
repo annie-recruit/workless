@@ -185,6 +185,47 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [isFlagMenuOpen, setIsFlagMenuOpen] = useState(false);
   const [isSynergyModalOpen, setIsSynergyModalOpen] = useState(false);
 
+  // 롱프레스 드래그를 위한 타이머
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const handlePointerDownWithDelay = useCallback((event: ReactPointerEvent | PointerEvent, action: () => void) => {
+    const isTouch = (event as any).pointerType === 'touch';
+    if (!isTouch) {
+      action();
+      return;
+    }
+
+    clearLongPressTimer();
+    const startX = (event as any).clientX;
+    const startY = (event as any).clientY;
+
+    longPressTimerRef.current = setTimeout(() => {
+      action();
+      if ('vibrate' in navigator) navigator.vibrate(50);
+      longPressTimerRef.current = null;
+    }, 1000); // 사용자 요청대로 1초
+
+    const handleMove = (e: PointerEvent) => {
+      const dist = Math.sqrt(Math.pow(e.clientX - startX, 2) + Math.pow(e.clientY - startY, 2));
+      if (dist > 10) clearLongPressTimer();
+    };
+
+    const handleUp = () => {
+      clearLongPressTimer();
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    };
+
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+  }, [clearLongPressTimer]);
+
   // Blob 설정 불러오기
   useEffect(() => {
     const storedBlob = localStorage.getItem('workless.board.isBlobEnabled');
@@ -1148,10 +1189,12 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       const mouseY = (event.clientY - boardRect.top) / zoomRef.current;
 
       // 통합 드래그 시스템 사용 (즉시 상태 업데이트)
-      setDraggingEntity({ type: 'memory', id: memoryId });
-      setDragOffset({
-        x: mouseX - currentPos.x,
-        y: mouseY - currentPos.y,
+      handlePointerDownWithDelay(event, () => {
+        setDraggingEntity({ type: 'memory', id: memoryId });
+        setDragOffset({
+          x: mouseX - currentPos.x,
+          y: mouseY - currentPos.y,
+        });
       });
       return;
     }
@@ -1174,10 +1217,12 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     const startMouseY = (event.clientY - boardRect.top) / zoomRef.current;
 
     // 통합 드래그 시스템 사용 (드래그 중에는 항상 최상단)
-    setDraggingEntity({ type: 'memory', id: memoryId });
-    setDragOffset({
-      x: startMouseX - currentPos.x,
-      y: startMouseY - currentPos.y,
+    handlePointerDownWithDelay(event, () => {
+      setDraggingEntity({ type: 'memory', id: memoryId });
+      setDragOffset({
+        x: startMouseX - currentPos.x,
+        y: startMouseY - currentPos.y,
+      });
     });
   };
 
@@ -1726,10 +1771,12 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         const mouseX = (e.clientX - rect.left) / scale;
                         const mouseY = (e.clientY - rect.top) / scale;
 
-                        setDraggingEntity({ type: 'block', id: minimapBlock.id });
-                        setDragOffset({
-                          x: mouseX - minimapBlock.x,
-                          y: mouseY - minimapBlock.y,
+                        handlePointerDownWithDelay(e, () => {
+                          setDraggingEntity({ type: 'block', id: minimapBlock.id });
+                          setDragOffset({
+                            x: mouseX - minimapBlock.x,
+                            y: mouseY - minimapBlock.y,
+                          });
                         });
                       }}
                     >
@@ -1973,10 +2020,12 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                             const scale = zoomRef.current;
 
                             // 통합 드래그 시스템 사용
-                            setDraggingEntity({ type: 'block', id: block.id });
-                            setDragOffset({
-                              x: (e.clientX - rect.left) / scale - block.x,
-                              y: (e.clientY - rect.top) / scale - block.y,
+                            handlePointerDownWithDelay(e, () => {
+                              setDraggingEntity({ type: 'block', id: block.id });
+                              setDragOffset({
+                                x: (e.clientX - rect.left) / scale - block.x,
+                                y: (e.clientY - rect.top) / scale - block.y,
+                              });
                             });
                           }}
                         />
@@ -2475,10 +2524,12 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         const rect = boardRef.current.getBoundingClientRect();
                         const scale = zoomRef.current;
 
-                        setDraggingEntity({ type: 'project', id: project.id });
-                        setDragOffset({
-                          x: (e.clientX - rect.left) / scale - project.x,
-                          y: (e.clientY - rect.top) / scale - project.y,
+                        handlePointerDownWithDelay(e, () => {
+                          setDraggingEntity({ type: 'project', id: project.id });
+                          setDragOffset({
+                            x: (e.clientX - rect.left) / scale - project.x,
+                            y: (e.clientY - rect.top) / scale - project.y,
+                          });
                         });
                         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
                       }}

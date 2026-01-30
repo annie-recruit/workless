@@ -20,7 +20,11 @@ export class DataLayer {
     // 로컬스토리지에서 동기화 설정 로드
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('workless:syncMode');
-      this.syncMode = (saved as SyncMode) || 'disabled';
+      // 기본값을 auto로 변경하여 신규 사용자가 자연스럽게 동기화되도록 함
+      this.syncMode = (saved as SyncMode) || 'auto';
+      if (!saved) {
+        localStorage.setItem('workless:syncMode', 'auto');
+      }
     }
   }
 
@@ -41,6 +45,46 @@ export class DataLayer {
     return this.syncMode === 'enabled' || this.syncMode === 'auto';
   }
 
+  /**
+   * 로컬 데이터 마이그레이션 (email 또는 누락된 ID -> numeric ID)
+   */
+  async migrateLocalData(email: string, numericId: string): Promise<void> {
+    if (!numericId) return;
+
+    console.log(`Checking for local data migration to ${numericId}...`);
+    
+    // 마이그레이션 대상 ID들 (이메일, 빈 문자열, 구형 테스트 ID 등)
+    const sourceIds = [email, '', 'test-user'].filter(id => id !== numericId);
+    
+    for (const sourceId of sourceIds) {
+      // 1. Memories
+      const memories = await localDB.memories.where('userId').equals(sourceId).toArray();
+      if (memories.length > 0) {
+        console.log(`Migrating ${memories.length} memories from ${sourceId} to ${numericId}`);
+        const migrated = memories.map(m => ({ ...m, userId: numericId }));
+        await localDB.memories.bulkPut(migrated);
+      }
+
+      // 2. Groups
+      const groups = await localDB.groups.where('userId').equals(sourceId).toArray();
+      if (groups.length > 0) {
+        console.log(`Migrating ${groups.length} groups from ${sourceId} to ${numericId}`);
+        const migrated = groups.map(g => ({ ...g, userId: numericId }));
+        await localDB.groups.bulkPut(migrated);
+      }
+
+      // 3. Goals
+      const goals = await localDB.goals.where('userId').equals(sourceId).toArray();
+      if (goals.length > 0) {
+        console.log(`Migrating ${goals.length} goals from ${sourceId} to ${numericId}`);
+        const migrated = goals.map(g => ({ ...g, userId: numericId }));
+        await localDB.goals.bulkPut(migrated);
+      }
+    }
+
+    console.log('Local data migration check completed');
+  }
+
   // ========================================
   // Memories
   // ========================================
@@ -50,11 +94,24 @@ export class DataLayer {
    */
   async getMemories(userId: string): Promise<Memory[]> {
     try {
-      return await localDB.memories
+      const localMemories = await localDB.memories
         .where('userId')
         .equals(userId)
         .reverse()
         .sortBy('createdAt');
+      
+      // 로컬에 데이터가 없고 동기화가 활성화되어 있으면 서버에서 가져오기 시도
+      if (localMemories.length === 0 && this.isSyncEnabled()) {
+        console.log('No local memories found, attempting to fetch from server...');
+        const serverMemories = await this.getMemoriesFromServer(userId);
+        if (serverMemories.length > 0) {
+          // 서버 데이터를 로컬에 저장 (백그라운드)
+          localDB.memories.bulkPut(serverMemories).catch(console.error);
+          return serverMemories;
+        }
+      }
+      
+      return localMemories;
     } catch (error) {
       console.error('Failed to get memories from local DB:', error);
       // 폴백: 서버에서 가져오기
@@ -134,11 +191,35 @@ export class DataLayer {
   // ========================================
 
   async getGroups(userId: string): Promise<Group[]> {
-    return await localDB.groups
-      .where('userId')
-      .equals(userId)
-      .reverse()
-      .sortBy('updatedAt');
+    try {
+      const localGroups = await localDB.groups
+        .where('userId')
+        .equals(userId)
+        .reverse()
+        .sortBy('updatedAt');
+
+      // 로컬에 그룹이 없고 동기화가 활성화되어 있으면 서버에서 가져오기 시도
+      if (localGroups.length === 0 && this.isSyncEnabled()) {
+        const res = await fetch('/api/groups');
+        if (res.ok) {
+          const data = await res.json();
+          const serverGroups = data.groups || [];
+          if (serverGroups.length > 0) {
+            localDB.groups.bulkPut(serverGroups).catch(console.error);
+            return serverGroups;
+          }
+        }
+      }
+      return localGroups;
+    } catch (error) {
+      console.error('Failed to get groups from local DB:', error);
+      const res = await fetch('/api/groups');
+      if (res.ok) {
+        const data = await res.json();
+        return data.groups || [];
+      }
+      return [];
+    }
   }
 
   async createGroup(userId: string, name: string, memoryIds: string[]): Promise<Group> {
@@ -314,8 +395,26 @@ export class DataLayer {
     // TODO: 복호화 추가
     // const decrypted = decrypt(data);
     
-    await localDB.importAll(data, false);
+    // 서버 데이터가 비어있으면 로컬을 굳이 덮어씌우지 않음 (병합 모드 사용 권장)
+    const hasData = (data.memories?.length || 0) + (data.groups?.length || 0) > 0;
+    if (hasData) {
+      await localDB.importAll(data, false);
+    } else {
+      console.log('Server data is empty, skipping restore to prevent local data loss');
+    }
     await localDB.markClean(userId);
+  }
+  /**
+   * 모든 로컬 데이터 진단 (ID 무관)
+   */
+  async debugGetAllLocalData(): Promise<any> {
+    const memories = await localDB.memories.toArray();
+    const groups = await localDB.groups.toArray();
+    return {
+      memories,
+      groups,
+      userIds: Array.from(new Set(memories.map(m => m.userId)))
+    };
   }
 }
 

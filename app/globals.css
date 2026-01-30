@@ -248,3 +248,12 @@ a:active {
 .mention:active {
   background: var(--color-primary-indigo-dark) !important;
 }
+
+/* 스크롤바 숨기기 유틸리티 */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

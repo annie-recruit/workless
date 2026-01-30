@@ -155,13 +155,22 @@ export class WorklessDB extends Dexie {
   /**
    * 사용자 데이터 통계
    */
-  async getStats(userId: string) {
+  async getStats(userId?: string) {
+    // 특정 사용자용 통계
     const [memoriesCount, groupsCount, goalsCount, blocksCount] = await Promise.all([
-      this.memories.where('userId').equals(userId).count(),
-      this.groups.where('userId').equals(userId).count(),
-      this.goals.where('userId').equals(userId).count(),
-      this.boardBlocks.where('userId').equals(userId).count(),
+      userId ? this.memories.where('userId').equals(userId).count() : this.memories.count(),
+      userId ? this.groups.where('userId').equals(userId).count() : this.groups.count(),
+      userId ? this.goals.where('userId').equals(userId).count() : this.goals.count(),
+      userId ? this.boardBlocks.where('userId').equals(userId).count() : this.boardBlocks.count(),
     ]);
+
+    // 전체 DB가 아예 비어있는지 확인용
+    const totalGlobalItems = await Promise.all([
+      this.memories.count(),
+      this.groups.count(),
+      this.goals.count(),
+      this.boardBlocks.count(),
+    ]).then(counts => counts.reduce((a, b) => a + b, 0));
 
     return {
       memoriesCount,
@@ -169,6 +178,7 @@ export class WorklessDB extends Dexie {
       goalsCount,
       blocksCount,
       totalItems: memoriesCount + groupsCount + goalsCount + blocksCount,
+      totalGlobalItems
     };
   }
 
