@@ -233,6 +233,13 @@ export default function Home() {
                 <PixelIcon name="list" size={16} />
                 기억 관리
               </button>
+              <Link
+                href="/settings/local-first"
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-xs md:text-sm font-medium flex items-center gap-1"
+              >
+                <PixelIcon name="settings" size={16} />
+                설정
+              </Link>
             </div>
 
             <div className="flex items-center gap-1">
