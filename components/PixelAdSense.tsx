@@ -75,59 +75,17 @@ export default function PixelAdSense({
     };
 
     return (
-        <div className={`pixel-adsense-wrapper ${className}`}>
-            {/* 픽셀 아트 스타일 외부 프레임 */}
-            <div className="relative group">
-                {/* 코너 장식 */}
-                <div className={`absolute -top-1 -left-1 w-3 h-3 ${borderColorMap[borderColor]} bg-current z-10`}></div>
-                <div className={`absolute -top-1 -right-1 w-3 h-3 ${borderColorMap[borderColor]} bg-current z-10`}></div>
-                <div className={`absolute -bottom-1 -left-1 w-3 h-3 ${borderColorMap[borderColor]} bg-current z-10`}></div>
-                <div className={`absolute -bottom-1 -right-1 w-3 h-3 ${borderColorMap[borderColor]} bg-current z-10`}></div>
-
-                {/* 메인 컨테이너 */}
-                <div
-                    className={`
-            relative
-            border-4 ${borderColorMap[borderColor]}
-            bg-black/40 backdrop-blur-sm
-            p-4
-            ${glowColorMap[borderColor]}
-            transition-all duration-300
-            hover:scale-[1.02]
-            group-hover:${glowColorMap[borderColor].replace('0.3', '0.5')}
-          `}
-                >
-                    {/* 상단 레이블 */}
-                    <div className="absolute -top-3 left-4 px-2 bg-black">
-                        <span className={`text-xs font-bold ${borderColorMap[borderColor].replace('border-', 'text-')} uppercase tracking-wider flex items-center gap-1`}>
-                            <PixelIcon name="zap" size={10} className={borderColorMap[borderColor].replace('border-', 'text-')} />
-                            <span>SPONSORED</span>
-                        </span>
-                    </div>
-
-                    {/* 애드센스 광고 영역 */}
-                    <ins
-                        ref={adRef}
-                        className="adsbygoogle"
-                        style={{ display: 'block' }}
-                        data-ad-client="ca-pub-1164366157890050"
-                        data-ad-slot={adSlot}
-                        data-ad-format={adFormat}
-                        data-full-width-responsive={fullWidthResponsive ? 'true' : 'false'}
-                    ></ins>
-
-                    {/* 하단 픽셀 도트 장식 */}
-                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex gap-1 opacity-50">
-                        {[...Array(3)].map((_, i) => (
-                            <div
-                                key={i}
-                                className={`w-1 h-1 ${borderColorMap[borderColor]} bg-current animate-pulse`}
-                                style={{ animationDelay: `${i * 200}ms` }}
-                            ></div>
-                        ))}
-                    </div>
-                </div>
-            </div>
+        <div className={`pixel-adsense-wrapper ${className} flex justify-center w-full overflow-hidden`}>
+            {/* 애드센스 광고 영역 */}
+            <ins
+                ref={adRef}
+                className="adsbygoogle"
+                style={{ display: 'block', minWidth: '250px' }}
+                data-ad-client="ca-pub-1164366157890050"
+                data-ad-slot={adSlot}
+                data-ad-format={adFormat}
+                data-full-width-responsive={fullWidthResponsive ? 'true' : 'false'}
+            ></ins>
         </div>
     );
 }
