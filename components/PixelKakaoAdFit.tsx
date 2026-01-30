@@ -28,7 +28,7 @@ interface PixelKakaoAdFitProps {
 }
 
 export default function PixelKakaoAdFit({
-    unit = "DAN-pPIckK10ycycJAhf",
+    unit = "DAN-Lja4mtt5CjyPrZKb",
     width = "728",
     height = "90",
     className = '',
