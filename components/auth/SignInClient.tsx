@@ -5,20 +5,28 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import PixelGradientBanner from '@/components/PixelGradientBanner';
 import OnboardingMiniBoard from '@/components/OnboardingMiniBoard';
+import PixelLanguageToggle from '@/components/PixelLanguageToggle';
+import { useLanguage } from '@/components/LanguageContext';
 
 export default function SignInClient() {
     const router = useRouter();
+    const { t } = useLanguage();
 
     useEffect(() => {
         // 약관 동의 확인
         const isAgreed = localStorage.getItem('terms_agreed');
         if (!isAgreed) {
-            alert('약관 동의가 필요합니다.');
+            alert(t('auth.signin.alert.terms'));
             router.replace('/');
         }
-    }, [router]);
+    }, [router, t]);
     return (
         <main className="min-h-screen flex flex-col lg:flex-row relative overflow-hidden font-galmuri11 overflow-y-auto">
+            {/* 언어 토글 */}
+            <div className="fixed top-4 right-4 z-[100] scale-90 md:scale-100">
+                <PixelLanguageToggle />
+            </div>
+
             {/* 픽셀 그라데이션 배경 */}
             <div className="absolute inset-0 z-0 h-full w-full fixed">
                 <PixelGradientBanner className="opacity-100" />
@@ -32,19 +40,19 @@ export default function SignInClient() {
                     <div className="text-center space-y-6">
                         <div className="space-y-2">
                             <h1 className="text-4xl md:text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ letterSpacing: '-0.05em', WebkitTextStroke: '2px black', textShadow: '4px 4px 0px rgba(0,0,0,0.3)' }}>
-                                WORKLESS
+                                {t('auth.signin.title')}
                             </h1>
                             <div className="flex items-center justify-center gap-4">
                                 <div className="h-0.5 w-12 bg-white"></div>
                                 <p className="text-white/90 text-sm md:text-base font-light">
-                                    맥락을 구체화. 비정형 애자일 워크스페이스
+                                    {t('auth.signin.subtitle')}
                                 </p>
                                 <div className="h-0.5 w-12 bg-white"></div>
                             </div>
                         </div>
 
                         <p className="text-white/80 text-sm tracking-wide">
-                            구글 계정으로 로그인하여 시작하세요
+                            {t('auth.signin.desc')}
                         </p>
                     </div>
 
@@ -77,7 +85,7 @@ export default function SignInClient() {
                                 </svg>
                             </div>
                             <span className="text-white text-lg font-bold tracking-wider">
-                                Google로 로그인
+                                {t('auth.signin.button')}
                             </span>
                         </button>
                     </div>
@@ -96,10 +104,10 @@ export default function SignInClient() {
                 <div className="space-y-4">
                     <div className="text-center">
                         <h2 className="text-xl md:text-2xl font-bold text-white mb-2">
-                            이렇게 사용해요 👇
+                            {t('auth.signin.guide.title')}
                         </h2>
                         <p className="text-white/70 text-xs md:text-sm">
-                            로그인하면 바로 시작할 수 있어요
+                            {t('auth.signin.guide.desc')}
                         </p>
                     </div>
                     <div className="transform scale-[0.5] sm:scale-[0.65] md:scale-[0.8] lg:scale-100 origin-center -my-24 sm:-my-12 lg:my-0 w-[800px] h-[600px] relative bg-white border-4 border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,0.1)]">

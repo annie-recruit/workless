@@ -49,7 +49,7 @@ async function handleSummarize(
       }
     }
     
-    console.log('📝 요약 API - 받은 personaId:', personaId, 'userId:', userId, 'method:', req.method);
+    console.log('📝 요약 API - 받은 personaId:', personaId, 'userId:', userId.substring(0, 5) + '...', 'method:', req.method);
     
     // 페르소나 컨텍스트 조회
     let personaContext: string | undefined;
@@ -98,7 +98,7 @@ async function handleSummarize(
     if (memory.attachments && memory.attachments.length > 0) {
       console.log('📎 첨부파일 분석 시작:', memory.attachments.length, '개');
       attachmentContext = await summarizeAttachments(memory.attachments, memory.content);
-      console.log('📎 첨부파일 분석 완료:', attachmentContext.substring(0, 100) + '...');
+      // console.log('📎 첨부파일 분석 완료:', attachmentContext.substring(0, 100) + '...');
     } else if (memory.content) {
       // 첨부파일이 없어도 내용에서 URL 추출
       attachmentContext = await summarizeAttachments([], memory.content);

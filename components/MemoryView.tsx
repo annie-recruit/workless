@@ -2,13 +2,16 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback, useDeferredValue, forwardRef, useImperativeHandle } from 'react';
 import type { PointerEvent as ReactPointerEvent, FocusEvent as ReactFocusEvent } from 'react';
+import { useSession } from 'next-auth/react';
 import { Memory, Group, CanvasBlock, CalendarBlockConfig, ViewerBlockConfig, MeetingRecorderBlockConfig, DatabaseBlockConfig, ActionProject } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
-import { ko } from 'date-fns/locale';
+import { ko, enUS } from 'date-fns/locale';
 import LinkManager from './LinkManager';
 import dynamic from 'next/dynamic';
 import { useViewer } from './ViewerContext';
 import PixelIcon from './PixelIcon';
+import { useLanguage } from './LanguageContext';
+import { dataLayer } from '@/lib/dataLayer';
 import { useFlagsStore } from '@/components/FlagContext';
 import FlagMenuBar from '@/components/FlagMenuBar';
 import FlagLayer from '@/components/FlagLayer';
@@ -79,6 +82,9 @@ interface MemoryViewProps {
 }
 
 export default function MemoryView({ memories, onMemoryDeleted, personaId }: MemoryViewProps) {
+  const { data: session } = useSession();
+  const userId = (session?.user as any)?.id || session?.user?.email || '';
+  const { t, language } = useLanguage();
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
   const storageKey = selectedGroupId || 'all';
@@ -377,23 +383,17 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     const memoryIdToDelete = toast.data.memoryId;
 
     try {
-      const res = await fetch(`/api/memories?id=${memoryIdToDelete}`, {
-        method: 'DELETE',
-      });
-
-      if (res.ok) {
-        // 로컬 상태 즉시 업데이트 (UI에서 바로 삭제)
-        setLocalMemories(prev => prev.filter(m => m.id !== memoryIdToDelete));
-        setToast({ type: null });
-        onMemoryDeleted?.();
-      } else {
-        setToast({ type: null });
-        alert('삭제에 실패했습니다');
-      }
+      // DataLayer를 사용하여 로컬과 서버 모두에서 삭제
+      await dataLayer.deleteMemory(memoryIdToDelete, userId);
+      
+      // 로컬 상태 즉시 업데이트 (UI에서 바로 삭제)
+      setLocalMemories(prev => prev.filter(m => m.id !== memoryIdToDelete));
+      setToast({ type: null });
+      onMemoryDeleted?.();
     } catch (error) {
       console.error('Delete error:', error);
       setToast({ type: null });
-      alert('삭제에 실패했습니다');
+      alert(t('common.deleteError'));
     }
   };
 
@@ -1364,7 +1364,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           if (memCount > 0) {
             const memoriesToDelete = Array.from(selectedMemoryIds);
             await Promise.all(memoriesToDelete.map(id =>
-              fetch(`/api/memories?id=${id}`, { method: 'DELETE' })
+              dataLayer.deleteMemory(id, userId)
             ));
 
             setLocalMemories(prev => prev.filter(m => !selectedMemoryIds.has(m.id)));
@@ -1399,21 +1399,21 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           {isLoadingGroupDescription ? (
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <ProcessingLoader size={16} variant="inline" tone="indigo" />
-              <span>AI가 그룹을 분석하고 있어요...</span>
+              <span>{t('memory.view.ai.analyzing')}</span>
             </div>
           ) : groupDescription ? (
             <div className="flex items-start gap-3">
               <PixelIcon name="folder" size={24} />
               <div className="flex-1">
                 <h3 className="text-sm font-bold text-gray-800 mb-1">
-                  {groups.find(g => g.id === selectedGroupId)?.name || '그룹'}에 대해
+                  {language === 'ko' ? `${groups.find(g => g.id === selectedGroupId)?.name || '그룹'}에 대해` : `About ${groups.find(g => g.id === selectedGroupId)?.name || 'Group'}`}
                 </h3>
                 <p className="text-sm text-gray-700 leading-relaxed">{groupDescription}</p>
               </div>
             </div>
           ) : (
             <div className="flex items-center gap-2 text-sm text-gray-500">
-              <span>그룹 설명을 불러올 수 없습니다.</span>
+              <span>{t('memory.view.ai.failed')}</span>
             </div>
           )}
         </div>
@@ -1437,7 +1437,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           <div className="absolute -bottom-0.5 -right-0.5 w-1 h-1 bg-gray-900" />
 
           <PixelIcon name="down" size={12} className="animate-bounce" />
-          <span className="tracking-tight uppercase">보드로 이동</span>
+          <span className="tracking-tight uppercase">{t('memory.view.button.board')}</span>
           <PixelIcon name="down" size={12} className="animate-bounce" />
         </button>
       </div>
@@ -1445,35 +1445,35 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       {/* 화이트보드 뷰 */}
       <div data-tutorial-target="board-view" className="h-[calc(300vh-280px)] min-h-[1500px]">
         <div className="w-full h-full bg-white border-y border-gray-300 font-galmuri11 flex overflow-hidden">
-          <div className="flex-1 bg-white relative flex flex-col min-w-0 overflow-hidden">
+          <div className="flex-1 relative flex flex-col min-w-0 overflow-hidden">
             {/* 컨트롤 바 - (좌측 깃발 사이드바처럼) 스크롤과 무관하게 상단 고정 */}
-            <div className="shrink-0 sticky top-0 z-30 flex items-center justify-between py-2 text-xs text-gray-500 bg-white border-b border-gray-200 shadow-sm overflow-x-auto no-scrollbar">
+            <div className="shrink-0 sticky top-0 z-30 flex items-center justify-between py-2 text-xs text-gray-500 bg-white/40 backdrop-blur-xl border-b border-white/10 shadow-none overflow-x-auto no-scrollbar">
               <div className="flex items-center gap-2 px-3 min-w-max">
-                <span className="font-semibold text-gray-700 whitespace-nowrap">화이트보드</span>
+                <span className="font-semibold text-gray-700 whitespace-nowrap">{t('memory.view.board.title')}</span>
                 <span className="text-[11px] text-gray-400 whitespace-nowrap">
                   {Math.round(boardSize.width)}×{Math.round(boardSize.height)}
                 </span>
                 {previousPositions && (
                   <button
                     onClick={handleRestoreLayout}
-                    className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 whitespace-nowrap"
-                    title="이전 배열로 되돌리기"
+                    className="px-2 py-1 text-xs rounded border border-white/30 bg-white/40 backdrop-blur-sm hover:bg-white/60 text-gray-700 whitespace-nowrap transition-all"
+                    title={t('memory.view.board.restore.title')}
                   >
-                    이전 배열로
+                    {t('memory.view.board.restore')}
                   </button>
                 )}
                 <button
                   onClick={handleAutoArrange}
                   disabled={isAutoArranging}
-                  className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 whitespace-nowrap"
-                  title="연결선 기반으로 자동 배열"
+                  className="px-2 py-1 text-xs rounded border border-white/30 bg-white/40 backdrop-blur-sm hover:bg-white/60 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 whitespace-nowrap transition-all"
+                  title={t('memory.view.board.arrange.title')}
                 >
-                  {isAutoArranging ? '배열 중...' : '맞춤 배열'}
+                  {isAutoArranging ? t('memory.view.board.arranging') : t('memory.view.board.arrange')}
                 </button>
 
                 <GmailImportButton
                   onImportComplete={(count) => {
-                    console.log(`Gmail에서 ${count}개의 이메일을 가져왔습니다.`);
+                    console.log(t('memory.view.board.import.gmail.success').replace('{count}', count.toString()));
                     // 메모리 새로고침은 부모에서 처리
                     if (onMemoryDeleted) {
                       onMemoryDeleted();
@@ -1496,11 +1496,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     setIsWidgetMenuOpen(false);
                     setIsFlagMenuOpen(false);
                   }}
-                  className={`px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 flex items-center gap-1 whitespace-nowrap ${isGroupMenuOpen ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'text-gray-700'}`}
-                  title="그룹"
+                  className={`px-2 py-1 text-xs rounded border border-white/30 bg-white/40 backdrop-blur-sm hover:bg-white/60 flex items-center gap-1 whitespace-nowrap transition-all ${isGroupMenuOpen ? 'bg-indigo-50/80 text-indigo-700 border-indigo-300' : 'text-gray-700'}`}
+                  title={t('memory.view.board.group')}
                 >
                   <PixelIcon name="folder" size={16} />
-                  <span>그룹</span>
+                  <span>{t('memory.view.board.group')}</span>
                 </button>
 
                 <button
@@ -1509,11 +1509,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     setIsWidgetMenuOpen(false);
                     setIsGroupMenuOpen(false);
                   }}
-                  className={`px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 flex items-center gap-1 whitespace-nowrap ${isFlagMenuOpen ? 'bg-indigo-50 text-indigo-700 border-indigo-300' : 'text-gray-700'}`}
-                  title="깃발"
+                  className={`px-2 py-1 text-xs rounded border border-white/30 bg-white/40 backdrop-blur-sm hover:bg-white/60 flex items-center gap-1 whitespace-nowrap transition-all ${isFlagMenuOpen ? 'bg-indigo-50/80 text-indigo-700 border-indigo-300' : 'text-gray-700'}`}
+                  title={t('memory.view.board.flag')}
                 >
                   <PixelIcon name="flag" size={16} />
-                  <span>깃발</span>
+                  <span>{t('memory.view.board.flag')}</span>
                 </button>
                 {/* 위젯 시너지 버튼 - 2개 이상 선택 시 활성화 */}
                 {(selectedMemoryIds.size + selectedBlockIds.size) >= 2 && (
@@ -1524,26 +1524,26 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       setIsGroupMenuOpen(false);
                       setIsFlagMenuOpen(false);
                     }}
-                    className="px-2 py-1 text-xs rounded border-2 border-purple-500 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold flex items-center gap-1 whitespace-nowrap"
-                    title="위젯 시너지"
+                    className="px-2 py-1 text-xs rounded border-2 border-purple-500 bg-purple-50/80 backdrop-blur-sm hover:bg-purple-100 text-purple-700 font-semibold flex items-center gap-1 whitespace-nowrap transition-all"
+                    title={t('memory.view.board.widget.synergy')}
                   >
                     <PixelIcon name="link" size={16} />
-                    <span>위젯시너지</span>
+                    <span>{t('memory.view.board.widget.synergy')}</span>
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-1 px-3 shrink-0 bg-white/90 backdrop-blur-sm sticky right-0">
+              <div className="flex items-center gap-1 px-3 shrink-0 bg-transparent sticky right-0">
                 <button
                   onClick={() => changeZoom(-0.1)}
-                  className="px-2 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                  className="px-2 py-1 rounded border border-white/30 bg-white/40 backdrop-blur-sm hover:bg-white/60 disabled:opacity-50 transition-all"
                   disabled={zoom <= 0.5}
                 >
                   -
                 </button>
-                <span className="text-xs font-semibold min-w-[35px] text-center">{Math.round(zoom * 100)}%</span>
+                <span className="text-xs font-semibold min-w-[35px] text-center text-gray-700">{Math.round(zoom * 100)}%</span>
                 <button
                   onClick={() => changeZoom(0.1)}
-                  className="px-2 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+                  className="px-2 py-1 rounded border border-white/30 bg-white/40 backdrop-blur-sm hover:bg-white/60 disabled:opacity-50 transition-all"
                   disabled={zoom >= 1.6}
                 >
                   +
@@ -1551,9 +1551,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 {!isMobile && (
                   <button
                     onClick={resetZoom}
-                    className="px-2 py-1 rounded border border-gray-200 bg-white hover:bg-gray-50 whitespace-nowrap ml-1"
+                    className="px-2 py-1 rounded border border-white/30 bg-white/40 backdrop-blur-sm hover:bg-white/60 whitespace-nowrap ml-1 transition-all text-gray-700"
                   >
-                    초기화
+                    {t('memory.view.board.zoom.reset')}
                   </button>
                 )}
               </div>
@@ -1604,7 +1604,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
             )}
 
             <div
-              className={`flex-1 min-h-0 overflow-auto bg-white relative transition-colors duration-200 ${isBoardDragging ? 'bg-indigo-50/50' : ''}`}
+              className={`flex-1 min-h-0 overflow-auto relative transition-colors duration-200 ${isBoardDragging ? 'bg-indigo-50/50' : ''}`}
               ref={boardContainerRef}
               onDragEnter={(e) => {
                 e.preventDefault();
@@ -2592,8 +2592,13 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         }}
                         onDelete={async (id: string) => {
                           if (confirm('프로젝트를 삭제하시겠습니까?')) {
-                            setLocalProjects(prev => prev.filter(p => p.id !== id));
-                            await fetch(`/api/projects?id=${id}`, { method: 'DELETE' });
+                            try {
+                              await dataLayer.deleteProject(id, userId);
+                              setLocalProjects(prev => prev.filter(p => p.id !== id));
+                            } catch (error) {
+                              console.error('Failed to delete project:', error);
+                              alert('프로젝트 삭제에 실패했습니다');
+                            }
                           }
                         }}
                       />

@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { Group, Memory } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
-import { ko } from 'date-fns/locale';
+import { ko, enUS } from 'date-fns/locale';
 import PixelIcon from './PixelIcon';
+import { useLanguage } from './LanguageContext';
 
 interface GroupManagerProps {
   onGroupsChanged?: () => void;
@@ -17,6 +18,7 @@ const COLOR_OPTIONS = [
 ];
 
 export default function GroupManager({ onGroupsChanged, personaId }: GroupManagerProps) {
+  const { t, language } = useLanguage();
   const [groups, setGroups] = useState<Group[]>([]);
   const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -174,8 +176,8 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
       {/* 헤더 */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">그룹 관리</h2>
-          <p className="text-sm text-gray-600 mt-1 font-medium">비슷한 기억들을 묶어서 관리하세요</p>
+          <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">{t('group.manage.title')}</h2>
+          <p className="text-sm text-gray-600 mt-1 font-medium">{t('group.manage.desc')}</p>
         </div>
         <div className="flex gap-3">
           <button
@@ -184,14 +186,14 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
             className="px-4 py-2 bg-indigo-500 text-white border-2 border-gray-900 hover:bg-indigo-600 disabled:opacity-50 disabled:grayscale flex items-center gap-2 text-xs font-bold uppercase tracking-tight shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all disabled:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] disabled:transform-none"
           >
             <PixelIcon name="lightbulb" size={16} />
-            AI로 묶기
+            {t('group.manage.button.ai')}
           </button>
           <button
             onClick={() => setShowCreateModal(true)}
             className="px-4 py-2 bg-indigo-500 text-white border-2 border-gray-900 hover:bg-indigo-600 flex items-center gap-2 text-xs font-bold uppercase tracking-tight shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all"
           >
             <PixelIcon name="plus" size={16} />
-            직접 만들기
+            {t('group.manage.button.create')}
           </button>
         </div>
       </div>
@@ -208,7 +210,7 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-black text-indigo-900 flex items-center gap-2 uppercase tracking-tight">
               <PixelIcon name="lightbulb" size={20} />
-              AI 그룹 제안
+              {t('group.manage.ai.title')}
             </h3>
             <button
               onClick={() => setShowSuggestions(false)}
@@ -226,7 +228,7 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
                       <span className={`px-3 py-1 text-xs font-bold border-2 border-gray-900 ${getColorClass(suggestion.color)} shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)]`}>
                         {suggestion.name}
                       </span>
-                      <span className="text-xs text-gray-600 font-bold">{suggestion.memoryIds.length}개</span>
+                      <span className="text-xs text-gray-600 font-bold">{t('group.manage.memoriesCount').replace('{count}', suggestion.memoryIds.length.toString())}</span>
                     </div>
                     <p className="text-xs text-gray-700 font-medium">{suggestion.description}</p>
                   </div>
@@ -234,7 +236,7 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
                     onClick={() => handleAcceptSuggestion(suggestion)}
                     className="ml-3 px-3 py-1.5 bg-indigo-500 text-white text-xs font-bold border-2 border-gray-900 hover:bg-indigo-600 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] uppercase tracking-tight"
                   >
-                    생성
+                    {t('group.manage.ai.accept')}
                   </button>
                 </div>
               </div>
@@ -247,7 +249,7 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
       <div className="space-y-4">
         {groups.length === 0 ? (
           <div className="text-center py-12 text-gray-500 font-medium">
-            아직 그룹이 없습니다
+            {t('group.manage.noGroups')}
           </div>
         ) : (
           groups.map(group => (
@@ -259,11 +261,11 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
                   </span>
                   {group.isAIGenerated && (
                     <span className="px-2 py-1 bg-indigo-100 text-indigo-600 text-xs font-bold border-2 border-indigo-300 uppercase tracking-tight">
-                      AI 생성
+                      {t('group.manage.aiTag')}
                     </span>
                   )}
                   <span className="text-xs text-gray-600 font-bold">
-                    {group.memoryIds.length}개 기억
+                    {t('group.manage.memoriesCount').replace('{count}', group.memoryIds.length.toString())}
                   </span>
                 </div>
                 <button
@@ -274,7 +276,10 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
                 </button>
               </div>
               <div className="text-xs text-gray-500 font-medium">
-                {formatDistanceToNow(group.createdAt, { addSuffix: true, locale: ko })}
+                {formatDistanceToNow(group.createdAt, { 
+                  addSuffix: true, 
+                  locale: language === 'ko' ? ko : enUS 
+                })}
               </div>
             </div>
           ))
@@ -283,7 +288,7 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
 
       {/* 직접 만들기 모달 */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 font-galmuri11">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[10001] p-4 font-galmuri11">
           <div className="bg-white border-4 border-gray-900 p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
             {/* 픽셀 코너 장식 */}
             <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
@@ -292,7 +297,7 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
             <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
             
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight">새 그룹 만들기</h3>
+              <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight">{t('group.manage.modal.create.title')}</h3>
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="p-1 hover:bg-gray-100 border-2 border-transparent hover:border-gray-300 transition-all"
@@ -304,13 +309,13 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
             {/* 그룹 이름 */}
             <div className="mb-5">
               <label className="block text-xs font-black text-gray-700 mb-2 uppercase tracking-wider">
-                그룹 이름
+                {t('group.manage.modal.create.name')}
               </label>
               <input
                 type="text"
                 value={newGroupName}
                 onChange={(e) => setNewGroupName(e.target.value)}
-                placeholder="예: 프로젝트 아이디어"
+                placeholder={t('group.manage.modal.create.name.placeholder')}
                 className="w-full px-4 py-2 border-2 border-gray-900 text-sm font-medium focus:ring-0 focus:border-indigo-500 transition-colors shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)]"
               />
             </div>
@@ -318,7 +323,7 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
             {/* 색상 선택 */}
             <div className="mb-5">
               <label className="block text-xs font-black text-gray-700 mb-2 uppercase tracking-wider">
-                색상
+                {t('group.manage.modal.create.color')}
               </label>
               <div className="flex gap-2 flex-wrap">
                 {COLOR_OPTIONS.map(color => (
@@ -331,7 +336,7 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
                         : 'border-gray-300 hover:border-gray-900'
                     } uppercase tracking-tight`}
                   >
-                    {color.label}
+                    {t(`group.manage.color.${color.value}`)}
                   </button>
                 ))}
               </div>
@@ -340,7 +345,7 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
             {/* 기억 선택 */}
             <div className="mb-6">
               <label className="block text-xs font-black text-gray-700 mb-2 uppercase tracking-wider">
-                기억 선택 ({selectedMemories.length}개)
+                {t('group.manage.modal.create.memories').replace('{count}', selectedMemories.length.toString())}
               </label>
               <div className="space-y-2 max-h-60 overflow-y-auto border-2 border-gray-900 p-3 bg-gray-50">
                 {memories.map(memory => (
@@ -357,7 +362,10 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
                     <div className="flex-1">
                       <p className="text-xs text-gray-800 line-clamp-2 font-medium">{memory.content}</p>
                       <p className="text-[10px] text-gray-500 mt-1 font-medium">
-                        {memory.topic} · {formatDistanceToNow(memory.createdAt, { addSuffix: true, locale: ko })}
+                        {memory.topic} · {formatDistanceToNow(memory.createdAt, { 
+                          addSuffix: true, 
+                          locale: language === 'ko' ? ko : enUS 
+                        })}
                       </p>
                     </div>
                   </label>
@@ -371,13 +379,13 @@ export default function GroupManager({ onGroupsChanged, personaId }: GroupManage
                 onClick={() => setShowCreateModal(false)}
                 className="px-5 py-2 text-xs font-bold border-2 border-gray-900 text-gray-700 bg-white hover:bg-gray-100 transition-all uppercase tracking-tight shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]"
               >
-                취소
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleCreateGroup}
                 className="px-5 py-2 bg-indigo-500 text-white border-2 border-gray-900 hover:bg-indigo-600 text-xs font-black uppercase tracking-tight shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all"
               >
-                생성
+                {t('group.manage.modal.create.button.create')}
               </button>
             </div>
           </div>

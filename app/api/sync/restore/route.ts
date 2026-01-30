@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       boardPositions
     };
 
-    console.log(`[Sync] Restore requested for user ${userId}. Returning ${memories.length} memories, ${groups.length} groups.`);
+    console.log(`[Sync] Restore requested for user ID ${userId.substring(0, 5)}... Returning ${memories.length} memories, ${groups.length} groups.`);
 
     return NextResponse.json({ data });
   } catch (error) {

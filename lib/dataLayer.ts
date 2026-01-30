@@ -194,6 +194,41 @@ export class DataLayer {
     }
   }
 
+  /**
+   * 목표 삭제 (로컬 우선)
+   */
+  async deleteGoal(id: string, userId: string): Promise<void> {
+    // 1. 로컬 삭제
+    await localDB.goals.delete(id);
+    await localDB.markDirty(userId);
+
+    // 2. 동기화
+    if (this.isSyncEnabled()) {
+      this.syncGoalDeleteToServer(id).catch(error => {
+        console.error('[DataLayer] Background sync failed:', error);
+        this.addToSyncQueue('delete', 'goals', { id });
+      });
+    }
+  }
+
+  /**
+   * 프로젝트 삭제
+   */
+  async deleteProject(id: string, userId: string): Promise<void> {
+    // 현재 프로젝트는 서버에만 있으므로 서버 API 호출
+    const res = await fetch(`/api/projects?id=${id}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Delete project failed');
+  }
+
+  private async syncGoalDeleteToServer(id: string): Promise<void> {
+    const res = await fetch(`/api/goals?id=${id}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Delete goal failed');
+  }
+
   // ========================================
   // Groups
   // ========================================
@@ -465,6 +500,10 @@ export class DataLayer {
             await this.syncGroupToServer(item.data);
           } else if (item.type === 'delete') {
             await this.syncGroupDeleteToServer(item.data.id);
+          }
+        } else if (item.collection === 'goals') {
+          if (item.type === 'delete') {
+            await this.syncGoalDeleteToServer(item.data.id);
           }
         }
 

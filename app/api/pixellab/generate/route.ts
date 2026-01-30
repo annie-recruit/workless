@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
     const data = await response.json();
     console.log('[PixelLab API] 외부 API 원본 응답 키:', Object.keys(data));
     console.log('[PixelLab API] 외부 API 원본 응답 타입:', typeof data);
-    console.log('[PixelLab API] 외부 API 원본 응답 전체:', JSON.stringify(data));
+    // console.log('[PixelLab API] 외부 API 원본 응답 전체:', JSON.stringify(data));
     
     // 이미지 URL 또는 base64 이미지 추출
     // PixelLab API 응답 형식 확인 필요

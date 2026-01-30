@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Persona } from '@/types';
 import PixelIcon from './PixelIcon';
+import { useLanguage } from './LanguageContext';
 
 interface PersonaSelectorProps {
   selectedPersonaId: string | null;
@@ -36,6 +37,7 @@ function getIconName(icon: string): string | null {
 }
 
 export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ...props }: PersonaSelectorProps & React.HTMLAttributes<HTMLDivElement>) {
+  const { t } = useLanguage();
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -76,7 +78,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
   };
 
   const deletePersona = async (id: string) => {
-    if (!confirm('이 페르소나를 삭제하시겠습니까?')) return;
+    if (!confirm(t('persona.selector.delete.confirm'))) return;
 
     try {
       const res = await fetch(`/api/personas?id=${id}`, { method: 'DELETE' });
@@ -99,13 +101,13 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-        title={selectedPersona ? `${selectedPersona.name}` : '페르소나 선택'}
+        title={selectedPersona ? `${selectedPersona.name}` : t('persona.selector.title')}
         data-tutorial-target="persona-selector"
       >
         {/* 페르소나 왼쪽 아이콘을 "기본 모드"와 동일하게 통일 */}
         <PixelIcon name="persona_default" size={24} className="flex-shrink-0" />
         <span className="text-sm font-medium text-gray-700">
-          {selectedPersona?.name || '페르소나'}
+          {selectedPersona?.name || t('persona.selector.default')}
         </span>
       </button>
 
@@ -122,8 +124,8 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
           <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-[500px] overflow-y-auto">
             {/* 헤더 */}
             <div className="p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">페르소나 선택</h3>
-              <p className="text-xs text-gray-500 mt-1">AI가 당신의 역할에 맞춰 분석합니다</p>
+              <h3 className="text-lg font-semibold text-gray-800">{t('persona.selector.title')}</h3>
+              <p className="text-xs text-gray-500 mt-1">{t('persona.selector.desc')}</p>
             </div>
 
             {/* 기본 모드 (페르소나 없음) */}
@@ -138,8 +140,8 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
             >
               <PixelIcon name="persona_default" size={24} className="flex-shrink-0" />
               <div className="flex-1">
-                <div className="font-medium text-gray-800">기본 모드</div>
-                <div className="text-xs text-gray-500">페르소나 없이 사용</div>
+                <div className="font-medium text-gray-800">{t('persona.selector.default')}</div>
+                <div className="text-xs text-gray-500">{t('persona.selector.default.desc')}</div>
               </div>
               {!selectedPersonaId && (
                 <span className="text-blue-500">✓</span>
@@ -176,7 +178,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                 <button
                   onClick={() => deletePersona(persona.id)}
                   className="p-1 hover:bg-red-100 rounded text-red-500 text-sm"
-                  title="삭제"
+                  title={t('common.delete')}
                 >
                   <PixelIcon name="delete" size={16} />
                 </button>
@@ -190,7 +192,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                 className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors flex items-center gap-3 text-blue-600 font-medium"
               >
                 <PixelIcon name="plus" size={20} />
-                <span>새 페르소나 만들기</span>
+                <span>{t('persona.selector.create')}</span>
               </button>
             )}
 
@@ -200,7 +202,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                 <div className="space-y-3">
                   {/* 아이콘 선택 */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">아이콘</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">{t('persona.selector.modal.icon')}</label>
                     <div className="flex gap-2 flex-wrap">
                       {DEFAULT_PERSONAS.map(p => (
                         <button
@@ -216,7 +218,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                         </button>
                       ))}
                       <div className="text-xs text-gray-500 self-center px-2">
-                        또는 직접 입력
+                        {t('persona.selector.modal.icon.manual')}
                       </div>
                       <input
                         type="text"
@@ -231,35 +233,35 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
 
                   {/* 이름 */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">이름 *</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">{t('persona.selector.modal.name')}</label>
                     <input
                       type="text"
                       value={newPersona.name}
                       onChange={(e) => setNewPersona({ ...newPersona, name: e.target.value })}
-                      placeholder="HR 전문가"
+                      placeholder={t('persona.selector.modal.name.placeholder')}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     />
                   </div>
 
                   {/* 설명 */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">설명</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">{t('persona.selector.modal.desc')}</label>
                     <input
                       type="text"
                       value={newPersona.description}
                       onChange={(e) => setNewPersona({ ...newPersona, description: e.target.value })}
-                      placeholder="채용, 인사, 조직 관리"
+                      placeholder={t('persona.selector.modal.desc.placeholder')}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     />
                   </div>
 
                   {/* AI 컨텍스트 */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">AI 컨텍스트 (역할/관심사)</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">{t('persona.selector.modal.context')}</label>
                     <textarea
                       value={newPersona.context}
                       onChange={(e) => setNewPersona({ ...newPersona, context: e.target.value })}
-                      placeholder="HR 업무에 관심 많음. 채용 프로세스 개선, 조직 문화, 성과 관리 등에 대해 공부 중."
+                      placeholder={t('persona.selector.modal.context.placeholder')}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
                       rows={3}
                     />
@@ -271,7 +273,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                       onClick={createPersona}
                       className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
                     >
-                      만들기
+                      {t('persona.selector.modal.button.create')}
                     </button>
                     <button
                       onClick={() => {
@@ -280,7 +282,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                       }}
                       className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-medium"
                     >
-                      취소
+                      {t('common.cancel')}
                     </button>
                   </div>
                 </div>

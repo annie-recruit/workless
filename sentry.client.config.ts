@@ -11,4 +11,13 @@ Sentry.init({
   environment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,
   release: process.env.NEXT_PUBLIC_SENTRY_RELEASE,
   tracesSampleRate,
+  sendDefaultPii: false,
+  beforeSend(event) {
+    // 개인정보 패턴 (이메일 등) 마스킹
+    if (event.user) {
+      if (event.user.email) event.user.email = '[filtered]';
+      if (event.user.ip_address) event.user.ip_address = '[filtered]';
+    }
+    return event;
+  },
 });

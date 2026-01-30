@@ -49,7 +49,7 @@ async function handleSuggestions(
       }
     }
     
-    console.log('💡 제안 API - 받은 personaId:', personaId, 'userId:', userId, 'method:', req.method);
+    console.log('💡 제안 API - 받은 personaId:', personaId, 'userId:', userId.substring(0, 5) + '...', 'method:', req.method);
     
     // 페르소나 컨텍스트 조회
     let personaContext: string | undefined;

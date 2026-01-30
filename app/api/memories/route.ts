@@ -65,8 +65,8 @@ export async function POST(req: NextRequest) {
       console.log(`\n🔍 [API] 파일 내용 분석 시작 (${attachments.length}개 파일, URL 포함)`);
       fileContext = await summarizeAttachments(attachments, content);
       console.log(`🔍 [API] 파일 내용 분석 완료`);
-      console.log(`📝 [API] 분석 결과 길이: ${fileContext.length} 문자`);
-      console.log(`📝 [API] 분석 결과 미리보기:\n${fileContext.substring(0, 200)}...\n`);
+      // console.log(`📝 [API] 분석 결과 길이: ${fileContext.length} 문자`);
+      // console.log(`📝 [API] 분석 결과 미리보기:\n${fileContext.substring(0, 200)}...\n`);
     }
 
     // 기존 기억 조회 (사용자별)

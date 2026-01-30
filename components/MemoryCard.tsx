@@ -3,9 +3,10 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import type { Memory } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
-import { ko } from 'date-fns/locale';
+import { ko, enUS } from 'date-fns/locale';
 import { useViewer } from './ViewerContext';
 import PixelIcon from './PixelIcon';
+import { useLanguage } from './LanguageContext';
 import { sanitizeHtml, stripHtmlClient } from './memory/html';
 import { useLocalMemorySync } from './memory/hooks/useLocalMemorySync';
 import { useMentionLinkClick } from './memory/hooks/useMentionLinkClick';
@@ -97,6 +98,7 @@ const MemoryCard = memo(
       onActivityEditCommit,
       onActivityEditEnd,
     } = props;
+    const { t, language } = useLanguage();
     const { viewerExists, openInViewer } = useViewer();
     const [localMemory, setLocalMemory] = useLocalMemorySync(memory);
 
@@ -114,7 +116,7 @@ const MemoryCard = memo(
     const prevIsEditingRef = useRef(false);
     const timeAgo = formatDistanceToNow(resolveTimestamp(localMemory.createdAt), {
       addSuffix: true,
-      locale: ko,
+      locale: language === 'ko' ? ko : enUS,
     });
 
     // 편집 모드로 전환할 때 초기 내용 설정
@@ -158,14 +160,14 @@ const MemoryCard = memo(
               setSummary(nextSummary);
               setShowSummary(true);
             } else {
-              alert('요약 생성 실패');
+              alert(t('memory.card.ai.summarizing') + ' 실패');
             }
           } else {
-            alert('요약 생성 실패');
+            alert(t('memory.card.ai.summarizing') + ' 실패');
           }
         } catch (error) {
           console.error('Failed to fetch summary:', error);
-          alert('요약을 가져올 수 없습니다');
+          alert(t('memory.card.ai.summarize') + ' 실패');
         } finally {
           setIsLoadingSummary(false);
         }
@@ -210,14 +212,14 @@ const MemoryCard = memo(
               setSuggestions(nextSuggestions);
               setShowSuggestions(true);
             } else {
-              alert('제안 생성 실패');
+              alert(t('memory.card.ai.suggesting') + ' 실패');
             }
           } else {
-            alert('제안 생성 실패');
+            alert(t('memory.card.ai.suggesting') + ' 실패');
           }
         } catch (error) {
           console.error('Failed to fetch suggestions:', error);
-          alert('제안을 가져올 수 없습니다');
+          alert(t('memory.card.ai.suggest') + ' 실패');
         } finally {
           setIsLoadingSuggestions(false);
         }
@@ -262,11 +264,11 @@ const MemoryCard = memo(
           } else {
             const errorData = await res.json();
             console.error('Edit error response:', errorData);
-            alert(`수정에 실패했습니다: ${errorData.error || '알 수 없는 오류'}`);
+            alert(`${t('memory.card.edit.failed')}: ${errorData.error || '알 수 없는 오류'}`);
           }
         } catch (error) {
           console.error('Edit error:', error);
-          alert('수정에 실패했습니다');
+          alert(t('memory.card.edit.failed'));
         }
       } else {
         // 편집 모드로 전환
@@ -291,7 +293,7 @@ const MemoryCard = memo(
     };
 
     const handleConvertToGoal = async (suggestions: Suggestions) => {
-      if (!confirm('이 AI 제안을 목표로 전환하시겠습니까?')) return;
+      if (!confirm(t('memory.card.ai.convertToGoal.confirm'))) return;
 
       try {
         const res = await fetch(`/api/memories/${localMemory.id}/convert-to-goal`, {
@@ -314,15 +316,15 @@ const MemoryCard = memo(
             isRecord(data) && isRecord(data.goal) && typeof data.goal.title === 'string'
               ? data.goal.title
               : null;
-          alert(goalTitle ? `✅ 목표가 생성되었습니다!\n"${goalTitle}"` : '✅ 목표가 생성되었습니다!');
+          alert(goalTitle ? `${t('memory.card.ai.convertToGoal.success')}\n"${goalTitle}"` : t('memory.card.ai.convertToGoal.success'));
           // 인사이트 패널 새로고침을 위해
           window.dispatchEvent(new CustomEvent('goal-updated'));
         } else {
-          alert('목표 생성 실패');
+          alert('Failed to create goal');
         }
       } catch (error) {
         console.error('Convert to goal error:', error);
-        alert('목표 생성 중 오류 발생');
+        alert('Error occurred during goal creation');
       }
     };
 
@@ -389,7 +391,7 @@ const MemoryCard = memo(
           <button
             onClick={handleAutoGroup}
             className="group/action w-8 h-8 inline-flex items-center justify-center rounded-md transition-colors"
-            title="AI로 자동 묶기"
+            title={t('memory.card.action.autoGroup')}
           >
             {/* pixelarticons 사용 (그룹/묶기) */}
             <span className="inline-flex w-8 h-8 items-center justify-center rounded-md transition-colors translate-x-[20px]">
@@ -401,7 +403,7 @@ const MemoryCard = memo(
           <button
             onClick={handleEdit}
             className="group/action w-8 h-8 inline-flex items-center justify-center rounded-md transition-colors"
-            title={isEditing ? '저장' : '수정'}
+            title={isEditing ? t('memory.card.action.save') : t('memory.card.action.edit')}
           >
             {isEditing ? (
               <span className="inline-flex w-8 h-8 items-center justify-center rounded-md transition-colors translate-x-[10px]">
@@ -419,7 +421,7 @@ const MemoryCard = memo(
           <button
             onClick={handleDelete}
             className="w-8 h-8 inline-flex items-center justify-center rounded-md hover:bg-red-50 transition-colors"
-            title="삭제"
+            title={t('memory.card.action.delete')}
           >
             {/* pixelarticons 사용 (삭제) */}
             <PixelIcon name="trash-alt" size={16} className="text-red-500" />
@@ -437,8 +439,8 @@ const MemoryCard = memo(
               onMouseDown={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
               onDragStart={(e) => e.preventDefault()}
-              placeholder="제목 (선택)"
-              className="w-full px-2 py-1 mb-1.5 text-[11px] md:text-xs font-semibold border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder={t('memory.input.placeholder.title')}
+              className="w-full px-2 py-1 mb-1.5 text-[11px] md:text-xs font-semibold text-gray-900 border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <div className="flex items-center gap-1 px-2 py-1 border border-indigo-300 bg-indigo-50/60">
               <button
@@ -487,13 +489,13 @@ const MemoryCard = memo(
               onMouseDown={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
               onDragStart={(e) => e.preventDefault()}
-              className="w-full p-2 border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[10px] md:text-[11px] whitespace-pre-wrap"
+              className="w-full p-2 border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[10px] md:text-[11px] text-gray-800 whitespace-pre-wrap"
               onInput={() => setEditContent(editRef.current?.innerHTML || '')}
               suppressContentEditableWarning
             />
           </div>
         ) : (
-          <div className="mb-2">
+          <div className="mb-1">
             {/* 제목 */}
             {localMemory.title && (
               <h3 className="text-[11px] md:text-xs font-semibold text-gray-900 mb-1">
@@ -511,7 +513,7 @@ const MemoryCard = memo(
                 onClick={() => setIsExpanded(true)}
                 className="mt-1 text-indigo-500 hover:text-indigo-600 text-[10px] md:text-[11px] font-medium"
               >
-                더보기
+                {t('memory.card.action.more')}
               </button>
             )}
             {isLong && isExpanded && (
@@ -519,14 +521,14 @@ const MemoryCard = memo(
                 onClick={() => setIsExpanded(false)}
                 className="mt-1 text-gray-500 hover:text-gray-600 text-[10px] md:text-[11px] font-medium"
               >
-                접기
+                {t('memory.card.action.fold')}
               </button>
             )}
           </div>
         )}
 
         {/* AI 버튼들 */}
-        <div className="mb-1.5 flex items-center gap-1.5">
+        <div className="mb-1 flex items-center gap-1.5">
           <button
             onClick={handleToggleSummary}
             disabled={isLoadingSummary}
@@ -535,7 +537,7 @@ const MemoryCard = memo(
             <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            {isLoadingSummary ? '생성중' : showSummary ? '요약 끄기' : '요약'}
+            {isLoadingSummary ? t('memory.card.ai.summarizing') : showSummary ? t('memory.card.ai.summarize.off') : t('memory.card.ai.summarize')}
           </button>
 
           <button
@@ -546,7 +548,7 @@ const MemoryCard = memo(
             <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            {isLoadingSuggestions ? '생성중' : showSuggestions ? '제안 끄기' : '제안'}
+            {isLoadingSuggestions ? t('memory.card.ai.suggesting') : showSuggestions ? t('memory.card.ai.suggest.off') : t('memory.card.ai.suggest')}
           </button>
           {variant === 'board' && (
             <>
@@ -560,7 +562,7 @@ const MemoryCard = memo(
                     key={item.id}
                     onClick={() => onCardColorChange?.(item.id)}
                     className={`w-4 h-4 border ${item.class} border-white`}
-                    title={`${item.id === 'green' ? '주황' : '인디고'} 카드`}
+                    title={`${language === 'ko' ? (item.id === 'green' ? '주황' : '인디고') : (item.id === 'green' ? 'Orange' : 'Indigo')} ${t('memory.card.action.card')}`}
                   />
                 ))}
               </div>
@@ -581,7 +583,7 @@ const MemoryCard = memo(
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
               <div className="flex-1">
-                <div className="text-[10px] font-semibold text-indigo-700 mb-0.5">AI 요약</div>
+                <div className="text-[10px] font-semibold text-indigo-700 mb-0.5">{t('memory.card.ai.summary.title')}</div>
                 <p className="text-[10px] text-gray-700 leading-relaxed">{summary}</p>
               </div>
             </div>
@@ -598,7 +600,7 @@ const MemoryCard = memo(
                   <svg className="w-2.5 h-2.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
-                  <h4 className="text-[10px] font-bold text-indigo-700">다음 단계</h4>
+                  <h4 className="text-[10px] font-bold text-indigo-700">{t('memory.card.ai.nextSteps.title')}</h4>
                 </div>
                 <ul className="space-y-0.5 ml-2">
                   {suggestions.nextSteps.map((step: string, idx: number) => (
@@ -618,7 +620,7 @@ const MemoryCard = memo(
                   <svg className="w-2.5 h-2.5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
-                  <h4 className="text-[10px] font-bold text-orange-700">관련 자료</h4>
+                  <h4 className="text-[10px] font-bold text-orange-700">{t('memory.card.ai.resources.title')}</h4>
                 </div>
                 <ul className="space-y-0.5 ml-2">
                   {suggestions.resources.map((resource, idx) => (
@@ -651,13 +653,13 @@ const MemoryCard = memo(
                     <svg className="w-2.5 h-2.5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                     </svg>
-                    <h4 className="text-[10px] font-bold text-orange-700">실행 계획</h4>
+                    <h4 className="text-[10px] font-bold text-orange-700">{t('memory.card.ai.actionPlan.title')}</h4>
                   </div>
                   <button
                     onClick={() => handleConvertToGoal(suggestions)}
                     className="px-1.5 py-0.5 text-[9px] font-bold text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 rounded-full transition-all shadow-sm"
                   >
-                    🎯 목표로 전환
+                    {t('memory.card.ai.convertToGoal')}
                   </button>
                 </div>
                 <ul className="space-y-0.5 ml-2">
@@ -722,7 +724,7 @@ const MemoryCard = memo(
                           download={attachment.filename}
                           onClick={(e) => e.stopPropagation()}
                           className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
-                          title="다운로드"
+                          title={t('memory.card.attachment.download')}
                         >
                           <PixelIcon name="download" size={12} />
                         </a>
@@ -750,9 +752,9 @@ const MemoryCard = memo(
                         <p className="text-[9px] text-gray-500">{(attachment.size / 1024).toFixed(1)} KB</p>
                       </div>
                       {!viewerExists || !isSupported ? (
-                        <span className="text-indigo-500 text-[10px]">열기</span>
+                        <span className="text-indigo-500 text-[10px]">{t('memory.card.attachment.open')}</span>
                       ) : (
-                        <span className="text-indigo-500 text-[10px]">Viewer에서 보기</span>
+                        <span className="text-indigo-500 text-[10px]">{t('memory.card.attachment.viewInViewer')}</span>
                       )}
                     </a>
                     {viewerExists && (
@@ -761,7 +763,7 @@ const MemoryCard = memo(
                         download={attachment.filename}
                         onClick={(e) => e.stopPropagation()}
                         className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
-                        title="다운로드"
+                        title={t('memory.card.attachment.download')}
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -806,12 +808,12 @@ const MemoryCard = memo(
             </svg>
             <div className="flex-1">
               <div className="text-[10px] text-gray-500 mb-0.5 flex items-center justify-between">
-                <span>연결된 기록</span>
+                <span>{t('memory.card.related.title')}</span>
                 <button
                   onClick={() => onOpenLinkManager?.(localMemory)}
                   className="text-[10px] text-indigo-500 hover:text-indigo-600"
                 >
-                  + 추가
+                  {t('memory.card.related.add')}
                 </button>
               </div>
               {localMemory.relatedMemoryIds && localMemory.relatedMemoryIds.length > 0 ? (
@@ -841,7 +843,7 @@ const MemoryCard = memo(
                           {relatedMemory.title || stripHtmlClient(relatedMemory.content).substring(0, 20)}...
                         </button>
                         {note && (
-                          <div className="mt-0.5 text-[9px] text-gray-500 line-clamp-1">메모: {note}</div>
+                          <div className="mt-0.5 text-[9px] text-gray-500 line-clamp-1">{t('common.note')}: {note}</div>
                         )}
                         {/* 링크 삭제 버튼 */}
                         {isEditing && (
@@ -852,7 +854,7 @@ const MemoryCard = memo(
                               }
                             }}
                             className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-red-600 transition-all"
-                            title="연결 끊기"
+                            title={t('memory.card.related.unlink')}
                           >
                             ×
                           </button>
@@ -862,12 +864,12 @@ const MemoryCard = memo(
                   })}
                   {localMemory.relatedMemoryIds.length > 3 && (
                     <span className="text-[10px] text-gray-400 self-center">
-                      +{localMemory.relatedMemoryIds.length - 3}개 더
+                      {t('memory.card.related.more').replace('{count}', (localMemory.relatedMemoryIds.length - 3).toString())}
                     </span>
                   )}
                 </div>
               ) : (
-                <p className="text-[10px] text-gray-400">아직 연결된 기록이 없습니다</p>
+                <p className="text-[10px] text-gray-400">{t('memory.card.related.none')}</p>
               )}
             </div>
           </div>
@@ -878,9 +880,9 @@ const MemoryCard = memo(
               <div className="flex items-center gap-1 text-[9px] text-gray-400 uppercase tracking-tight font-bold">
                 <PixelIcon name={localMemory.source === 'gmail' ? 'mail' : 'info'} size={10} />
                 <span>
-                  {localMemory.source === 'gmail' && 'Gmail 출처'}
-                  {localMemory.source === 'ios-shortcut' && 'iOS Shortcut'}
-                  {localMemory.source === 'workless-web' && 'Quick Add'}
+                  {localMemory.source === 'gmail' && t('memory.card.source.gmail')}
+                  {localMemory.source === 'ios-shortcut' && t('memory.card.source.ios')}
+                  {localMemory.source === 'workless-web' && t('memory.card.source.quickAdd')}
                   {!['gmail', 'ios-shortcut', 'workless-web'].includes(localMemory.source) && localMemory.source}
                 </span>
               </div>
@@ -903,7 +905,7 @@ const MemoryCard = memo(
                   rel="noreferrer"
                   className="mt-1 text-[9px] text-indigo-500 hover:text-indigo-600 hover:underline inline-flex items-center gap-0.5 cursor-pointer"
                 >
-                  <span>{localMemory.source === 'gmail' ? '메일 원본 보기' : '링크 열기'}</span>
+                  <span>{localMemory.source === 'gmail' ? t('memory.card.source.openOriginal') : t('memory.card.source.openLink')}</span>
                   <PixelIcon name="arrow" size={8} />
                 </a>
               )}

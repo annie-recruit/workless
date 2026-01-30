@@ -11,4 +11,16 @@ Sentry.init({
   environment: process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,
   release: process.env.SENTRY_RELEASE,
   tracesSampleRate,
+  sendDefaultPii: false,
+  beforeSend(event) {
+    // 서버 로그에서 민감한 데이터 제거
+    if (event.request && event.request.headers) {
+      delete event.request.headers['authorization'];
+      delete event.request.headers['cookie'];
+    }
+    if (event.user) {
+      if (event.user.email) event.user.email = '[filtered]';
+    }
+    return event;
+  },
 });

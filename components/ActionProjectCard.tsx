@@ -3,6 +3,7 @@
 import React, { useMemo } from 'react';
 import { ActionProject, ProjectMilestone, ProjectAction } from '@/types';
 import PixelIcon from './PixelIcon';
+import { useLanguage } from './LanguageContext';
 
 interface ActionProjectCardProps {
     project: ActionProject;
@@ -19,6 +20,7 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
     isDragging,
     isSelected,
 }) => {
+    const { t } = useLanguage();
     // 전체 진행률 계산
     const progress = useMemo(() => {
         const totalActions = project.milestones.reduce((acc, m) => acc + m.actions.length, 0);
@@ -61,7 +63,7 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
                 <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                         <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold border border-indigo-200 uppercase tracking-tighter">
-                            Action Project
+                            {t('memory.list.project.title')}
                         </span>
                         <span className="text-[10px] text-gray-500 font-mono">{project.expectedDuration}</span>
                     </div>
@@ -139,7 +141,7 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
                                         </p>
                                         {action.duration && (
                                             <span className="text-[10px] font-bold text-indigo-400 mt-1 block">
-                                                예상: {action.duration}
+                                                {t('memory.list.project.estimated').replace('{duration}', action.duration)}
                                             </span>
                                         )}
                                     </div>

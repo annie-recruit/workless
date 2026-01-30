@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Memory } from '@/types';
+import { useLanguage } from './LanguageContext';
 
 interface GlobalSearchProps {
   memories: Memory[];
@@ -20,6 +21,7 @@ const stripHtmlClient = (html: string) => {
 };
 
 export default function GlobalSearch({ memories, onMemoryClick, isOpen, onClose }: GlobalSearchProps) {
+  const { t, language } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
@@ -115,13 +117,13 @@ export default function GlobalSearch({ memories, onMemoryClick, isOpen, onClose 
                 closeAndReset();
               }
             }}
-            placeholder="/ 를 눌러 기억 검색..."
-            className="w-full px-4 py-2 text-sm font-medium border-0 focus:ring-0 bg-transparent transition-colors"
+            placeholder={t('search.placeholder')}
+            className="w-full px-4 py-2 text-sm font-medium text-gray-900 border-0 focus:ring-0 bg-transparent transition-colors"
           />
           <div className="px-4 pb-1 text-[10px] text-gray-400 flex items-center gap-2">
-            <span className="px-1 border border-gray-200 rounded">↑↓</span> 이동
-            <span className="px-1 border border-gray-200 rounded">Enter</span> 선택
-            <span className="px-1 border border-gray-200 rounded">ESC</span> 닫기
+            <span className="px-1 border border-gray-200 rounded">↑↓</span> {t('search.guide.move')}
+            <span className="px-1 border border-gray-200 rounded">Enter</span> {t('search.guide.select')}
+            <span className="px-1 border border-gray-200 rounded">ESC</span> {t('search.guide.close')}
           </div>
         </div>
 
@@ -129,7 +131,7 @@ export default function GlobalSearch({ memories, onMemoryClick, isOpen, onClose 
           {searchQuery.trim().length === 0 ? (
             null
           ) : searchResults.length === 0 ? (
-            <div className="p-6 text-center text-sm text-gray-400">검색 결과가 없습니다</div>
+            <div className="p-6 text-center text-sm text-gray-400">{t('search.noResult')}</div>
           ) : (
             searchResults.map((memory, index) => {
               const plainContent = stripHtmlClient(memory.content || '');
@@ -162,7 +164,7 @@ export default function GlobalSearch({ memories, onMemoryClick, isOpen, onClose 
                           </span>
                         )}
                         <span className="text-xs text-gray-400">
-                          {new Date(memory.createdAt).toLocaleDateString('ko-KR')}
+                          {new Date(memory.createdAt).toLocaleDateString(language === 'ko' ? 'ko-KR' : 'en-US')}
                         </span>
                       </div>
                     </div>

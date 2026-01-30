@@ -1,8 +1,4 @@
 User-agent: *
 Allow: /
-Disallow: /api/
-Disallow: /dashboard/
-Disallow: /settings/
-Disallow: /onboarding/
 
 Sitemap: https://workless.me/sitemap.xml

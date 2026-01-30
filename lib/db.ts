@@ -570,8 +570,17 @@ export const memoryDb = {
 
   // 삭제
   delete(id: string): void {
-    const stmt = db.prepare('DELETE FROM memories WHERE id = ?');
-    stmt.run(id);
+    const transaction = db.transaction(() => {
+      // 1. 링크 삭제
+      db.prepare('DELETE FROM memory_links WHERE memoryId1 = ? OR memoryId2 = ?').run(id, id);
+      // 2. 보드 위치 삭제
+      db.prepare('DELETE FROM board_positions WHERE memoryId = ?').run(id);
+      // 3. 카드 색상 삭제
+      db.prepare('DELETE FROM board_card_colors WHERE memoryId = ?').run(id);
+      // 4. 기억 삭제
+      db.prepare('DELETE FROM memories WHERE id = ?').run(id);
+    });
+    transaction();
   },
 
   // sourceId로 조회 (중복 방지용)

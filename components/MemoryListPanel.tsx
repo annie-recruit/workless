@@ -4,8 +4,9 @@ import { useState, useMemo } from 'react';
 import type { Memory, CanvasBlock } from '@/types';
 import PixelIcon from './PixelIcon';
 import { formatDistanceToNow } from 'date-fns';
-import { ko } from 'date-fns/locale';
+import { ko, enUS } from 'date-fns/locale';
 import { stripHtmlClient } from '@/board/boardUtils';
+import { useLanguage } from './LanguageContext';
 
 interface MemoryListPanelProps {
     memories: Memory[];
@@ -22,6 +23,7 @@ export default function MemoryListPanel({
     onDeleteMemory,
     onDeleteBlock,
 }: MemoryListPanelProps) {
+    const { t, language } = useLanguage();
     const [activeTab, setActiveTab] = useState<'all' | 'memory' | 'block'>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [visibleCount, setVisibleCount] = useState(30);
@@ -33,7 +35,7 @@ export default function MemoryListPanel({
         const memoryItems = memories.map(m => ({
             id: m.id,
             type: 'memory' as const,
-            title: m.title || '제목 없음',
+            title: m.title || t('memory.list.item.noTitle'),
             content: stripHtmlClient(m.content),
             createdAt: m.createdAt,
             original: m
@@ -43,11 +45,11 @@ export default function MemoryListPanel({
         const blockItems = blocks.map(b => ({
             id: b.id,
             type: 'block' as const,
-            title: b.type === 'calendar' ? '캘린더' :
-                b.type === 'minimap' ? '미니맵' :
-                    b.type === 'viewer' ? '뷰어' :
-                        b.type === 'meeting-recorder' ? '미팅 레코더' :
-                            b.type === 'database' ? '데이터베이스' : '위젯',
+            title: b.type === 'calendar' ? t('onboarding.calendar') :
+                b.type === 'minimap' ? t('memory.view.board.widget.minimap') :
+                    b.type === 'viewer' ? t('memory.view.board.widget.viewer') :
+                        b.type === 'meeting-recorder' ? t('memory.view.board.widget.recorder') :
+                            b.type === 'database' ? t('memory.view.board.widget.db') : t('memory.view.board.widget.add'),
             content: `${b.width || '?'}x${b.height || '?'}`,
             createdAt: b.createdAt,
             original: b
@@ -83,7 +85,7 @@ export default function MemoryListPanel({
             <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-indigo-50 border-b-[3px] border-black">
                 <h3 className="font-bold text-gray-800 flex items-center gap-2">
                     <PixelIcon name="folder" size={20} className="text-indigo-500" />
-                    기억 관리
+                    {t('memory.list.title')}
                 </h3>
                 <button
                     onClick={onClose}
@@ -101,27 +103,27 @@ export default function MemoryListPanel({
                         className={`flex-1 py-1.5 text-xs font-medium transition-all border-r-[2px] border-black ${activeTab === 'all' ? 'bg-gradient-to-r from-orange-100 to-indigo-100 text-gray-900' : 'bg-white text-gray-500 hover:bg-gray-50'
                             }`}
                     >
-                        전체 ({memories.length + blocks.length})
+                        {t('memory.list.tab.all').replace('{count}', (memories.length + blocks.length).toString())}
                     </button>
                     <button
                         onClick={() => { setActiveTab('memory'); setVisibleCount(30); }}
                         className={`flex-1 py-1.5 text-xs font-medium transition-all border-r-[2px] border-black ${activeTab === 'memory' ? 'bg-gradient-to-r from-orange-100 to-indigo-100 text-gray-900' : 'bg-white text-gray-500 hover:bg-gray-50'
                             }`}
                     >
-                        기억 ({memories.length})
+                        {t('memory.list.tab.memory').replace('{count}', memories.length.toString())}
                     </button>
                     <button
                         onClick={() => { setActiveTab('block'); setVisibleCount(30); }}
                         className={`flex-1 py-1.5 text-xs font-medium transition-all ${activeTab === 'block' ? 'bg-gradient-to-r from-orange-100 to-indigo-100 text-gray-900' : 'bg-white text-gray-500 hover:bg-gray-50'
                             }`}
                     >
-                        위젯 ({blocks.length})
+                        {t('memory.list.tab.widget').replace('{count}', blocks.length.toString())}
                     </button>
                 </div>
                 <div className="relative">
                     <input
                         type="text"
-                        placeholder="검색..."
+                        placeholder={t('memory.list.search.placeholder')}
                         value={searchQuery}
                         onChange={(e) => { setSearchQuery(e.target.value); setVisibleCount(30); }}
                         className="w-full pl-9 pr-3 py-2 text-sm bg-white border-[2px] border-black focus:outline-none focus:border-indigo-500 transition-all"
@@ -137,7 +139,7 @@ export default function MemoryListPanel({
                 {visibleItems.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2">
                         <PixelIcon name="search" size={32} className="opacity-20" />
-                        <p className="text-xs">항목이 없습니다</p>
+                        <p className="text-xs">{t('memory.list.noResult')}</p>
                     </div>
                 ) : (
                     <div className="space-y-2">
@@ -150,9 +152,9 @@ export default function MemoryListPanel({
                                     }`}>
                                     <PixelIcon
                                         name={item.type === 'memory' ? 'doc' : (
-                                            item.title === '캘린더' ? 'calendar' :
-                                                item.title === '미니맵' ? 'minimap' :
-                                                    item.title === '뷰어' ? 'viewer' : 'database'
+                                            item.title === t('onboarding.calendar') ? 'calendar' :
+                                                item.title === t('memory.view.board.widget.minimap') ? 'minimap' :
+                                                    item.title === t('memory.view.board.widget.viewer') ? 'viewer' : 'database'
                                         )}
                                         size={16}
                                     />
@@ -164,7 +166,10 @@ export default function MemoryListPanel({
                                             {item.title}
                                         </span>
                                         <span className="text-[10px] text-gray-400">
-                                            {formatDistanceToNow(item.createdAt, { addSuffix: true, locale: ko })}
+                                            {formatDistanceToNow(item.createdAt, { 
+                                                addSuffix: true, 
+                                                locale: language === 'ko' ? ko : enUS 
+                                            })}
                                         </span>
                                     </div>
                                     <p className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed">
@@ -175,7 +180,7 @@ export default function MemoryListPanel({
                                 <button
                                     onClick={() => item.type === 'memory' ? onDeleteMemory(item.id) : onDeleteBlock(item.id)}
                                     className="shrink-0 p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100 border-[2px] border-transparent hover:border-red-500"
-                                    title="삭제"
+                                    title={t('common.delete')}
                                 >
                                     <PixelIcon name="delete" size={16} />
                                 </button>

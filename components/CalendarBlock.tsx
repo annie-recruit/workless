@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns';
-import { ko } from 'date-fns/locale';
+import { ko, enUS } from 'date-fns/locale';
 import { Memory, CalendarBlockConfig } from '@/types';
 import PixelIcon from './PixelIcon';
+import { useLanguage } from './LanguageContext';
 
 interface CalendarBlockProps {
   blockId: string;
@@ -47,6 +48,7 @@ export default function CalendarBlock({
   onClick,
   zIndex = 10,
 }: CalendarBlockProps) {
+  const { t, language } = useLanguage();
   const [currentDate, setCurrentDate] = useState(config.selectedDate ? new Date(config.selectedDate) : new Date());
   const [isEditing, setIsEditing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -134,7 +136,7 @@ export default function CalendarBlock({
   return (
     <div
       data-calendar-block={blockId}
-      className={`absolute bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black p-4 cursor-move ${isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
+      className={`absolute bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black p-3 pb-1 cursor-move ${isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
         }`}
       style={{
         transform: `translate3d(${x}px, ${y}px, 0) scale(${scale})`,
@@ -167,7 +169,7 @@ export default function CalendarBlock({
       <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-200">
         <div className="flex items-center gap-2">
           <PixelIcon name="calendar" size={18} />
-          <h3 className="text-sm font-semibold text-gray-800">캘린더</h3>
+          <h3 className="text-sm font-semibold text-gray-800">{t('calendar.title')}</h3>
         </div>
         <div className="flex items-center gap-1">
           {view === 'month' && (
@@ -176,12 +178,12 @@ export default function CalendarBlock({
                 onClick={() => handleViewChange('week')}
                 className="px-2 py-1 text-xs rounded text-gray-600 hover:bg-gray-100"
               >
-                주
+                {t('calendar.view.week')}
               </button>
               <button
                 onClick={() => onDelete(blockId)}
                 className="ml-2 text-gray-400 hover:text-red-500 text-xs"
-                title="삭제"
+                title={t('common.delete')}
               >
                 ×
               </button>
@@ -191,7 +193,7 @@ export default function CalendarBlock({
             <button
               onClick={() => onDelete(blockId)}
               className="text-gray-400 hover:text-red-500 text-xs"
-              title="삭제"
+              title={t('common.delete')}
             >
               ×
             </button>
@@ -213,7 +215,7 @@ export default function CalendarBlock({
               </svg>
             </button>
             <span className="text-sm font-semibold text-gray-800">
-              {format(currentDate, 'yyyy년 M월', { locale: ko })}
+              {format(currentDate, t('calendar.format.month'), { locale: language === 'ko' ? ko : enUS })}
             </span>
             <button
               onClick={handleNextMonth}
@@ -227,15 +229,17 @@ export default function CalendarBlock({
 
           {/* 요일 헤더 */}
           <div className="grid grid-cols-7 gap-1 mb-1">
-            {['일', '월', '화', '수', '목', '금', '토'].map(day => (
-              <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
+            {(language === 'ko' 
+              ? ['일', '월', '화', '수', '목', '금', '토'] 
+              : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']).map(day => (
+              <div key={day} className="text-center text-[10px] md:text-xs font-medium text-gray-500 py-1">
                 {day}
               </div>
             ))}
           </div>
 
           {/* 캘린더 그리드 */}
-          <div className="grid grid-cols-7 gap-1 flex-1 overflow-y-auto">
+          <div className="grid grid-cols-7 gap-1 flex-1 auto-rows-fr">
             {days.map((day, idx) => {
               const dateKey = format(day, 'yyyy-MM-dd');
               const dayMemories = memoriesByDate[dateKey] || [];
@@ -269,7 +273,7 @@ export default function CalendarBlock({
                   `}
                   title={
                     dayMemories.length > 0 || hasTodos
-                      ? `${dayMemories.length > 0 ? `${dayMemories.length}개의 기록` : ''}${dayMemories.length > 0 && hasTodos ? ', ' : ''}${hasTodos ? `${dayTodos.length}개의 할일` : ''}`
+                      ? `${dayMemories.length > 0 ? t('calendar.record.count').replace('{count}', dayMemories.length.toString()) : ''}${dayMemories.length > 0 && hasTodos ? ', ' : ''}${hasTodos ? t('calendar.todo.count').replace('{count}', dayTodos.length.toString()) : ''}`
                       : ''
                   }
                 >
@@ -309,24 +313,24 @@ export default function CalendarBlock({
                   });
                 }}
                 className="p-1 hover:bg-gray-100 rounded"
-                title="월 뷰로 돌아가기"
+                title={t('calendar.back')}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <h3 className="text-sm font-semibold text-gray-800">주 뷰</h3>
+              <h3 className="text-sm font-semibold text-gray-800">{t('calendar.view.week')}</h3>
             </div>
             <button
               onClick={() => onDelete(blockId)}
               className="text-gray-400 hover:text-red-500 text-xs"
-              title="삭제"
+              title={t('common.delete')}
             >
               ×
             </button>
           </div>
           <div className="text-center text-gray-500 text-sm py-8">
-            주 뷰는 곧 추가될 예정입니다
+            {t('calendar.view.week.empty')}
           </div>
         </div>
       )}
@@ -514,10 +518,10 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
           </button>
           <div>
             <h3 className="text-sm font-semibold text-gray-800">
-              {format(date, 'yyyy년 M월 d일 (E)', { locale: ko })}
+              {format(date, t('calendar.format.day'), { locale: language === 'ko' ? ko : enUS })}
             </h3>
             <p className="text-xs text-gray-500">
-              {memories.length}개의 기록
+              {t('calendar.record.count').replace('{count}', memories.length.toString())}
             </p>
           </div>
         </div>
@@ -526,13 +530,13 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
       {/* 일정(투두) 섹션 */}
       <div className="mb-3">
         <div className="flex items-center justify-between mb-2">
-          <h4 className="text-xs font-semibold text-gray-700">일정</h4>
+          <h4 className="text-xs font-semibold text-gray-700">{t('calendar.todo.title')}</h4>
           {!showAddTodo && (
             <button
               onClick={() => setShowAddTodo(true)}
               className="text-xs text-blue-500 hover:text-blue-600"
             >
-              + 추가
+              {t('calendar.todo.add')}
             </button>
           )}
         </div>
@@ -567,7 +571,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
                       setShowMentions(false);
                     }
                   }}
-                  placeholder="일정 입력... (@로 기록 태그)"
+                  placeholder={t('calendar.todo.placeholder')}
                   className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                   autoFocus
                 />
@@ -603,7 +607,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
                 onClick={handleAddTodo}
                 className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
               >
-                추가
+                {t('common.add') || '추가'}
               </button>
               <button
                 onClick={() => {
@@ -615,7 +619,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
                 }}
                 className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
               >
-                취소
+                {t('common.cancel')}
               </button>
             </div>
           </div>
@@ -758,14 +762,14 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
               </div>
             ))
           ) : (
-            <p className="text-xs text-gray-400">일정이 없습니다</p>
+            <p className="text-xs text-gray-400">{t('calendar.todo.none')}</p>
           )}
         </div>
       </div>
 
       {/* 기록 섹션 */}
       <div className="flex-1">
-        <h4 className="text-xs font-semibold text-gray-700 mb-2">기록</h4>
+        <h4 className="text-xs font-semibold text-gray-700 mb-2">{t('calendar.memory.title')}</h4>
         <div className="space-y-2">
           {sortedMemories.length > 0 ? (
             sortedMemories.map(memory => {
@@ -798,7 +802,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
               );
             })
           ) : (
-            <p className="text-xs text-gray-400 text-center py-4">이 날 기록이 없습니다</p>
+            <p className="text-xs text-gray-400 text-center py-4">{t('calendar.memory.none')}</p>
           )}
         </div>
       </div>

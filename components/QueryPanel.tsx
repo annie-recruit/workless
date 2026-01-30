@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import { SummaryResponse, Memory } from '@/types';
 import PixelIcon from './PixelIcon';
+import { useLanguage } from './LanguageContext';
 
 const stripHtmlClient = (html: string) => html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 
 // 관련 기억 카드 컴포넌트
 function RelatedMemoryItem({ memory }: { memory: Memory }) {
+  const { t } = useLanguage();
   const [isExpanded, setIsExpanded] = useState(false);
   const MAX_LENGTH = 150;
   const plainContent = stripHtmlClient(memory.content);
@@ -17,7 +19,7 @@ function RelatedMemoryItem({ memory }: { memory: Memory }) {
     : plainContent.slice(0, MAX_LENGTH);
 
   return (
-    <div className="text-sm text-gray-600 pl-3 border-l-2 border-green-300 whitespace-pre-wrap">
+    <div className="text-sm text-gray-600 pl-3 border-l-2 border-green-300 whitespace-pre-wrap font-galmuri11">
       {displayContent}
       {isLong && !isExpanded && (
         <>
@@ -26,7 +28,7 @@ function RelatedMemoryItem({ memory }: { memory: Memory }) {
             onClick={() => setIsExpanded(true)}
             className="ml-2 text-green-600 hover:text-green-700 font-medium"
           >
-            더보기
+            {t('memory.card.action.more')}
           </button>
         </>
       )}
@@ -35,7 +37,7 @@ function RelatedMemoryItem({ memory }: { memory: Memory }) {
           onClick={() => setIsExpanded(false)}
           className="ml-2 text-gray-500 hover:text-gray-600 font-medium"
         >
-          접기
+          {t('memory.card.action.fold')}
         </button>
       )}
     </div>
@@ -47,6 +49,7 @@ interface QueryPanelProps {
 }
 
 export default function QueryPanel({ personaId }: QueryPanelProps) {
+  const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SummaryResponse | null>(null);
@@ -71,28 +74,28 @@ export default function QueryPanel({ personaId }: QueryPanelProps) {
       }
     } catch (error) {
       console.error('Failed to get summary:', error);
-      alert('요약 생성에 실패했습니다');
+      alert(t('query.error.failed'));
     } finally {
       setLoading(false);
     }
   };
 
   const quickQueries = [
-    '요즘 내가 무슨 생각 많이 했어?',
-    '아이디어 관련해서 뭐 쌓여 있어?',
-    '업무 관련 기록 보여줘',
-    '최근 회의록 요약해줘',
+    t('query.quick.1'),
+    t('query.quick.2'),
+    t('query.quick.3'),
+    t('query.quick.4'),
   ];
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-4">
+    <div className="w-full max-w-3xl mx-auto space-y-4 font-galmuri11">
       <form onSubmit={handleSubmit} className="space-y-3">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="예: 요즘 내가 무슨 생각 많이 했어?"
-          className="w-full px-4 py-3 text-base border border-gray-200 rounded-xl focus:border-green-400 focus:outline-none"
+          placeholder={t('query.placeholder')}
+          className="w-full px-4 py-3 text-base text-gray-900 border border-gray-200 rounded-xl focus:border-green-400 focus:outline-none"
           disabled={loading}
         />
 
@@ -102,11 +105,11 @@ export default function QueryPanel({ personaId }: QueryPanelProps) {
             disabled={loading || !query.trim()}
             className="px-5 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? '생각 중...' : '물어보기'}
+            {loading ? t('query.button.thinking') : t('query.button.ask')}
           </button>
 
           {/* 빠른 질문 */}
-          <div className="flex gap-2 ml-2">
+          <div className="flex gap-2 ml-2 flex-wrap">
             {quickQueries.map((q, idx) => (
               <button
                 key={idx}
@@ -125,14 +128,14 @@ export default function QueryPanel({ personaId }: QueryPanelProps) {
       {result && (
         <div className="mt-6 p-5 bg-green-50 border border-green-200 rounded-xl space-y-4">
           <div>
-            <h3 className="text-sm font-semibold text-green-900 mb-2">요약</h3>
+            <h3 className="text-sm font-semibold text-green-900 mb-2">{t('query.result.summary')}</h3>
             <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{result.summary}</p>
           </div>
 
           {result.relatedMemories.length > 0 && (
             <div>
               <h3 className="text-sm font-semibold text-green-900 mb-2">
-                관련 기억 ({result.relatedMemories.length}개)
+                {t('query.result.related').replace('{count}', result.relatedMemories.length.toString())}
               </h3>
               <div className="space-y-2">
                 {result.relatedMemories.slice(0, 5).map((memory) => (
@@ -146,7 +149,7 @@ export default function QueryPanel({ personaId }: QueryPanelProps) {
             <div>
               <h3 className="text-sm font-semibold text-green-900 mb-2 flex items-center gap-1">
                 <PixelIcon name="lightbulb" size={16} />
-                제안
+                {t('query.result.suggestions')}
               </h3>
               <ul className="space-y-1">
                 {result.suggestions.map((suggestion, idx) => (

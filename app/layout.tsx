@@ -4,6 +4,7 @@ import "./globals.css";
 import SessionProvider from "@/components/SessionProvider";
 import { ViewerProvider } from "@/components/ViewerContext";
 import { FlagProvider } from "@/components/FlagContext";
+import { LanguageProvider } from "@/components/LanguageContext";
 import WebVitals from "@/components/WebVitals";
 import ConsoleLogger from "@/components/ConsoleLogger";
 import Footer from "@/components/Footer";
@@ -53,9 +54,9 @@ export const metadata: Metadata = {
     siteName: "WORKLESS",
     images: [
       {
-        url: "/opengraph-image", // Next.js가 자동으로 생성하는 Open Graph 이미지
-        width: 1200,
-        height: 630,
+        url: "/real_logo.png",
+        width: 762,
+        height: 660,
         alt: "WORKLESS - 맥락을 구체화. 비정형 애자일 워크스페이스",
       },
     ],
@@ -64,7 +65,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "WORKLESS - 맥락을 구체화",
     description: "비정형 애자일 워크스페이스. 무한 캔버스에서 아이디어를 자유롭게 배치하고 연결하세요.",
-    images: ["/opengraph-image"],
+    images: ["/real_logo.png"],
   },
 };
 
@@ -86,14 +87,16 @@ export default function RootLayout({
         <WebVitals />
         <ConsoleLogger />
         <SessionProvider>
-          <ViewerProvider>
-            <FlagProvider>
-              <div className="flex-1">
-                {children}
-              </div>
-              <Footer />
-            </FlagProvider>
-          </ViewerProvider>
+          <LanguageProvider>
+            <ViewerProvider>
+              <FlagProvider>
+                <div className="flex-1">
+                  {children}
+                </div>
+                <Footer />
+              </FlagProvider>
+            </ViewerProvider>
+          </LanguageProvider>
         </SessionProvider>
       </body>
     </html>

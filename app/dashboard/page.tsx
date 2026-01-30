@@ -14,13 +14,16 @@ import PersonaSelector from '@/components/PersonaSelector';
 import GlobalSearch from '@/components/GlobalSearch';
 import PixelIcon from '@/components/PixelIcon';
 import ProcessingLoader from '@/components/ProcessingLoader';
+import PixelLanguageToggle from '@/components/PixelLanguageToggle';
 import { useLocalSync } from '@/hooks/useLocalSync';
+import { useLanguage } from '@/components/LanguageContext';
 import { dataLayer } from '@/lib/dataLayer';
 import { Memory, CanvasBlock } from '@/types';
 
 export default function Home() {
   const { data: session, status } = useSession();
   const userId = (session?.user as any)?.id || session?.user?.email || '';
+  const { t } = useLanguage();
   
   // 동기화 및 마이그레이션 관리
   useLocalSync(userId);
@@ -133,37 +136,29 @@ export default function Home() {
   };
 
   const handleManualDeleteMemory = async (id: string) => {
-    if (!confirm('기억을 삭제하시겠습니까?')) return;
+    if (!confirm(t('common.confirmDeleteMemory'))) return;
     try {
-      const res = await fetch(`/api/memories?id=${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setMemories(prev => prev.filter(m => m.id !== id));
-      } else {
-        alert('삭제 실패');
-      }
+      await dataLayer.deleteMemory(id, userId);
+      setMemories(prev => prev.filter(m => m.id !== id));
     } catch {
-      alert('삭제 중 오류 발생');
+      alert(t('common.deleteError'));
     }
   };
 
   const handleManualDeleteBlock = async (id: string) => {
-    if (!confirm('위젯을 삭제하시겠습니까?')) return;
+    if (!confirm(t('common.confirmDeleteWidget'))) return;
     try {
-      const res = await fetch(`/api/board/blocks?id=${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setBlocks(prev => prev.filter(b => b.id !== id));
-      } else {
-        alert('삭제 실패');
-      }
+      await dataLayer.deleteBlock(id, userId);
+      setBlocks(prev => prev.filter(b => b.id !== id));
     } catch {
-      alert('삭제 중 오류 발생');
+      alert(t('common.deleteError'));
     }
   };
 
   if (status === 'loading' || (status === 'authenticated' && loading)) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <ProcessingLoader size={32} variant="overlay" tone="indigo" label="워크스페이스 로딩 중..." />
+        <ProcessingLoader size={32} variant="overlay" tone="indigo" label={t('dashboard.loading.workspace')} />
       </main>
     );
   }
@@ -171,7 +166,7 @@ export default function Home() {
   if (!session) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <ProcessingLoader size={32} variant="overlay" tone="indigo" label="로그인 페이지로 이동 중..." />
+        <ProcessingLoader size={32} variant="overlay" tone="indigo" label={t('dashboard.loading.redirecting')} />
       </main>
     );
   }
@@ -187,7 +182,7 @@ export default function Home() {
           padding: '12px 6px',
           borderRadius: showInsights ? '8px 0 0 8px' : '8px'
         }}
-        title={showInsights ? "인사이트 숨기기" : "인사이트 보기"}
+        title={showInsights ? t('dashboard.insights.hide') : t('dashboard.insights.show')}
       >
         <svg
           className={`w-4 h-4 text-gray-600 transition-transform duration-300 ${showInsights ? 'rotate-0' : 'rotate-180'
@@ -206,12 +201,12 @@ export default function Home() {
           <div className="container mx-auto px-4 py-6 md:py-12">
             <div className="relative z-10">
               <h1 className="text-3xl md:text-6xl font-black text-white mb-3 tracking-tighter uppercase" style={{ letterSpacing: '-0.05em' }}>
-                Workless
+                {t('dashboard.title')}
               </h1>
               <div className="flex items-center gap-3">
                 <div className="h-0.5 w-8 md:w-12 bg-white"></div>
                 <p className="text-white/90 text-xs md:text-base font-light">
-                  사고의 흐름을 보는 비정형 워크스페이스
+                  {t('dashboard.subtitle')}
                 </p>
               </div>
             </div>
@@ -229,25 +224,28 @@ export default function Home() {
                 onClick={() => setShowModal('groups')}
                 className="px-2 md:px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-[10px] md:text-sm font-medium whitespace-nowrap"
               >
-                그룹 관리
+                {t('dashboard.menu.groups')}
               </button>
               <button
                 onClick={() => setShowModal('memory_manager')}
                 className="px-2 md:px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-[10px] md:text-sm font-medium flex items-center gap-1 whitespace-nowrap"
               >
                 <PixelIcon name="list" size={14} />
-                <span className="whitespace-nowrap">기억 관리</span>
+                <span className="whitespace-nowrap">{t('dashboard.menu.memories')}</span>
               </button>
               <Link
                 href="/settings/local-first"
                 className="px-2 md:px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-[10px] md:text-sm font-medium flex items-center gap-1 whitespace-nowrap"
               >
                 <PixelIcon name="settings" size={14} />
-                <span className="whitespace-nowrap">설정</span>
+                <span className="whitespace-nowrap">{t('dashboard.menu.settings')}</span>
               </Link>
             </div>
 
             <div className="flex items-center gap-1 shrink-0 flex-nowrap flex-row">
+              <div className="mr-2 md:mr-4 flex items-center scale-75 md:scale-90 origin-right">
+                <PixelLanguageToggle />
+              </div>
               {session ? (
                 <div className="flex items-center gap-1 md:gap-2 flex-nowrap flex-row">
                   <span className="px-1 md:px-2 text-gray-600 text-[10px] md:text-sm whitespace-nowrap max-w-[80px] md:max-w-none truncate">
@@ -257,7 +255,7 @@ export default function Home() {
                     onClick={() => signOut()}
                     className="px-2 md:px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-[10px] md:text-sm font-medium whitespace-nowrap"
                   >
-                    로그아웃
+                    {t('dashboard.auth.logout')}
                   </button>
                 </div>
               ) : (
@@ -265,7 +263,7 @@ export default function Home() {
                   onClick={() => signIn('google')}
                   className="px-2 md:px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-[10px] md:text-sm font-medium whitespace-nowrap"
                 >
-                  로그인
+                  {t('dashboard.auth.login')}
                 </button>
               )}
             </div>
@@ -296,7 +294,7 @@ export default function Home() {
           <div className="font-galmuri11">
             {loading ? (
               <div className="py-12 flex items-center justify-center">
-                <ProcessingLoader variant="panel" tone="indigo" label="불러오는 중..." />
+                <ProcessingLoader variant="panel" tone="indigo" label={t('dashboard.loading.fetching')} />
               </div>
             ) : (
               <MemoryView
@@ -337,23 +335,30 @@ export default function Home() {
         )
       }
 
-      {/* 그룹 관리 모달 */}
+      {/* 그룹 관리 모달 -> 토스트/사이드 패널 스타일로 변경 */}
       {
         showModal === 'groups' && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden flex flex-col">
-              <div className="p-6 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-purple-50 to-pink-50">
-                <h2 className="text-2xl font-bold text-gray-800">그룹 관리</h2>
+          <div className="fixed bottom-20 right-6 z-[10000] animate-slide-up font-galmuri11 w-full max-w-2xl">
+            <div className="bg-white border-4 border-gray-900 shadow-[12px_12px_0px_0px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col relative">
+              {/* 픽셀 코너 장식 */}
+              <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+              <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+              <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+              <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+
+              <div className="p-4 border-b-4 border-gray-900 flex items-center justify-between bg-gradient-to-r from-purple-50 to-pink-50">
+                <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
+                  <PixelIcon name="folder" size={20} />
+                  {t('dashboard.modal.groups.title')}
+                </h2>
                 <button
                   onClick={() => setShowModal(null)}
-                  className="text-gray-400 hover:text-gray-600 p-2 hover:bg-white rounded-lg transition-colors"
+                  className="text-gray-400 hover:text-gray-900 p-1 hover:bg-gray-100 transition-colors border-2 border-transparent hover:border-gray-900"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <PixelIcon name="close" size={20} />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-y-auto p-4 max-h-[60vh] custom-scrollbar">
                 <GroupManager onGroupsChanged={() => fetchDashboardData(true)} personaId={selectedPersonaId} />
               </div>
             </div>
@@ -367,7 +372,7 @@ export default function Home() {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white border border-orange-200 max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col">
               <div className="p-6 border-b-2 border-orange-300 flex items-center justify-between bg-gradient-to-r from-orange-50 to-indigo-50">
-                <h2 className="text-2xl font-bold text-gray-800">물어보기</h2>
+                <h2 className="text-2xl font-bold text-gray-800">{t('dashboard.modal.query.title')}</h2>
                 <button
                   onClick={() => setShowModal(null)}
                   className="text-gray-400 hover:text-gray-600 p-2 hover:bg-white rounded-lg transition-colors"

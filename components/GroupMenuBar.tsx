@@ -1,6 +1,7 @@
 import React from 'react';
 import PixelIcon from './PixelIcon';
 import { Group } from '@/types';
+import { useLanguage } from './LanguageContext';
 
 interface GroupMenuBarProps {
   groups: Group[];
@@ -23,20 +24,21 @@ export default function GroupMenuBar({
   onDrop,
   dropTargetGroupId,
 }: GroupMenuBarProps) {
+  const { t } = useLanguage();
   const folderColorMap: Record<string, string> = {
     orange: '#fb923c',
     indigo: '#6366f1',
   };
 
   return (
-    <div className="shrink-0 sticky top-[41px] z-20 flex items-center gap-2 px-3 py-2 text-xs text-gray-500 bg-gray-50 border-b border-gray-200 shadow-sm overflow-x-auto no-scrollbar flex-nowrap">
+    <div className="shrink-0 sticky top-[41px] z-20 flex items-center gap-2 px-3 py-2 text-xs text-gray-500 bg-gray-50/30 backdrop-blur-xl border-b border-gray-200/30 shadow-none overflow-x-auto no-scrollbar flex-nowrap">
       {/* 전체 버튼 */}
       <button
         onClick={() => onSelectGroup(null)}
         className={`px-3 py-1 text-xs rounded border flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
           selectedGroupId === null
             ? 'bg-gray-900 text-white border-transparent'
-            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+            : 'bg-white/40 text-gray-700 border-white/30 hover:bg-white/60 backdrop-blur-sm'
         }`}
       >
         <div className="relative flex items-center">
@@ -51,7 +53,7 @@ export default function GroupMenuBar({
             {totalMemoriesCount}
           </span>
         </div>
-        <span className="font-medium">전체</span>
+        <span className="font-medium">{t('group.manage.all')}</span>
       </button>
 
       {/* 그룹 폴더들 */}
@@ -74,7 +76,7 @@ export default function GroupMenuBar({
                 ? 'bg-gray-900 text-white border-transparent'
                 : isDropTarget
                 ? 'bg-indigo-50 border-indigo-300 text-indigo-700 scale-105'
-                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                : 'bg-white/40 text-gray-700 border-white/30 hover:bg-white/60 backdrop-blur-sm'
             }`}
           >
             <div className="relative flex items-center">

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import PixelIcon from './PixelIcon';
+import { useLanguage } from './LanguageContext';
 
 export type CardPosition = {
     x: number;
@@ -26,6 +27,7 @@ export default function OnboardingMiniBoard({
     showLines = true,
     initialPositions
 }: OnboardingMiniBoardProps) {
+    const { t, language } = useLanguage();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [size, setSize] = useState({ width: 0, height: 0 });
@@ -267,16 +269,16 @@ export default function OnboardingMiniBoard({
                     <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
 
                     <div className="mb-2">
-                        <h3 className="text-[12px] font-semibold text-gray-900 mb-1">메모 작성</h3>
+                        <h3 className="text-[12px] font-semibold text-gray-900 mb-1">{t('onboarding.note')}</h3>
                         <p className="text-[10px] text-gray-800 leading-relaxed">
-                            • 파일 첨부 가능<br />
-                            • @태그로 참조
+                            {t('onboarding.note.desc1')}<br />
+                            {t('onboarding.note.desc2')}
                         </p>
                     </div>
                     <div className="flex items-center gap-1.5 text-[9px] text-gray-500">
-                        <span>방금 전</span>
+                        <span>{t('onboarding.justNow')}</span>
                         <span className="px-1 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-200">
-                            튜토리얼
+                            {t('onboarding.tutorial')}
                         </span>
                     </div>
                 </div>
@@ -293,16 +295,16 @@ export default function OnboardingMiniBoard({
                     <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
 
                     <div className="mb-2">
-                        <h3 className="text-[12px] font-semibold text-gray-900 mb-1">카드 연결</h3>
+                        <h3 className="text-[12px] font-semibold text-gray-900 mb-1">{t('onboarding.connect')}</h3>
                         <p className="text-[10px] text-gray-800 leading-relaxed">
-                            • 카드끼리 선으로 연결<br />
-                            • AI가 자동으로 그룹 제안
+                            {t('onboarding.connect.desc1')}<br />
+                            {t('onboarding.connect.desc2')}
                         </p>
                     </div>
                     <div className="flex items-center gap-1.5 text-[9px] text-gray-500">
-                        <span>방금 전</span>
+                        <span>{t('onboarding.justNow')}</span>
                         <span className="px-1 py-0.5 bg-orange-50 text-orange-600 border border-orange-200">
-                            기능
+                            {t('onboarding.feature')}
                         </span>
                     </div>
                 </div>
@@ -319,14 +321,14 @@ export default function OnboardingMiniBoard({
                     <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
 
                     <div className="mb-2">
-                        <h3 className="text-[12px] font-semibold text-gray-900 mb-1">태그 & 분류</h3>
+                        <h3 className="text-[12px] font-semibold text-gray-900 mb-1">{t('onboarding.tag')}</h3>
                         <p className="text-[10px] text-gray-800 leading-relaxed">
-                            • 태그 자동 분류<br />
-                            • 시간 맥락 추적
+                            {t('onboarding.tag.desc1')}<br />
+                            {t('onboarding.tag.desc2')}
                         </p>
                     </div>
                     <div className="flex items-center gap-1.5 text-[9px] text-gray-500">
-                        <span>방금 전</span>
+                        <span>{t('onboarding.justNow')}</span>
                     </div>
                 </div>
 
@@ -347,13 +349,13 @@ export default function OnboardingMiniBoard({
                         </span>
                         <h3 className="text-[12px] font-black text-gray-900 mt-1 flex items-center gap-1">
                             <PixelIcon name="target" size={12} className="text-indigo-600" ariaLabel="액션 프로젝트 타겟" />
-                            <span>시작하기</span>
+                            <span>{t('onboarding.action')}</span>
                         </h3>
                     </div>
 
                     <div className="mb-2">
                         <div className="flex justify-between items-center mb-0.5">
-                            <span className="text-[8px] font-bold text-gray-600">PROGRESS</span>
+                            <span className="text-[8px] font-bold text-gray-600">{t('onboarding.progress')}</span>
                             <span className="text-[8px] font-black text-indigo-600 font-mono">33%</span>
                         </div>
                         <div className="h-2 bg-gray-100 border-2 border-gray-800 p-0.5">
@@ -368,15 +370,15 @@ export default function OnboardingMiniBoard({
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" />
                                 </svg>
                             </div>
-                            <p className="text-[9px] font-medium text-gray-400 line-through">카드 3개 만들기</p>
+                            <p className="text-[9px] font-medium text-gray-400 line-through">{t('onboarding.todo1')}</p>
                         </div>
                         <div className="flex items-start gap-1.5">
                             <div className="mt-0.5 w-2.5 h-2.5 border-2 border-gray-800 bg-white flex-shrink-0" />
-                            <p className="text-[9px] font-medium text-gray-800">카드끼리 연결하기</p>
+                            <p className="text-[9px] font-medium text-gray-800">{t('onboarding.todo2')}</p>
                         </div>
                         <div className="flex items-start gap-1.5">
                             <div className="mt-0.5 w-2.5 h-2.5 border-2 border-gray-800 bg-white flex-shrink-0" />
-                            <p className="text-[9px] font-medium text-gray-800">AI 기능 사용해보기</p>
+                            <p className="text-[9px] font-medium text-gray-800">{t('onboarding.todo3')}</p>
                         </div>
                     </div>
                 </div>
@@ -389,8 +391,8 @@ export default function OnboardingMiniBoard({
                 >
                     <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-gray-200">
                         <div className="flex items-center gap-1.5">
-                            <PixelIcon name="calendar" size={16} ariaLabel="캘린더 위젯" />
-                            <h3 className="text-[12px] font-semibold text-gray-800">캘린더</h3>
+                            <PixelIcon name="calendar" size={16} ariaLabel={t('onboarding.calendar')} />
+                            <h3 className="text-[12px] font-semibold text-gray-800">{t('onboarding.calendar')}</h3>
                         </div>
                     </div>
 
@@ -400,7 +402,9 @@ export default function OnboardingMiniBoard({
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                             </svg>
                         </button>
-                        <span className="text-[11px] font-semibold text-gray-800">2026년 1월</span>
+                        <span className="text-[11px] font-semibold text-gray-800">
+                            {language === 'ko' ? '2026년 1월' : 'Jan 2026'}
+                        </span>
                         <button className="p-0.5 hover:bg-gray-100 rounded">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -409,8 +413,11 @@ export default function OnboardingMiniBoard({
                     </div>
 
                     <div className="grid grid-cols-7 gap-1 mb-1">
-                        {['일', '월', '화', '수', '목', '금', '토'].map(day => (
-                            <div key={day} className="text-center text-[9px] font-medium text-gray-500 py-0.5">
+                        {(language === 'ko' 
+                            ? ['일', '월', '화', '수', '목', '금', '토'] 
+                            : ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+                        ).map((day, i) => (
+                            <div key={i} className="text-center text-[9px] font-medium text-gray-500 py-0.5">
                                 {day}
                             </div>
                         ))}
@@ -453,7 +460,7 @@ export default function OnboardingMiniBoard({
                                 <div className="w-2.5 h-2.5 border border-black bg-[#FFBD2E]" />
                                 <div className="w-2.5 h-2.5 border border-black bg-[#27C93F]" />
                             </div>
-                            <span className="ml-1 text-[10px] font-bold text-black uppercase tracking-tight">PREVIEW</span>
+                            <span className="ml-1 text-[10px] font-bold text-black uppercase tracking-tight">{t('onboarding.preview')}</span>
                         </div>
                     </div>
 

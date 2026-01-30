@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import PixelIcon from './PixelIcon';
 import ProcessingLoader from './ProcessingLoader';
+import { useLanguage } from './LanguageContext';
 
 interface GmailEmail {
     messageId: string;
@@ -19,6 +20,7 @@ interface GmailImportButtonProps {
 }
 
 export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportComplete }) => {
+    const { t, language } = useLanguage();
     const [status, setStatus] = useState<'idle' | 'loading' | 'selecting' | 'importing' | 'success' | 'error'>('idle');
     const [emails, setEmails] = useState<GmailEmail[]>([]);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -98,13 +100,13 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
             <button
                 onClick={fetchEmails}
                 disabled={status === 'loading' || status === 'importing' || status === 'selecting'}
-                title="Gmail에서 메일 가져오기"
+                title={t('memory.view.board.import.gmail')}
                 className={`
                     px-2 py-1 text-xs rounded border flex items-center gap-1 transition-all duration-200 font-galmuri11
-                    ${status === 'idle' ? 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700' : ''}
-                    ${(status === 'loading' || status === 'importing' || status === 'selecting') ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed' : ''}
-                    ${status === 'success' ? 'border-green-200 bg-green-50 text-green-700' : ''}
-                    ${status === 'error' ? 'border-red-200 bg-red-50 text-red-700' : ''}
+                    ${status === 'idle' ? 'border-gray-200 bg-white/40 backdrop-blur-sm hover:bg-white/60 text-gray-700' : ''}
+                    ${(status === 'loading' || status === 'importing' || status === 'selecting') ? 'border-gray-200 bg-gray-50/30 text-gray-400 cursor-not-allowed' : ''}
+                    ${status === 'success' ? 'border-green-200 bg-green-50/50 text-green-700' : ''}
+                    ${status === 'error' ? 'border-red-200 bg-red-50/50 text-red-700' : ''}
                 `}
             >
                 {status === 'loading' || status === 'importing' ? (
@@ -118,18 +120,18 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                 )}
 
                 <span className="font-medium whitespace-nowrap">
-                    {status === 'loading' ? 'Checking...' :
-                        status === 'importing' ? 'Importing...' :
-                            status === 'selecting' ? 'Selecting...' :
-                                status === 'success' ? (importCount > 0 ? `${importCount} Imported` : 'No new mail') :
-                                    status === 'error' ? 'Failed' :
-                                        'Import from Gmail'}
+                    {status === 'loading' ? t('gmail.import.checking') :
+                        status === 'importing' ? t('gmail.import.importing') :
+                            status === 'selecting' ? t('gmail.import.selecting') :
+                                status === 'success' ? (importCount > 0 ? t('memory.view.board.import.gmail.success').replace('{count}', importCount.toString()) : t('gmail.import.noNewMail')) :
+                                    status === 'error' ? t('gmail.import.failed') :
+                                        t('memory.view.board.import.gmail')}
                 </span>
             </button>
 
             {/* 메일 선택 토스트 UI */}
             {status === 'selecting' && (
-                <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
+                <div className="fixed bottom-20 right-6 z-[9999] animate-slide-up font-galmuri11">
                     <div className="bg-white border-4 border-gray-900 p-5 w-[400px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
                         {/* 픽셀 코너 장식 */}
                         <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
@@ -140,8 +142,8 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                         <div className="flex flex-col gap-4">
                             <div className="flex items-center justify-between border-b-2 border-gray-100 pb-2">
                                 <div>
-                                    <p className="text-sm font-black text-gray-800 uppercase tracking-tight">Gmail 메일 선택</p>
-                                    <p className="text-xs text-gray-500">가져올 메일을 선택해주세요 (라벨: Workless)</p>
+                                    <p className="text-sm font-black text-gray-800 uppercase tracking-tight">{t('gmail.import.title')}</p>
+                                    <p className="text-xs text-gray-500">{t('gmail.import.desc')}</p>
                                 </div>
                                 <button 
                                     onClick={() => setStatus('idle')}
@@ -153,7 +155,7 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
 
                             <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                                 {emails.length === 0 ? (
-                                    <p className="text-center py-8 text-xs text-gray-400">가져올 수 있는 메일이 없습니다.</p>
+                                    <p className="text-center py-8 text-xs text-gray-400">{t('gmail.import.empty')}</p>
                                 ) : (
                                     emails.map((email) => (
                                         <div 
@@ -172,7 +174,7 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                                             <div className="flex justify-between items-start gap-2">
                                                 <div className="flex-1 min-w-0">
                                                     <p className={`text-xs font-bold truncate ${email.isImported && !selectedIds.has(email.messageId) ? 'text-gray-500' : 'text-gray-800'}`}>
-                                                        {email.subject || '(제목 없음)'}
+                                                        {email.subject || (language === 'ko' ? '(제목 없음)' : '(No Subject)')}
                                                     </p>
                                                     <p className="text-[10px] text-gray-500 truncate mt-0.5">
                                                         {email.from}
@@ -183,7 +185,7 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                                                         <PixelIcon name="success" size={14} className="text-indigo-600" />
                                                     ) : email.isImported ? (
                                                         <div className="flex flex-col items-end gap-1">
-                                                            <span className="text-[10px] bg-gray-200 text-gray-500 px-1 font-bold">이미 추가됨</span>
+                                                            <span className="text-[10px] bg-gray-200 text-gray-500 px-1 font-bold">{t('gmail.import.alreadyImported')}</span>
                                                             <div className="w-3.5 h-3.5 border-2 border-gray-300 group-hover:border-gray-400" />
                                                         </div>
                                                     ) : (
@@ -204,7 +206,7 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                                     onClick={() => setStatus('idle')}
                                     className="flex-1 py-2 text-xs font-bold border-2 border-gray-300 text-gray-600 hover:bg-gray-50 transition-all"
                                 >
-                                    취소
+                                    {t('gmail.import.button.cancel')}
                                 </button>
                                 <button
                                     onClick={handleImport}
@@ -216,7 +218,7 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                                             : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
                                     `}
                                 >
-                                    {selectedIds.size}개 메일 가져오기
+                                    {t('gmail.import.button.import').replace('{count}', selectedIds.size.toString())}
                                 </button>
                             </div>
                         </div>
@@ -226,7 +228,7 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
 
             {/* 임포트 중 로딩 토스트 */}
             {status === 'importing' && (
-                <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
+                <div className="fixed bottom-20 right-6 z-[9999] animate-slide-up font-galmuri11">
                     <div className="bg-white border-4 border-gray-900 p-5 min-w-[300px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
                         <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
@@ -236,8 +238,8 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                         <div className="flex items-center gap-3">
                             <ProcessingLoader size={20} variant="inline" tone="indigo" />
                             <div>
-                                <p className="text-sm font-black text-gray-800 uppercase tracking-tight">메일을 분석하고 있어요</p>
-                                <p className="text-xs text-gray-600">AI가 기록으로 변환 중입니다...</p>
+                                <p className="text-sm font-black text-gray-800 uppercase tracking-tight">{t('gmail.import.toast.analyzing')}</p>
+                                <p className="text-xs text-gray-600">{t('gmail.import.toast.converting')}</p>
                             </div>
                         </div>
                     </div>

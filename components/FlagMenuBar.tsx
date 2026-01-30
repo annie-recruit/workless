@@ -3,6 +3,7 @@
 import React from 'react';
 import type { FlagBookmark } from '@/components/FlagContext';
 import PixelIcon from './PixelIcon';
+import { useLanguage } from './LanguageContext';
 
 type Props = {
     flags: FlagBookmark[];
@@ -25,21 +26,23 @@ export default function FlagMenuBar({
     onGoToFlag,
     onHoverFlag,
 }: Props) {
+    const { t } = useLanguage();
+
     return (
-        <div className="shrink-0 sticky top-[44px] md:top-[41px] z-20 border-b border-gray-200 bg-white px-3 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar flex-nowrap flex-row">
+        <div className="shrink-0 sticky top-[44px] md:top-[41px] z-20 border-b border-white/20 bg-white/30 backdrop-blur-xl px-3 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar flex-nowrap flex-row">
             <button
                 type="button"
                 onClick={onAddFlag}
-                className="shrink-0 px-3 py-1.5 flex items-center gap-1.5 rounded border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-xs whitespace-nowrap"
-                title="Flag 추가"
+                className="shrink-0 px-3 py-1.5 flex items-center gap-1.5 rounded border border-white/30 bg-white/40 backdrop-blur-sm hover:bg-white/60 transition-all text-xs whitespace-nowrap"
+                title={t('flag.manage.add')}
             >
                 <PixelIcon name="flag" size={16} />
-                <span className="font-medium text-gray-700 whitespace-nowrap">깃발 추가</span>
+                <span className="font-medium text-gray-700 whitespace-nowrap">{t('flag.manage.add')}</span>
             </button>
 
             {isPlacing && (
                 <div className="text-[11px] text-indigo-600 font-medium whitespace-nowrap shrink-0">
-                    📍 보드에 클릭하여 깃발을 배치하세요 (ESC: 취소)
+                    {t('flag.manage.placing')}
                 </div>
             )}
 
@@ -60,7 +63,7 @@ export default function FlagMenuBar({
                                     ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
                                     : isActive
                                         ? 'bg-indigo-50 border-indigo-300 text-indigo-600'
-                                        : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
+                                        : 'bg-white/40 border-white/30 hover:bg-white/60 text-gray-700 backdrop-blur-sm'
                                 }`}
                             title={flag.name}
                         >
@@ -83,7 +86,7 @@ export default function FlagMenuBar({
 
             {flags.length === 0 && !isPlacing && (
                 <div className="text-[11px] text-gray-400 italic">
-                    깃발을 추가하여 중요한 위치를 북마크하세요
+                    {t('flag.manage.noFlags')}
                 </div>
             )}
         </div>
