@@ -24,11 +24,32 @@ export async function POST(
     }
 
     const { id } = await params;
-    const memory = memoryDb.getById(id, userId);
+    
+    // POST 바디에서 데이터 가져오기 (로컬 우선 대응)
+    let bodyData: any = {};
+    try {
+      bodyData = await req.json();
+    } catch (e) {
+      // ignore
+    }
+
+    let memory = memoryDb.getById(id, userId);
+
+    if (!memory && bodyData.content) {
+      console.log('ℹ️ DB에 기억이 없음 - 클라이언트 제공 데이터 사용 (로컬 전용)');
+      memory = {
+        id,
+        userId,
+        content: bodyData.content,
+        title: bodyData.title,
+        createdAt: bodyData.createdAt || Date.now(),
+        repeatCount: 0
+      };
+    }
 
     if (!memory) {
       return NextResponse.json(
-        { error: '기억을 찾을 수 없습니다.' },
+        { error: '기억을 찾을 수 없습니다. 아직 동기화되지 않았을 수 있습니다.' },
         { status: 404 }
       );
     }

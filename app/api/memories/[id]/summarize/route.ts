@@ -12,6 +12,20 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  return handleSummarize(req, params);
+}
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return handleSummarize(req, params);
+}
+
+async function handleSummarize(
+  req: NextRequest,
+  params: Promise<{ id: string }>
+) {
   try {
     const userId = await getUserId(req);
     if (!userId) {
@@ -25,7 +39,17 @@ export async function GET(
     const { searchParams } = new URL(req.url);
     const personaId = searchParams.get('personaId');
     
-    console.log('📝 요약 API - 받은 personaId:', personaId, 'userId:', userId);
+    // POST 요청인 경우 바디에서 데이터를 가져올 수 있음
+    let bodyData: any = {};
+    if (req.method === 'POST') {
+      try {
+        bodyData = await req.json();
+      } catch (e) {
+        // ignore
+      }
+    }
+    
+    console.log('📝 요약 API - 받은 personaId:', personaId, 'userId:', userId, 'method:', req.method);
     
     // 페르소나 컨텍스트 조회
     let personaContext: string | undefined;
@@ -45,11 +69,26 @@ export async function GET(
       console.log('ℹ️ 페르소나 미선택 - 기본 모드로 요약');
     }
 
-    const memory = memoryDb.getById(id, userId);
+    // 1. DB에서 먼저 조회
+    let memory = memoryDb.getById(id, userId);
+
+    // 2. DB에 없으면 클라이언트가 보낸 데이터 사용 (로컬 우선 대응)
+    if (!memory && bodyData.content) {
+      console.log('ℹ️ DB에 기억이 없음 - 클라이언트 제공 데이터 사용 (로컬 전용)');
+      memory = {
+        id,
+        userId,
+        content: bodyData.content,
+        title: bodyData.title,
+        attachments: bodyData.attachments,
+        createdAt: bodyData.createdAt || Date.now(),
+        repeatCount: 0
+      };
+    }
 
     if (!memory) {
       return NextResponse.json(
-        { error: '기억을 찾을 수 없습니다.' },
+        { error: '기억을 찾을 수 없습니다. 아직 동기화되지 않았을 수 있습니다.' },
         { status: 404 }
       );
     }

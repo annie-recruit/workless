@@ -7,6 +7,7 @@
 import { useSession } from 'next-auth/react';
 import { useLocalSync } from '@/hooks/useLocalSync';
 import { useLocalExport } from '@/hooks/useLocalExport';
+import { dataLayer } from '@/lib/dataLayer';
 import { useState, useEffect } from 'react';
 import PixelIcon from '@/components/PixelIcon';
 import Link from 'next/link';

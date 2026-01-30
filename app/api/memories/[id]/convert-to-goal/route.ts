@@ -17,9 +17,24 @@ export async function POST(
     }
 
     const { id } = await params;
-    const { suggestions } = await req.json();
+    const { suggestions, memory: clientMemory } = await req.json();
 
-    const memory = memoryDb.getById(id, userId);
+    let memory = memoryDb.getById(id, userId);
+    
+    // 로컬 우선 대응: DB에 없으면 클라이언트가 보낸 데이터 사용
+    if (!memory && clientMemory) {
+      console.log('ℹ️ DB에 기억이 없음 - 클라이언트 제공 데이터 사용 (로컬 전용)');
+      memory = {
+        id,
+        userId,
+        content: clientMemory.content,
+        title: clientMemory.title,
+        topic: clientMemory.topic,
+        createdAt: clientMemory.createdAt || Date.now(),
+        repeatCount: 0
+      };
+    }
+
     if (!memory) {
       return NextResponse.json(
         { error: '기억을 찾을 수 없습니다.' },

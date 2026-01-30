@@ -136,7 +136,19 @@ const MemoryCard = memo(
             ? `/api/memories/${localMemory.id}/summarize?personaId=${personaId}`
             : `/api/memories/${localMemory.id}/summarize`;
           console.log('📝 요약 API URL:', url);
-          const res = await fetch(url);
+          
+          // 로컬 우선: 메모리가 서버에 없을 수 있으므로 POST로 내용을 함께 보냄
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              content: localMemory.content,
+              title: localMemory.title,
+              attachments: localMemory.attachments,
+              createdAt: localMemory.createdAt
+            })
+          });
+
           if (res.ok) {
             const data: unknown = await res.json();
             const nextSummary =
@@ -173,7 +185,22 @@ const MemoryCard = memo(
             ? `/api/memories/${localMemory.id}/suggestions?personaId=${personaId}`
             : `/api/memories/${localMemory.id}/suggestions`;
           console.log('💡 제안 API URL:', url);
-          const res = await fetch(url);
+          
+          // 로컬 우선: 메모리가 서버에 없을 수 있으므로 POST로 내용을 함께 보냄
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              content: localMemory.content,
+              title: localMemory.title,
+              attachments: localMemory.attachments,
+              createdAt: localMemory.createdAt,
+              topic: localMemory.topic,
+              nature: localMemory.nature,
+              clusterTag: localMemory.clusterTag
+            })
+          });
+
           if (res.ok) {
             const data: unknown = await res.json();
             const nextSuggestions =
@@ -270,7 +297,15 @@ const MemoryCard = memo(
         const res = await fetch(`/api/memories/${localMemory.id}/convert-to-goal`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ suggestions }),
+          body: JSON.stringify({ 
+            suggestions,
+            memory: {
+              content: localMemory.content,
+              title: localMemory.title,
+              topic: localMemory.topic,
+              createdAt: localMemory.createdAt
+            }
+          }),
         });
 
         if (res.ok) {

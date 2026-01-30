@@ -91,6 +91,13 @@ export function useGroupsPanel({ selectedGroupId, setSelectedGroupId, setToast }
 
         const res = await fetch(`/api/memories/${groupModalMemory.id}/auto-group`, {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: groupModalMemory.content,
+            title: groupModalMemory.title,
+            attachments: groupModalMemory.attachments,
+            createdAt: groupModalMemory.createdAt
+          })
         });
 
         if (res.ok) {
