@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     follow: true,
   },
   alternates: {
-    canonical: 'https://workless.app/auth/signin',
+    canonical: 'https://workless.me/auth/signin',
   },
 };
 

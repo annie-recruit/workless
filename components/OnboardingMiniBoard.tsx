@@ -42,19 +42,19 @@ export default function OnboardingMiniBoard({
     useEffect(() => {
         if (!initialPositions) {
             const randomize = () => {
-                const margin = 20;
-                const boardW = 750; // 가상 보드 너비 (스케일 전)
-                const boardH = 550; // 가상 보드 높이
+                const margin = 30;
+                const boardW = 800; // 가상 보드 너비
+                const boardH = 600; // 가상 보드 높이
 
                 const getRandom = (min: number, max: number) => Math.floor(Math.random() * (max - min) + min);
 
                 setPositions({
-                    card1: { x: getRandom(margin, boardW / 3), y: getRandom(margin, boardH / 3) },
-                    card2: { x: getRandom(boardW / 3, (boardW / 3) * 2), y: getRandom(margin, boardH / 3) },
-                    card3: { x: getRandom(boardW / 3, (boardW / 3) * 2), y: getRandom(boardH / 3, (boardH / 3) * 2) },
-                    action: { x: getRandom(margin, boardW / 3), y: getRandom((boardH / 3) * 2, boardH - 120) },
-                    calendar: { x: getRandom((boardW / 3) * 2, boardW - 160), y: getRandom(margin, boardH / 3) },
-                    viewer: { x: getRandom((boardW / 3) * 2, boardW - 200), y: getRandom(boardH / 3, boardH - 160) },
+                    card1: { x: getRandom(margin, boardW / 2.5), y: getRandom(margin, boardH / 3) },
+                    card2: { x: getRandom(boardW / 2.5, boardW / 1.5), y: getRandom(margin, boardH / 3) },
+                    card3: { x: getRandom(boardW / 2.5, boardW / 1.5), y: getRandom(boardH / 3, (boardH / 3) * 2) },
+                    action: { x: getRandom(margin, boardW / 3), y: getRandom((boardH / 3) * 2, boardH - 180) },
+                    calendar: { x: getRandom(boardW / 1.5, boardW - 180 - margin), y: getRandom(margin, boardH / 2) },
+                    viewer: { x: getRandom(boardW / 1.8, boardW - 240 - margin), y: getRandom(boardH / 2, boardH - 200 - margin) },
                 });
             };
             randomize();
@@ -84,9 +84,9 @@ export default function OnboardingMiniBoard({
                 const height = containerRef.current.offsetHeight;
                 setSize({ width, height });
 
-                // 모바일 대응: 컨테이너 너비가 좁으면 스케일 조정 (기준 너비 600px로 조정)
-                if (width < 600) {
-                    setScale(Math.max(0.4, width / 600));
+                // 모바일 대응: 컨테이너 너비가 좁으면 스케일 조정 (기준 너비 800px로 조정)
+                if (width < 800) {
+                    setScale(Math.max(0.4, width / 800));
                 } else {
                     setScale(1);
                 }
@@ -205,11 +205,11 @@ export default function OnboardingMiniBoard({
 
         const containerRect = container.getBoundingClientRect();
 
-        const newX = e.clientX - containerRect.left - dragOffset.x;
-        const newY = e.clientY - containerRect.top - dragOffset.y;
+        const newX = (e.clientX - containerRect.left - dragOffset.x) / scale;
+        const newY = (e.clientY - containerRect.top - dragOffset.y) / scale;
 
-        const maxX = containerRect.width - (dragging === 'viewer' ? 240 : dragging === 'calendar' ? 180 : dragging === 'action' ? 150 : 160);
-        const maxY = containerRect.height - (dragging === 'viewer' ? 200 : dragging === 'calendar' ? 220 : dragging === 'action' ? 180 : 140);
+        const maxX = (containerRect.width / scale) - (dragging === 'viewer' ? 240 : dragging === 'calendar' ? 180 : dragging === 'action' ? 150 : 160);
+        const maxY = (containerRect.height / scale) - (dragging === 'viewer' ? 200 : dragging === 'calendar' ? 220 : dragging === 'action' ? 180 : 140);
 
         setPositions(prev => ({
             ...prev,
@@ -256,7 +256,7 @@ export default function OnboardingMiniBoard({
 
                 {/* 메모리 카드 1: 메모 작성 */}
                 <div
-                    className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[140px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
+                    className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[160px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
                     style={{ left: `${positions.card1.x}px`, top: `${positions.card1.y}px`, zIndex: dragging === 'card1' ? 20 : 10 }}
                     onPointerDown={(e) => handlePointerDown('card1', e)}
                 >
@@ -267,13 +267,13 @@ export default function OnboardingMiniBoard({
                     <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
 
                     <div className="mb-2">
-                        <h3 className="text-[10px] font-semibold text-gray-900 mb-1">메모 작성</h3>
-                        <p className="text-[9px] text-gray-800 leading-relaxed">
+                        <h3 className="text-[12px] font-semibold text-gray-900 mb-1">메모 작성</h3>
+                        <p className="text-[10px] text-gray-800 leading-relaxed">
                             • 파일 첨부 가능<br />
                             • @태그로 참조
                         </p>
                     </div>
-                    <div className="flex items-center gap-1.5 text-[8px] text-gray-500">
+                    <div className="flex items-center gap-1.5 text-[9px] text-gray-500">
                         <span>방금 전</span>
                         <span className="px-1 py-0.5 bg-indigo-50 text-indigo-600 border border-indigo-200">
                             튜토리얼
@@ -283,7 +283,7 @@ export default function OnboardingMiniBoard({
 
                 {/* 메모리 카드 2: 카드 연결 */}
                 <div
-                    className="absolute bg-purple-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[140px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
+                    className="absolute bg-purple-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[160px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
                     style={{ left: `${positions.card2.x}px`, top: `${positions.card2.y}px`, zIndex: dragging === 'card2' ? 20 : 10 }}
                     onPointerDown={(e) => handlePointerDown('card2', e)}
                 >
@@ -293,13 +293,13 @@ export default function OnboardingMiniBoard({
                     <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
 
                     <div className="mb-2">
-                        <h3 className="text-[10px] font-semibold text-gray-900 mb-1">카드 연결</h3>
-                        <p className="text-[9px] text-gray-800 leading-relaxed">
+                        <h3 className="text-[12px] font-semibold text-gray-900 mb-1">카드 연결</h3>
+                        <p className="text-[10px] text-gray-800 leading-relaxed">
                             • 카드끼리 선으로 연결<br />
                             • AI가 자동으로 그룹 제안
                         </p>
                     </div>
-                    <div className="flex items-center gap-1.5 text-[8px] text-gray-500">
+                    <div className="flex items-center gap-1.5 text-[9px] text-gray-500">
                         <span>방금 전</span>
                         <span className="px-1 py-0.5 bg-orange-50 text-orange-600 border border-orange-200">
                             기능
@@ -309,7 +309,7 @@ export default function OnboardingMiniBoard({
 
                 {/* 메모리 카드 3: 태그 & 분류 */}
                 <div
-                    className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[140px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
+                    className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[160px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
                     style={{ left: `${positions.card3.x}px`, top: `${positions.card3.y}px`, zIndex: dragging === 'card3' ? 20 : 10 }}
                     onPointerDown={(e) => handlePointerDown('card3', e)}
                 >
@@ -319,20 +319,20 @@ export default function OnboardingMiniBoard({
                     <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
 
                     <div className="mb-2">
-                        <h3 className="text-[10px] font-semibold text-gray-900 mb-1">태그 & 분류</h3>
-                        <p className="text-[9px] text-gray-800 leading-relaxed">
+                        <h3 className="text-[12px] font-semibold text-gray-900 mb-1">태그 & 분류</h3>
+                        <p className="text-[10px] text-gray-800 leading-relaxed">
                             • 태그 자동 분류<br />
                             • 시간 맥락 추적
                         </p>
                     </div>
-                    <div className="flex items-center gap-1.5 text-[8px] text-gray-500">
+                    <div className="flex items-center gap-1.5 text-[9px] text-gray-500">
                         <span>방금 전</span>
                     </div>
                 </div>
 
                 {/* 액션 플랜 카드 */}
                 <div
-                    className="absolute w-[126px] bg-white border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-2.5 cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
+                    className="absolute w-[150px] bg-white border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-2.5 cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
                     style={{ left: `${positions.action.x}px`, top: `${positions.action.y}px`, zIndex: dragging === 'action' ? 20 : 10 }}
                     onPointerDown={(e) => handlePointerDown('action', e)}
                 >
@@ -342,10 +342,10 @@ export default function OnboardingMiniBoard({
                     <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
 
                     <div className="mb-1.5">
-                        <span className="px-1 py-0.5 bg-indigo-100 text-indigo-700 text-[7px] font-bold border border-indigo-200 uppercase">
+                        <span className="px-1 py-0.5 bg-indigo-100 text-indigo-700 text-[8px] font-bold border border-indigo-200 uppercase">
                             Action Project
                         </span>
-                        <h3 className="text-[11px] font-black text-gray-900 mt-1 flex items-center gap-1">
+                        <h3 className="text-[12px] font-black text-gray-900 mt-1 flex items-center gap-1">
                             <PixelIcon name="target" size={12} className="text-indigo-600" ariaLabel="액션 프로젝트 타겟" />
                             <span>시작하기</span>
                         </h3>
@@ -353,10 +353,10 @@ export default function OnboardingMiniBoard({
 
                     <div className="mb-2">
                         <div className="flex justify-between items-center mb-0.5">
-                            <span className="text-[7px] font-bold text-gray-600">PROGRESS</span>
-                            <span className="text-[7px] font-black text-indigo-600 font-mono">33%</span>
+                            <span className="text-[8px] font-bold text-gray-600">PROGRESS</span>
+                            <span className="text-[8px] font-black text-indigo-600 font-mono">33%</span>
                         </div>
-                        <div className="h-1.5 bg-gray-100 border-2 border-gray-800 p-0.5">
+                        <div className="h-2 bg-gray-100 border-2 border-gray-800 p-0.5">
                             <div className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400 w-1/3" />
                         </div>
                     </div>
@@ -368,15 +368,15 @@ export default function OnboardingMiniBoard({
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" />
                                 </svg>
                             </div>
-                            <p className="text-[8px] font-medium text-gray-400 line-through">카드 3개 만들기</p>
+                            <p className="text-[9px] font-medium text-gray-400 line-through">카드 3개 만들기</p>
                         </div>
                         <div className="flex items-start gap-1.5">
                             <div className="mt-0.5 w-2.5 h-2.5 border-2 border-gray-800 bg-white flex-shrink-0" />
-                            <p className="text-[8px] font-medium text-gray-800">카드끼리 연결하기</p>
+                            <p className="text-[9px] font-medium text-gray-800">카드끼리 연결하기</p>
                         </div>
                         <div className="flex items-start gap-1.5">
                             <div className="mt-0.5 w-2.5 h-2.5 border-2 border-gray-800 bg-white flex-shrink-0" />
-                            <p className="text-[8px] font-medium text-gray-800">AI 기능 사용해보기</p>
+                            <p className="text-[9px] font-medium text-gray-800">AI 기능 사용해보기</p>
                         </div>
                     </div>
                 </div>
@@ -384,39 +384,39 @@ export default function OnboardingMiniBoard({
                 {/* 캘린더 위젯 */}
                 <div
                     className="absolute bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black p-3 cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
-                    style={{ left: `${positions.calendar.x}px`, top: `${positions.calendar.y}px`, width: '160px', zIndex: dragging === 'calendar' ? 20 : 10 }}
+                    style={{ left: `${positions.calendar.x}px`, top: `${positions.calendar.y}px`, width: '180px', zIndex: dragging === 'calendar' ? 20 : 10 }}
                     onPointerDown={(e) => handlePointerDown('calendar', e)}
                 >
                     <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-gray-200">
                         <div className="flex items-center gap-1.5">
-                            <PixelIcon name="calendar" size={14} ariaLabel="캘린더 위젯" />
-                            <h3 className="text-[10px] font-semibold text-gray-800">캘린더</h3>
+                            <PixelIcon name="calendar" size={16} ariaLabel="캘린더 위젯" />
+                            <h3 className="text-[12px] font-semibold text-gray-800">캘린더</h3>
                         </div>
                     </div>
 
                     <div className="flex items-center justify-between mb-1.5">
                         <button className="p-0.5 hover:bg-gray-100 rounded">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                             </svg>
                         </button>
-                        <span className="text-[10px] font-semibold text-gray-800">2026년 1월</span>
+                        <span className="text-[11px] font-semibold text-gray-800">2026년 1월</span>
                         <button className="p-0.5 hover:bg-gray-100 rounded">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-7 gap-0.5 mb-1">
+                    <div className="grid grid-cols-7 gap-1 mb-1">
                         {['일', '월', '화', '수', '목', '금', '토'].map(day => (
-                            <div key={day} className="text-center text-[8px] font-medium text-gray-500 py-0.5">
+                            <div key={day} className="text-center text-[9px] font-medium text-gray-500 py-0.5">
                                 {day}
                             </div>
                         ))}
                     </div>
 
-                    <div className="grid grid-cols-7 gap-0.5">
+                    <div className="grid grid-cols-7 gap-1">
                         {Array.from({ length: 35 }, (_, i) => {
                             const day = i - 2;
                             const isToday = day === 28;
@@ -424,7 +424,7 @@ export default function OnboardingMiniBoard({
                             return (
                                 <div
                                     key={i}
-                                    className={`text-center text-[8px] py-0.5 rounded transition-colors ${isToday ? 'bg-blue-100 font-bold' : isCurrentMonth ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-300'
+                                    className={`text-center text-[9px] py-1 rounded transition-colors ${isToday ? 'bg-blue-100 font-bold' : isCurrentMonth ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-300'
                                         }`}
                                 >
                                     {day >= 1 && day <= 31 ? day : ''}
@@ -440,20 +440,20 @@ export default function OnboardingMiniBoard({
                     style={{
                         left: `${positions.viewer.x}px`,
                         top: `${positions.viewer.y}px`,
-                        width: '200px',
-                        height: '160px',
+                        width: '240px',
+                        height: '200px',
                         zIndex: dragging === 'viewer' ? 20 : 10
                     }}
                     onPointerDown={(e) => handlePointerDown('viewer', e)}
                 >
-                    <div className="h-6 bg-[#EEEEEE] border-b-[3px] border-black flex items-center justify-between px-2 select-none shrink-0">
+                    <div className="h-7 bg-[#EEEEEE] border-b-[3px] border-black flex items-center justify-between px-2 select-none shrink-0">
                         <div className="flex items-center gap-1.5">
                             <div className="flex gap-1">
-                                <div className="w-2 h-2 border border-black bg-[#FF5F56]" />
-                                <div className="w-2 h-2 border border-black bg-[#FFBD2E]" />
-                                <div className="w-2 h-2 border border-black bg-[#27C93F]" />
+                                <div className="w-2.5 h-2.5 border border-black bg-[#FF5F56]" />
+                                <div className="w-2.5 h-2.5 border border-black bg-[#FFBD2E]" />
+                                <div className="w-2.5 h-2.5 border border-black bg-[#27C93F]" />
                             </div>
-                            <span className="ml-1 text-[9px] font-bold text-black uppercase tracking-tight">PREVIEW</span>
+                            <span className="ml-1 text-[10px] font-bold text-black uppercase tracking-tight">PREVIEW</span>
                         </div>
                     </div>
 

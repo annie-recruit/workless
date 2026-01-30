@@ -26,7 +26,7 @@ const galmuri = localFont({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://workless.app'),
+  metadataBase: new URL('https://workless.me'),
   title: "WORKLESS - 맥락을 구체화. 비정형 애자일 워크스페이스",
   description: "WORKLESS는 Gmail 연동을 통해 이메일을 자동으로 메모로 변환하고, 무한 캔버스에서 아이디어를 자유롭게 배치하고 연결할 수 있는 개인 비서입니다.",
   manifest: "/manifest.json",
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     title: "WORKLESS - 맥락을 구체화",
     description: "비정형 애자일 워크스페이스. 무한 캔버스에서 아이디어를 자유롭게 배치하고 연결하세요.",
     type: "website",
-    url: process.env.NEXTAUTH_URL || "https://workless.app",
+    url: process.env.NEXTAUTH_URL || "https://workless.me",
     siteName: "WORKLESS",
     images: [
       {

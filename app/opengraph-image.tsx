@@ -55,7 +55,7 @@ export default async function Image() {
         >
           {/* 로고 이미지 추가 */}
           <img
-            src="https://workless.app/real_logo.png"
+            src="https://workless.me/real_logo.png"
             width="200"
             height="173"
             style={{

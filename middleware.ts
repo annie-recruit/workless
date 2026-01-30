@@ -5,9 +5,9 @@ export function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
   const host = request.headers.get('host');
 
-  // 레일웨이 기본 도메인(*.railway.app)으로 접속한 경우 workless.app으로 리다이렉트
+  // 레일웨이 기본 도메인(*.railway.app)으로 접속한 경우 workless.me으로 리다이렉트
   if (host && host.includes('railway.app')) {
-    url.host = 'workless.app';
+    url.host = 'workless.me';
     url.protocol = 'https';
     return NextResponse.redirect(url, 301);
   }
