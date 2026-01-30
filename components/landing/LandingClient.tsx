@@ -232,9 +232,7 @@ export default function LandingClient() {
                             borderColor="purple"
                             className=""
                         />
-                        <PixelKakaoAdFit
-                            borderColor="yellow"
-                        />
+                        <PixelKakaoAdFit />
                     </div>
 
                     {/* 하단 링크 */}
