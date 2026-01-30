@@ -11,6 +11,7 @@ export interface Attachment {
 // 기억 단위
 export interface Memory {
   id: string;
+  userId?: string;          // 사용자 ID (로컬 우선용)
   title?: string;           // 제목 (선택)
   content: string;          // 사용자 입력 원문
   createdAt: number;        // timestamp
