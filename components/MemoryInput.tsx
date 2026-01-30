@@ -604,7 +604,7 @@ ${summary}`;
                 style={{ height: `${Math.min(editorHeight, 300)}px` }}
               >
                 {/* 툴바 (슬림하게) */}
-                <div className="flex items-center gap-0.5 px-2 py-1 border-b border-gray-100 bg-gray-50/30">
+                <div className="flex items-center gap-0.5 px-2 py-1 border-b border-gray-100 bg-gray-50/30 overflow-x-auto no-scrollbar flex-nowrap flex-row shrink-0">
                   <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}

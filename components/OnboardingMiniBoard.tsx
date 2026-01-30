@@ -31,15 +31,24 @@ export default function OnboardingMiniBoard({
     const [size, setSize] = useState({ width: 0, height: 0 });
     const [positions, setPositions] = useState<CardPositions>(initialPositions || {
         card1: { x: 20, y: 20 },
-        card2: { x: 220, y: 20 },
-        card3: { x: 220, y: 180 },
-        action: { x: 20, y: 280 },
-        calendar: { x: 420, y: 20 },
-        viewer: { x: 380, y: 200 },
+        card2: { x: 240, y: 20 },
+        card3: { x: 240, y: 200 },
+        action: { x: 20, y: 320 },
+        calendar: { x: 460, y: 20 },
+        viewer: { x: 420, y: 240 },
     });
     const [scale, setScale] = useState(1);
     const [dragging, setDragging] = useState<keyof CardPositions | null>(null);
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+    // 롱프레스 타이머
+    const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const clearLongPressTimer = () => {
+        if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+        }
+    };
 
     // 컨테이너 크기 관측 및 스케일링 계산
     useEffect(() => {
@@ -51,9 +60,9 @@ export default function OnboardingMiniBoard({
                 const height = containerRef.current.offsetHeight;
                 setSize({ width, height });
 
-                // 모바일 대응: 컨테이너 너비가 좁으면 스케일 조정 (기준 너비 1000px)
-                if (width < 1000) {
-                    setScale(width / 1000);
+                // 모바일 대응: 컨테이너 너비가 좁으면 스케일 조정 (기준 너비 800px로 완화하여 너무 작아지지 않게 함)
+                if (width < 800) {
+                    setScale(Math.max(0.6, width / 800));
                 } else {
                     setScale(1);
                 }
@@ -125,14 +134,42 @@ export default function OnboardingMiniBoard({
     }, [positions, size, showLines]);
 
     const handlePointerDown = (card: keyof CardPositions, e: React.PointerEvent) => {
-        e.preventDefault();
+        const isTouch = e.pointerType === 'touch';
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        setDragging(card);
-        setDragOffset({
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top,
-        });
-        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        const startX = e.clientX;
+        const startY = e.clientY;
+
+        const startDrag = () => {
+            setDragging(card);
+            setDragOffset({
+                x: startX - rect.left,
+                y: startY - rect.top,
+            });
+            if (isTouch && 'vibrate' in navigator) navigator.vibrate(50);
+        };
+
+        if (!isTouch) {
+            startDrag();
+            return;
+        }
+
+        // 모바일 롱프레스 (1초)
+        clearLongPressTimer();
+        longPressTimerRef.current = setTimeout(startDrag, 1000);
+
+        const handleMove = (moveEv: PointerEvent) => {
+            const dist = Math.sqrt(Math.pow(moveEv.clientX - startX, 2) + Math.pow(moveEv.clientY - startY, 2));
+            if (dist > 10) clearLongPressTimer();
+        };
+
+        const handleUp = () => {
+            clearLongPressTimer();
+            window.removeEventListener('pointermove', handleMove);
+            window.removeEventListener('pointerup', handleUp);
+        };
+
+        window.addEventListener('pointermove', handleMove);
+        window.addEventListener('pointerup', handleUp);
     };
 
     const handlePointerMove = (e: React.PointerEvent) => {

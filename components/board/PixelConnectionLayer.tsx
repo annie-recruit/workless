@@ -151,14 +151,24 @@ const PixelConnectionLayer = forwardRef<PixelConnectionLayerHandle, PixelConnect
             );
             const alpha = isInBlobGroup ? (isLineHovered ? 0.7 : 0.4) : 1.0;
 
-            const steps = Math.max(10, Math.floor(len / 8));
+            const steps = isPaused ? Math.max(5, Math.floor(len / 16)) : Math.max(10, Math.floor(len / 8));
             let lx = aFromX;
             let ly = aFromY;
             for (let i = 1; i <= steps; i++) {
                 const t = i / steps;
                 const currX = (1 - t) * (1 - t) * aFromX + 2 * (1 - t) * t * cx + t * t * aToX;
                 const currY = (1 - t) * (1 - t) * aFromY + 2 * (1 - t) * t * cy + t * t * aToY;
-                drawPixelLine(lx, ly, currX, currY, pair.color, alpha);
+                
+                // 드래그 중이거나 모바일인 경우 선을 좀 더 단순하게 그림
+                if (isPaused) {
+                    ctx.globalAlpha = alpha;
+                    ctx.fillStyle = pair.color;
+                    ctx.fillRect(Math.round(currX / LINE_PIXEL_SIZE) * LINE_PIXEL_SIZE, 
+                                 Math.round(currY / LINE_PIXEL_SIZE) * LINE_PIXEL_SIZE, 
+                                 LINE_PIXEL_SIZE, LINE_PIXEL_SIZE);
+                } else {
+                    drawPixelLine(lx, ly, currX, currY, pair.color, alpha);
+                }
                 lx = currX;
                 ly = currY;
             }

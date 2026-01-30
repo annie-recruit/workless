@@ -136,6 +136,55 @@ export function useBoardCamera({ storageKey, initialBoardSize = { width: 1600, h
     const container = boardContainerRef.current;
     if (!container) return;
 
+    let initialPinchDistance: number | null = null;
+    let initialZoom = 1;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].pageX - e.touches[1].pageX,
+          e.touches[0].pageY - e.touches[1].pageY
+        );
+        initialPinchDistance = dist;
+        initialZoom = zoomRef.current;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && initialPinchDistance !== null) {
+        // 줌 동작 중에는 스크롤 방지
+        e.preventDefault();
+        const dist = Math.hypot(
+          e.touches[0].pageX - e.touches[1].pageX,
+          e.touches[0].pageY - e.touches[1].pageY
+        );
+        const delta = dist / initialPinchDistance;
+        const newZoom = clampZoom(initialZoom * delta);
+        
+        setZoom(newZoom);
+        zoomRef.current = newZoom;
+      }
+    };
+
+    const handleTouchEnd = () => {
+      initialPinchDistance = null;
+    };
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: false });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [clampZoom]);
+
+  useEffect(() => {
+    const container = boardContainerRef.current;
+    if (!container) return;
+
     let rafId: number | null = null;
     const handleScroll = () => {
       if (rafId === null) {

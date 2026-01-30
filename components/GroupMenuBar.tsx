@@ -33,7 +33,7 @@ export default function GroupMenuBar({
       {/* 전체 버튼 */}
       <button
         onClick={() => onSelectGroup(null)}
-        className={`px-3 py-1 text-xs rounded border flex items-center gap-1.5 transition-all whitespace-nowrap ${
+        className={`px-3 py-1 text-xs rounded border flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
           selectedGroupId === null
             ? 'bg-gray-900 text-white border-transparent'
             : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
@@ -69,7 +69,7 @@ export default function GroupMenuBar({
             onDragOver={(e) => onDragOver(e, group.id)}
             onDragLeave={onDragLeave}
             onDrop={(e) => onDrop(e, group.id)}
-            className={`px-3 py-1 text-xs rounded border flex items-center gap-1.5 transition-all whitespace-nowrap relative ${
+            className={`px-3 py-1 text-xs rounded border flex items-center gap-1.5 transition-all whitespace-nowrap relative shrink-0 ${
               isSelected
                 ? 'bg-gray-900 text-white border-transparent'
                 : isDropTarget

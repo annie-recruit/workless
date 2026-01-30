@@ -71,9 +71,13 @@ export default function Home() {
   // 로그인하지 않은 경우 NextAuth 로그인 페이지로 리디렉션
   useEffect(() => {
     if (status === 'unauthenticated' && !session) {
-      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
-        router.push('/auth/signin');
-      }
+      // 잠깐의 로딩 상태를 무시하고 실제 비인증 상태일 때만 리디렉션
+      const timer = setTimeout(() => {
+        if (status === 'unauthenticated' && typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
+          router.push('/auth/signin');
+        }
+      }, 500); // 500ms 유예 시간을 주어 모바일에서의 깜빡임 대응
+      return () => clearTimeout(timer);
     }
   }, [status, session, router]);
 
@@ -224,8 +228,8 @@ export default function Home() {
           className="py-4 md:py-8 w-full font-galmuri11"
         >
           {/* 상단 메뉴바 */}
-          <div className="mb-6 flex items-center justify-between border-b border-gray-200 pb-2 overflow-x-auto no-scrollbar">
-            <div className="flex items-center gap-2 md:gap-3 shrink-0">
+          <div className="mb-6 flex items-center justify-between border-b border-gray-200 pb-2 overflow-x-auto no-scrollbar flex-nowrap flex-row">
+            <div className="flex items-center gap-2 md:gap-3 shrink-0 flex-nowrap flex-row">
               <button
                 onClick={() => setShowModal('groups')}
                 className="px-2 md:px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-[10px] md:text-sm font-medium whitespace-nowrap"
@@ -237,20 +241,20 @@ export default function Home() {
                 className="px-2 md:px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-[10px] md:text-sm font-medium flex items-center gap-1 whitespace-nowrap"
               >
                 <PixelIcon name="list" size={14} />
-                기억 관리
+                <span className="whitespace-nowrap">기억 관리</span>
               </button>
               <Link
                 href="/settings/local-first"
                 className="px-2 md:px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-[10px] md:text-sm font-medium flex items-center gap-1 whitespace-nowrap"
               >
                 <PixelIcon name="settings" size={14} />
-                설정
+                <span className="whitespace-nowrap">설정</span>
               </Link>
             </div>
 
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1 shrink-0 flex-nowrap flex-row">
               {session ? (
-                <div className="flex items-center gap-1 md:gap-2">
+                <div className="flex items-center gap-1 md:gap-2 flex-nowrap flex-row">
                   <span className="px-1 md:px-2 text-gray-600 text-[10px] md:text-sm whitespace-nowrap max-w-[80px] md:max-w-none truncate">
                     {session.user?.name || session.user?.email}
                   </span>

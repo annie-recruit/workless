@@ -96,6 +96,21 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [previousPositions, setPreviousPositions] = useState<Record<string, { x: number; y: number }> | null>(null);
   const [pendingFocusId, setPendingFocusId] = useState<string | null>(null);
   const [cardSize, setCardSize] = useState<'s' | 'm' | 'l'>('m');
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile && cardSize === 'm') {
+        setCardSize('l'); // 모바일에서는 기본적으로 라지 사이즈 사용
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [cardSize]);
+
   const positionsRef = useRef<Record<string, { x: number; y: number }>>({});
 
   const {

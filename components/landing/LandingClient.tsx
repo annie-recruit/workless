@@ -18,8 +18,10 @@ export default function LandingClient() {
     // 로그인한 사용자는 대시보드로 리디렉션
     useEffect(() => {
         if (status === 'authenticated' && session) {
-            router.replace('/dashboard');
-            return;
+            const timer = setTimeout(() => {
+                router.replace('/dashboard');
+            }, 100);
+            return () => clearTimeout(timer);
         }
     }, [status, session, router]);
 
