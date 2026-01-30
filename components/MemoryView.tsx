@@ -719,7 +719,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       const cardLeft = position.x;
       const cardRight = position.x + cardDims.width;
       const cardTop = position.y;
-      const cardBottom = position.y + cardDims.height;
+      // 최적화: 카드가 확장되거나 AI 요약/제안이 표시될 경우를 대비해 
+      // 실제 높이보다 넉넉하게(최대 1000px) 가상화 범위를 잡음
+      const cardBottom = position.y + cardDims.height + 1000;
 
       return !(cardRight < viewLeft || cardLeft > viewRight || cardBottom < viewTop || cardTop > viewBottom);
     });
@@ -1416,6 +1418,29 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           )}
         </div>
       )}
+
+      {/* 보드로 이동 버튼 */}
+      <div className="flex justify-center mb-6 mt-2 px-4">
+        <button
+          onClick={() => {
+            const boardElement = document.querySelector('[data-tutorial-target="board-view"]');
+            if (boardElement) {
+              boardElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }}
+          className="group relative flex items-center gap-1.5 px-4 py-2 bg-white border-2 border-gray-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all text-[11px] font-black text-gray-900"
+        >
+          {/* 픽셀 코너 장식 */}
+          <div className="absolute -top-0.5 -left-0.5 w-1 h-1 bg-gray-900" />
+          <div className="absolute -top-0.5 -right-0.5 w-1 h-1 bg-gray-900" />
+          <div className="absolute -bottom-0.5 -left-0.5 w-1 h-1 bg-gray-900" />
+          <div className="absolute -bottom-0.5 -right-0.5 w-1 h-1 bg-gray-900" />
+
+          <PixelIcon name="down" size={12} className="animate-bounce" />
+          <span className="tracking-tight uppercase">보드로 이동</span>
+          <PixelIcon name="down" size={12} className="animate-bounce" />
+        </button>
+      </div>
 
       {/* 화이트보드 뷰 */}
       <div data-tutorial-target="board-view" className="h-[calc(300vh-280px)] min-h-[1500px]">

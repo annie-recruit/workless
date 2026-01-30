@@ -45,17 +45,23 @@ export default async function Image() {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1,
-            background: 'rgba(0, 0, 0, 0.3)',
-            padding: '60px 80px',
-            border: '8px solid white',
+            background: 'rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(10px)',
+            padding: '40px 60px',
+            border: '4px solid white',
+            borderRadius: '24px',
             position: 'relative',
           }}
         >
-          {/* 코너 장식 */}
-          <div style={{ position: 'absolute', top: '-12px', left: '-12px', width: '24px', height: '24px', background: 'white' }} />
-          <div style={{ position: 'absolute', top: '-12px', right: '-12px', width: '24px', height: '24px', background: 'white' }} />
-          <div style={{ position: 'absolute', bottom: '-12px', left: '-12px', width: '24px', height: '24px', background: 'white' }} />
-          <div style={{ position: 'absolute', bottom: '-12px', right: '-12px', width: '24px', height: '24px', background: 'white' }} />
+          {/* 로고 이미지 추가 */}
+          <img
+            src="https://workless.app/real_logo.png"
+            width="200"
+            height="173"
+            style={{
+              marginBottom: '20px',
+            }}
+          />
 
           {/* 제목 */}
           <h1

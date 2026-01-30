@@ -30,13 +30,37 @@ export default function OnboardingMiniBoard({
     const containerRef = useRef<HTMLDivElement>(null);
     const [size, setSize] = useState({ width: 0, height: 0 });
     const [positions, setPositions] = useState<CardPositions>(initialPositions || {
-        card1: { x: 20, y: 20 },
-        card2: { x: 240, y: 20 },
-        card3: { x: 240, y: 200 },
-        action: { x: 20, y: 320 },
-        calendar: { x: 460, y: 20 },
-        viewer: { x: 420, y: 240 },
+        card1: { x: 40, y: 40 },
+        card2: { x: 300, y: 40 },
+        card3: { x: 300, y: 240 },
+        action: { x: 40, y: 350 },
+        calendar: { x: 560, y: 40 },
+        viewer: { x: 520, y: 300 },
     });
+
+    // 초기 랜덤 위치 배정
+    useEffect(() => {
+        if (!initialPositions) {
+            const randomize = () => {
+                const margin = 20;
+                const boardW = 750; // 가상 보드 너비 (스케일 전)
+                const boardH = 550; // 가상 보드 높이
+
+                const getRandom = (min: number, max: number) => Math.floor(Math.random() * (max - min) + min);
+
+                setPositions({
+                    card1: { x: getRandom(margin, boardW / 3), y: getRandom(margin, boardH / 3) },
+                    card2: { x: getRandom(boardW / 3, (boardW / 3) * 2), y: getRandom(margin, boardH / 3) },
+                    card3: { x: getRandom(boardW / 3, (boardW / 3) * 2), y: getRandom(boardH / 3, (boardH / 3) * 2) },
+                    action: { x: getRandom(margin, boardW / 3), y: getRandom((boardH / 3) * 2, boardH - 120) },
+                    calendar: { x: getRandom((boardW / 3) * 2, boardW - 160), y: getRandom(margin, boardH / 3) },
+                    viewer: { x: getRandom((boardW / 3) * 2, boardW - 200), y: getRandom(boardH / 3, boardH - 160) },
+                });
+            };
+            randomize();
+        }
+    }, [initialPositions]);
+
     const [scale, setScale] = useState(1);
     const [dragging, setDragging] = useState<keyof CardPositions | null>(null);
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -60,9 +84,9 @@ export default function OnboardingMiniBoard({
                 const height = containerRef.current.offsetHeight;
                 setSize({ width, height });
 
-                // 모바일 대응: 컨테이너 너비가 좁으면 스케일 조정 (기준 너비 800px로 완화하여 너무 작아지지 않게 함)
-                if (width < 800) {
-                    setScale(Math.max(0.6, width / 800));
+                // 모바일 대응: 컨테이너 너비가 좁으면 스케일 조정 (기준 너비 600px로 조정)
+                if (width < 600) {
+                    setScale(Math.max(0.4, width / 600));
                 } else {
                     setScale(1);
                 }
@@ -120,12 +144,12 @@ export default function OnboardingMiniBoard({
             }
         };
 
-        // 카드 중심점 계산 (70% 크기: 140px)
-        const card1Center = { x: positions.card1.x + 70, y: positions.card1.y + 60 };
-        const card2Center = { x: positions.card2.x + 70, y: positions.card2.y + 60 };
-        const card3Center = { x: positions.card3.x + 70, y: positions.card3.y + 60 };
-        const actionCenter = { x: positions.action.x + 90, y: positions.action.y + 60 };
-        const viewerCenter = { x: positions.viewer.x + 100, y: positions.viewer.y + 80 };
+        // 카드 중심점 계산 (크기 변경 반영)
+        const card1Center = { x: positions.card1.x + 80, y: positions.card1.y + 65 };
+        const card2Center = { x: positions.card2.x + 80, y: positions.card2.y + 65 };
+        const card3Center = { x: positions.card3.x + 80, y: positions.card3.y + 65 };
+        const actionCenter = { x: positions.action.x + 75, y: positions.action.y + 70 };
+        const viewerCenter = { x: positions.viewer.x + 120, y: positions.viewer.y + 100 };
 
         drawPixelLine(card1Center.x, card1Center.y, card2Center.x, card2Center.y, '#818CF8');
         drawPixelLine(card2Center.x, card2Center.y, card3Center.x, card3Center.y, '#A78BFA');
@@ -184,8 +208,8 @@ export default function OnboardingMiniBoard({
         const newX = e.clientX - containerRect.left - dragOffset.x;
         const newY = e.clientY - containerRect.top - dragOffset.y;
 
-        const maxX = containerRect.width - (dragging === 'viewer' ? 200 : dragging === 'calendar' ? 160 : dragging === 'action' ? 126 : 140);
-        const maxY = containerRect.height - (dragging === 'viewer' ? 160 : dragging === 'calendar' ? 200 : dragging === 'action' ? 150 : 120);
+        const maxX = containerRect.width - (dragging === 'viewer' ? 240 : dragging === 'calendar' ? 180 : dragging === 'action' ? 150 : 160);
+        const maxY = containerRect.height - (dragging === 'viewer' ? 200 : dragging === 'calendar' ? 220 : dragging === 'action' ? 180 : 140);
 
         setPositions(prev => ({
             ...prev,

@@ -108,25 +108,37 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
   useEffect(() => {
     if (!isResizing) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMove = (clientY: number) => {
       if (!containerRef.current) return;
+      // 하단 고정이므로 창의 bottom에서 마우스의 y좌표를 뺀 것이 새로운 높이가 됨
       const rect = containerRef.current.getBoundingClientRect();
-      const newHeight = e.clientY - rect.top;
-      if (newHeight >= 100 && newHeight <= 600) {
+      const newHeight = rect.bottom - clientY;
+      
+      // 최소 100px, 최대 500px 제한 (모바일 대응)
+      if (newHeight >= 100 && newHeight <= 500) {
         setEditorHeight(newHeight);
       }
     };
 
-    const handleMouseUp = () => {
+    const handleMouseMove = (e: MouseEvent) => handleMove(e.clientY);
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches[0]) handleMove(e.touches[0].clientY);
+    };
+
+    const handleEnd = () => {
       setIsResizing(false);
     };
 
     window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleEnd);
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleEnd);
     };
   }, [isResizing]);
 
@@ -581,14 +593,14 @@ ${summary}`;
           <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
           <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
 
-          <form onSubmit={handleSubmit} className="flex flex-col" data-tutorial-target="memory-input">
+          <form onSubmit={handleSubmit} className="flex flex-col text-gray-900" data-tutorial-target="memory-input">
             {/* 제목 입력 (작게) */}
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="제목 (선택)"
-              className="w-full px-3 py-1 text-xs font-bold border-b border-gray-100 focus:outline-none focus:border-indigo-300 transition-colors"
+              className="w-full px-3 py-1 text-xs font-bold border-b border-gray-100 focus:outline-none focus:border-indigo-300 transition-colors bg-transparent text-gray-900 placeholder:text-gray-400"
             />
 
             <div
@@ -609,7 +621,7 @@ ${summary}`;
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => execCommand('bold')}
-                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200 font-bold"
+                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200 font-bold text-gray-700"
                   >
                     B
                   </button>
@@ -617,7 +629,7 @@ ${summary}`;
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => execCommand('italic')}
-                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200 italic font-serif"
+                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200 italic font-serif text-gray-700"
                   >
                     I
                   </button>
@@ -628,7 +640,7 @@ ${summary}`;
                       const url = prompt('링크 URL을 입력해주세요');
                       if (url) execCommand('createLink', url);
                     }}
-                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200"
+                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700"
                   >
                     <PixelIcon name="link" size={12} />
                   </button>
@@ -636,7 +648,7 @@ ${summary}`;
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setIsMentionPanelOpen(!isMentionPanelOpen)}
-                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200"
+                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200 text-gray-700"
                   >
                     @
                   </button>
@@ -647,7 +659,7 @@ ${summary}`;
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={loading}
-                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-50"
+                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-50 text-gray-700"
                   >
                     <PixelIcon name="attachment" size={12} />
                   </button>
@@ -657,7 +669,7 @@ ${summary}`;
                       type="button"
                       onClick={startRecording}
                       disabled={loading}
-                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-50"
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-50 text-gray-700"
                     >
                       <PixelIcon name="microphone" size={12} />
                     </button>
@@ -682,7 +694,7 @@ ${summary}`;
                   <button
                     type="submit"
                     disabled={loading || !content.trim()}
-                    className="px-3 py-1 text-[10px] bg-indigo-600 text-white rounded shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:bg-indigo-700 disabled:bg-gray-300 disabled:shadow-none transition-all active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+                    className="px-3 py-1 text-[10px] bg-indigo-600 text-white rounded shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:bg-indigo-700 disabled:bg-gray-300 disabled:shadow-none transition-all active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-bold"
                   >
                     {loading ? '...' : '기록하기'}
                   </button>
@@ -691,14 +703,14 @@ ${summary}`;
                 {/* 입력 영역 */}
                 <div className="relative flex-1 flex flex-col overflow-hidden">
                   {!getEditorText() && !isEditorFocused && (
-                    <div className="absolute top-2.5 left-3 text-[11px] text-gray-400 pointer-events-none">
+                    <div className="absolute top-2.5 left-3 text-[11px] text-gray-400 pointer-events-none font-medium">
                       새로운 생각을 기록하세요...
                     </div>
                   )}
                   <div
                     ref={editorRef}
                     contentEditable={!loading}
-                    className="flex-1 px-3 py-2 text-[13px] outline-none overflow-y-auto min-h-[50px]"
+                    className="flex-1 px-3 py-2 text-[13px] outline-none overflow-y-auto min-h-[50px] text-gray-900 font-medium"
                     onInput={() => {
                       setContent(getEditorHtml());
                       saveSelection();
@@ -735,9 +747,13 @@ ${summary}`;
                   e.preventDefault();
                   setIsResizing(true);
                 }}
-                className="absolute -top-1.5 left-0 right-0 h-3 cursor-ns-resize flex items-center justify-center group z-10"
+                onTouchStart={(e) => {
+                  // 터치 이벤트는 preventDefault를 하지 않아야 스크롤과 충돌 안 함
+                  setIsResizing(true);
+                }}
+                className="absolute -top-3 left-0 right-0 h-6 cursor-ns-resize flex items-center justify-center group z-10"
               >
-                <div className="w-8 h-1 bg-gray-400/30 rounded-full group-hover:bg-gray-400/60 transition-colors"></div>
+                <div className="w-12 h-1.5 bg-gray-400/20 rounded-full group-hover:bg-gray-400/50 transition-colors"></div>
               </div>
             </div>
 
@@ -751,13 +767,13 @@ ${summary}`;
                     value={mentionSearch}
                     onChange={(e) => setMentionSearch(e.target.value)}
                     placeholder="기억 검색..."
-                    className="flex-1 text-xs bg-transparent focus:outline-none"
+                    className="flex-1 text-xs bg-transparent focus:outline-none text-gray-900 font-bold"
                     autoFocus
                   />
                 </div>
                 <div className="max-h-40 overflow-y-auto">
                   {mentionMatches.length === 0 ? (
-                    <div className="px-3 py-3 text-[10px] text-gray-400 text-center">결과 없음</div>
+                    <div className="px-3 py-3 text-[10px] text-gray-400 text-center font-bold">결과 없음</div>
                   ) : (
                     mentionMatches.map(memory => (
                       <button
@@ -765,7 +781,7 @@ ${summary}`;
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => insertMention(memory)}
-                        className="w-full text-left px-3 py-2 hover:bg-indigo-50 text-[11px] flex items-center gap-2 border-b border-gray-50 last:border-0"
+                        className="w-full text-left px-3 py-2 hover:bg-indigo-50 text-[11px] flex items-center gap-2 border-b border-gray-50 last:border-0 text-gray-800 font-bold"
                       >
                         <span className="text-indigo-500 font-bold">@</span>
                         <span className="truncate flex-1">
