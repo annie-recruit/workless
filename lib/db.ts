@@ -55,16 +55,36 @@ const dbPath = join(dataDir, 'workless.db');
 const db = new Database(dbPath);
 
 // WAL 모드 활성화 (동시 읽기/쓰기 향상)
-db.pragma('journal_mode = WAL');
-db.pragma('busy_timeout = 10000'); // 10초 타임아웃
-db.pragma('synchronous = NORMAL'); // 성능 향상
+try {
+  db.pragma('journal_mode = WAL');
+  db.pragma('busy_timeout = 30000'); // 30초로 늘림 (빌드 시 병렬 처리 대응)
+  db.pragma('synchronous = NORMAL'); // 성능 향상
+} catch (err) {
+  console.warn('Failed to set pragmas:', err);
+}
 
 console.log(`📊 Database path: ${dbPath}`);
+
+// 마이그레이션 도우미 함수: 중복 실행이나 잠금 발생 시 안전하게 처리
+const runMigration = (name: string, fn: () => void) => {
+  try {
+    fn();
+  } catch (error: any) {
+    if (error.code === 'SQLITE_BUSY') {
+      console.warn(`⚠️ 마이그레이션 "${name}" 건너뜀: 데이터베이스가 잠겨 있음 (다른 프로세스에서 실행 중일 수 있음)`);
+    } else if (error.message?.includes('duplicate column name')) {
+      // 이미 컬럼이 추가된 경우 무시
+    } else {
+      console.error(`❌ 마이그레이션 "${name}" 실패:`, error);
+    }
+  }
+};
 
 let memoryTableHasIngestId = false;
 
 // 테이블 초기화
-db.exec(`
+runMigration('initial schema creation', () => {
+  db.exec(`
   CREATE TABLE IF NOT EXISTS memories (
     id TEXT PRIMARY KEY,
     userId TEXT NOT NULL,
@@ -247,21 +267,20 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_memory_links_memoryId2 ON memory_links(memoryId2);
   CREATE INDEX IF NOT EXISTS idx_ingest_items_user_dedupeKey ON ingest_items(userId, dedupeKey);
   CREATE INDEX IF NOT EXISTS idx_user_api_keys_apiKey ON user_api_keys(apiKey);
-`);
+  `);
+});
 
 // ingest_items: (userId, dedupeKey) 유니크 (dedupeKey가 있을 때만)
-try {
+runMigration('ingest_items unique index', () => {
   db.exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS uq_ingest_items_user_dedupeKey
     ON ingest_items(userId, dedupeKey)
     WHERE dedupeKey IS NOT NULL;
   `);
-} catch (error) {
-  console.error('Failed to create ingest_items unique index:', error);
-}
+});
 
 // 마이그레이션: memories 테이블에 title 컬럼 추가 (없으면)
-try {
+runMigration('memories title/derivedFrom/ingestId', () => {
   const columns = db.prepare("PRAGMA table_info(memories)").all() as any[];
   const hasTitle = columns.some((col: any) => col.name === 'title');
   if (!hasTitle) {
@@ -281,125 +300,109 @@ try {
     db.exec('CREATE INDEX IF NOT EXISTS idx_memories_ingestId ON memories(ingestId)');
     memoryTableHasIngestId = true;
   }
-} catch (error) {
-  console.error('Migration error:', error);
-}
+});
 
-try {
+runMigration('memories ingestId index', () => {
   db.exec('CREATE INDEX IF NOT EXISTS idx_memories_ingestId ON memories(ingestId)');
-} catch (error) {
-  console.warn('Skipping ingestId index creation until column exists:', error);
-}
+});
 
 
 // 마이그레이션: 모든 테이블에 userId 컬럼 추가 (없으면)
-try {
+runMigration('add userId to all tables', () => {
   const tables = ['memories', 'groups', 'goals', 'personas', 'board_positions', 'board_settings', 'board_card_colors', 'memory_links'];
   tables.forEach(tableName => {
     const columns = db.prepare(`PRAGMA table_info(${tableName})`).all() as any[];
     const hasUserId = columns.some((col: any) => col.name === 'userId');
     if (!hasUserId) {
       console.log(`📊 Adding userId column to ${tableName} table...`);
-      try {
-        db.exec(`ALTER TABLE ${tableName} ADD COLUMN userId TEXT NOT NULL DEFAULT ''`);
-      } catch (err) {
-        console.error(`Failed to add userId to ${tableName}:`, err);
-      }
+      db.exec(`ALTER TABLE ${tableName} ADD COLUMN userId TEXT NOT NULL DEFAULT ''`);
     }
   });
+});
 
-  // board_settings 테이블의 PRIMARY KEY 수정 (기존 테이블이 groupId만 PRIMARY KEY인 경우)
-  try {
-    const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='board_settings'").get() as any;
-    if (tableInfo && tableInfo.sql && tableInfo.sql.includes('groupId TEXT PRIMARY KEY')) {
-      console.log('📊 Fixing board_settings PRIMARY KEY...');
-      // 기존 데이터 백업
-      const oldData = db.prepare('SELECT * FROM board_settings').all() as any[];
+// board_settings 테이블의 PRIMARY KEY 수정 (기존 테이블이 groupId만 PRIMARY KEY인 경우)
+runMigration('fix board_settings PK', () => {
+  const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='board_settings'").get() as any;
+  if (tableInfo && tableInfo.sql && tableInfo.sql.includes('groupId TEXT PRIMARY KEY')) {
+    console.log('📊 Fixing board_settings PRIMARY KEY...');
+    // 기존 데이터 백업
+    const oldData = db.prepare('SELECT * FROM board_settings').all() as any[];
 
-      // 테이블 재생성
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS board_settings_new (
-          userId TEXT NOT NULL,
-          groupId TEXT NOT NULL,
-          cardSize TEXT,
-          cardColor TEXT,
-          updatedAt INTEGER NOT NULL,
-          PRIMARY KEY (userId, groupId)
-        );
-      `);
+    // 테이블 재생성
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS board_settings_new (
+        userId TEXT NOT NULL,
+        groupId TEXT NOT NULL,
+        cardSize TEXT,
+        cardColor TEXT,
+        updatedAt INTEGER NOT NULL,
+        PRIMARY KEY (userId, groupId)
+      );
+    `);
 
-      // 데이터 마이그레이션 (userId가 없는 경우 빈 문자열로)
-      oldData.forEach(row => {
-        const userId = row.userId || '';
-        db.prepare(`
-          INSERT INTO board_settings_new (userId, groupId, cardSize, cardColor, updatedAt)
-          VALUES (?, ?, ?, ?, ?)
-        `).run(userId, row.groupId, row.cardSize, row.cardColor, row.updatedAt);
-      });
+    // 데이터 마이그레이션 (userId가 없는 경우 빈 문자열로)
+    oldData.forEach(row => {
+      const userId = row.userId || '';
+      db.prepare(`
+        INSERT INTO board_settings_new (userId, groupId, cardSize, cardColor, updatedAt)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(userId, row.groupId, row.cardSize, row.cardColor, row.updatedAt);
+    });
 
-      // 기존 테이블 삭제 및 새 테이블로 교체
-      db.exec('DROP TABLE board_settings');
-      db.exec('ALTER TABLE board_settings_new RENAME TO board_settings');
-    }
-  } catch (err) {
-    console.error('Failed to fix board_settings PRIMARY KEY:', err);
+    // 기존 테이블 삭제 및 새 테이블로 교체
+    db.exec('DROP TABLE board_settings');
+    db.exec('ALTER TABLE board_settings_new RENAME TO board_settings');
   }
+});
 
-  // board_positions 테이블의 PRIMARY KEY 수정 (기존 테이블이 userId가 없는 경우)
-  try {
-    const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='board_positions'").get() as any;
-    if (tableInfo && tableInfo.sql && !tableInfo.sql.includes('PRIMARY KEY (userId, groupId, memoryId)')) {
-      console.log('📊 Fixing board_positions PRIMARY KEY...');
-      // 기존 데이터 백업
-      const oldData = db.prepare('SELECT * FROM board_positions').all() as any[];
+// board_positions 테이블의 PRIMARY KEY 수정 (기존 테이블이 userId가 없는 경우)
+runMigration('fix board_positions PK', () => {
+  const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='board_positions'").get() as any;
+  if (tableInfo && tableInfo.sql && !tableInfo.sql.includes('PRIMARY KEY (userId, groupId, memoryId)')) {
+    console.log('📊 Fixing board_positions PRIMARY KEY...');
+    // 기존 데이터 백업
+    const oldData = db.prepare('SELECT * FROM board_positions').all() as any[];
 
-      // 테이블 재생성
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS board_positions_new (
-          userId TEXT NOT NULL,
-          groupId TEXT NOT NULL,
-          memoryId TEXT NOT NULL,
-          x INTEGER NOT NULL,
-          y INTEGER NOT NULL,
-          updatedAt INTEGER NOT NULL,
-          PRIMARY KEY (userId, groupId, memoryId)
-        );
-      `);
+    // 테이블 재생성
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS board_positions_new (
+        userId TEXT NOT NULL,
+        groupId TEXT NOT NULL,
+        memoryId TEXT NOT NULL,
+        x INTEGER NOT NULL,
+        y INTEGER NOT NULL,
+        updatedAt INTEGER NOT NULL,
+        PRIMARY KEY (userId, groupId, memoryId)
+      );
+    `);
 
-      // 데이터 마이그레이션 (userId가 없는 경우 빈 문자열로)
-      oldData.forEach(row => {
-        const userId = row.userId || '';
-        db.prepare(`
-          INSERT INTO board_positions_new (userId, groupId, memoryId, x, y, updatedAt)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `).run(userId, row.groupId, row.memoryId, row.x, row.y, row.updatedAt);
-      });
+    // 데이터 마이그레이션 (userId가 없는 경우 빈 문자열로)
+    oldData.forEach(row => {
+      const userId = row.userId || '';
+      db.prepare(`
+        INSERT INTO board_positions_new (userId, groupId, memoryId, x, y, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(userId, row.groupId, row.memoryId, row.x, row.y, row.updatedAt);
+    });
 
-      // 기존 테이블 삭제 및 새 테이블로 교체
-      db.exec('DROP TABLE board_positions');
-      db.exec('ALTER TABLE board_positions_new RENAME TO board_positions');
-    }
-  } catch (err) {
-    console.error('Failed to fix board_positions PRIMARY KEY:', err);
+    // 기존 테이블 삭제 및 새 테이블로 교체
+    db.exec('DROP TABLE board_positions');
+    db.exec('ALTER TABLE board_positions_new RENAME TO board_positions');
   }
-} catch (error) {
-  console.error('Migration error:', error);
-}
+});
 
 // 마이그레이션: memory_links 테이블에 isAIGenerated 컬럼 추가 (없으면)
-try {
+runMigration('memory_links isAIGenerated', () => {
   const columns = db.prepare("PRAGMA table_info(memory_links)").all() as any[];
   const hasIsAIGenerated = columns.some((col: any) => col.name === 'isAIGenerated');
   if (!hasIsAIGenerated) {
     console.log('📊 Adding isAIGenerated column to memory_links table...');
     db.exec('ALTER TABLE memory_links ADD COLUMN isAIGenerated INTEGER NOT NULL DEFAULT 0');
   }
-} catch (error) {
-  console.error('Failed to add isAIGenerated column:', error);
-}
+});
 
 // 마이그레이션: memories 테이블에 source 관련 컬럼 추가
-try {
+runMigration('memories source columns', () => {
   const columns = db.prepare("PRAGMA table_info(memories)").all() as any[];
   const hasSource = columns.some((col: any) => col.name === 'source');
   if (!hasSource) {
@@ -423,12 +426,10 @@ try {
     db.exec('ALTER TABLE memories ADD COLUMN dedupeKey TEXT');
     db.exec('CREATE INDEX IF NOT EXISTS idx_memories_dedupeKey ON memories(dedupeKey)');
   }
-} catch (error) {
-  console.error('Failed to add source columns to memories:', error);
-}
+});
 
 // 마이그레이션: users 테이블에 OAuth 토큰 관련 컬럼 추가
-try {
+runMigration('users oauth tokens', () => {
   const columns = db.prepare("PRAGMA table_info(users)").all() as any[];
   const hasAccessToken = columns.some((col: any) => col.name === 'googleAccessToken');
   if (!hasAccessToken) {
@@ -437,9 +438,7 @@ try {
     db.exec('ALTER TABLE users ADD COLUMN googleRefreshToken TEXT');
     db.exec('ALTER TABLE users ADD COLUMN googleTokenExpiresAt INTEGER');
   }
-} catch (error) {
-  console.error('Failed to add OAuth columns to users:', error);
-}
+});
 
 // Memory CRUD
 export const memoryDb = {

@@ -8,10 +8,10 @@ export default function SomePage() {
             <PixelAdSense />
 
             {/* 보라색 테두리 */}
-            <PixelAdSense borderColor="purple" />
+            <PixelAdSense />
 
             {/* 핑크색 테두리 */}
-            <PixelAdSense borderColor="pink" />
+            <PixelAdSense />
         </div>
     );
 }
@@ -23,7 +23,6 @@ export function PageWithAdUnit() {
             <PixelAdSense
                 adSlot="1234567890"  // 애드센스에서 받은 광고 슬롯 ID
                 adFormat="rectangle"
-                borderColor="cyan"
             />
         </div>
     );
@@ -37,7 +36,6 @@ export function LandingPageExample() {
 
             {/* 콘텐츠 사이에 광고 삽입 */}
             <PixelAdSense
-                borderColor="purple"
                 className="my-8"
             />
 
@@ -45,7 +43,6 @@ export function LandingPageExample() {
 
             {/* 다른 색상의 광고 */}
             <PixelAdSense
-                borderColor="pink"
                 className="my-8"
             />
         </div>
@@ -61,7 +58,6 @@ export function DashboardSidebar() {
             {/* 사이드바 광고 */}
             <PixelAdSense
                 adFormat="vertical"
-                borderColor="indigo"
                 className="mt-4"
             />
         </aside>

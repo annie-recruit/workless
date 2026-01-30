@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import PixelIcon from './PixelIcon';
 
 interface PixelAdSenseProps {
     /**
@@ -20,10 +19,6 @@ interface PixelAdSenseProps {
      * 커스텀 클래스명
      */
     className?: string;
-    /**
-     * 테두리 색상 (기본: cyan)
-     */
-    borderColor?: 'cyan' | 'purple' | 'pink' | 'yellow' | 'orange' | 'indigo';
 }
 
 export default function PixelAdSense({
@@ -31,7 +26,6 @@ export default function PixelAdSense({
     adFormat = 'auto',
     fullWidthResponsive = true,
     className = '',
-    borderColor = 'cyan',
 }: PixelAdSenseProps) {
     const adRef = useRef<HTMLModElement>(null);
     const isAdPushed = useRef(false);
@@ -55,24 +49,6 @@ export default function PixelAdSense({
             console.error('AdSense error:', err);
         }
     }, []);
-
-    const borderColorMap = {
-        cyan: 'border-cyan-400',
-        purple: 'border-purple-400',
-        pink: 'border-pink-400',
-        yellow: 'border-yellow-400',
-        orange: 'border-orange-400',
-        indigo: 'border-indigo-400',
-    };
-
-    const glowColorMap = {
-        cyan: 'shadow-[0_0_20px_rgba(34,211,238,0.3)]',
-        purple: 'shadow-[0_0_20px_rgba(192,132,252,0.3)]',
-        pink: 'shadow-[0_0_20px_rgba(244,114,182,0.3)]',
-        yellow: 'shadow-[0_0_20px_rgba(250,204,21,0.3)]',
-        orange: 'shadow-[0_0_20px_rgba(251,146,60,0.3)]',
-        indigo: 'shadow-[0_0_20px_rgba(129,140,248,0.3)]',
-    };
 
     return (
         <div className={`pixel-adsense-wrapper ${className} flex justify-center w-full overflow-hidden`}>

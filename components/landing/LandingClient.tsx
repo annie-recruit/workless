@@ -229,7 +229,6 @@ export default function LandingClient() {
                     {/* 픽셀 스타일 광고 */}
                     <div className="max-w-4xl mx-auto space-y-8 my-8">
                         <PixelAdSense
-                            borderColor="purple"
                             className=""
                         />
                         <PixelKakaoAdFit />
