@@ -57,6 +57,7 @@ export default function ViewerBlock({
   const [error, setError] = useState<string | null>(null);
   const [pdfNumPages, setPdfNumPages] = useState<number>(0);
   const [pdfPage, setPdfPage] = useState<number>(1);
+  const [textContent, setTextContent] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // props의 config가 변경되었을 때 로컬 state 동기화
@@ -183,10 +184,30 @@ export default function ViewerBlock({
       const isPdf = currentSource.kind === 'file' && currentSource.mimeType === 'application/pdf';
       const isDocx = currentSource.kind === 'file' && (
         currentSource.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-        currentSource.fileName?.toLowerCase().endsWith('.docx')
+        currentSource.mimeType === 'application/msword' ||
+        currentSource.fileName?.toLowerCase().endsWith('.docx') ||
+        currentSource.fileName?.toLowerCase().endsWith('.doc')
+      );
+      const isPptx = currentSource.kind === 'file' && (
+        currentSource.mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+        currentSource.mimeType === 'application/vnd.ms-powerpoint' ||
+        currentSource.fileName?.toLowerCase().endsWith('.pptx') ||
+        currentSource.fileName?.toLowerCase().endsWith('.ppt')
+      );
+      const isXlsx = currentSource.kind === 'file' && (
+        currentSource.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        currentSource.mimeType === 'application/vnd.ms-excel' ||
+        currentSource.fileName?.toLowerCase().endsWith('.xlsx') ||
+        currentSource.fileName?.toLowerCase().endsWith('.xls')
+      );
+      const isText = currentSource.kind === 'file' && (
+        currentSource.mimeType === 'text/plain' ||
+        currentSource.mimeType === 'text/markdown' ||
+        currentSource.fileName?.toLowerCase().endsWith('.txt') ||
+        currentSource.fileName?.toLowerCase().endsWith('.md')
       );
 
-      if (isImage || isPdf || isDocx) {
+      if (isImage || isPdf || isDocx || isPptx || isXlsx || isText) {
         setState('loading');
         setError(null);
         if (isPdf) {
@@ -205,8 +226,51 @@ export default function ViewerBlock({
   const isPdf = currentSource?.kind === 'file' && currentSource.mimeType === 'application/pdf';
   const isDocx = currentSource?.kind === 'file' && (
     currentSource.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-    currentSource.fileName?.toLowerCase().endsWith('.docx')
+    currentSource.mimeType === 'application/msword' ||
+    currentSource.fileName?.toLowerCase().endsWith('.docx') ||
+    currentSource.fileName?.toLowerCase().endsWith('.doc')
   );
+
+  const isPptx = currentSource?.kind === 'file' && (
+    currentSource.mimeType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+    currentSource.mimeType === 'application/vnd.ms-powerpoint' ||
+    currentSource.fileName?.toLowerCase().endsWith('.pptx') ||
+    currentSource.fileName?.toLowerCase().endsWith('.ppt')
+  );
+
+  const isXlsx = currentSource?.kind === 'file' && (
+    currentSource.mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    currentSource.mimeType === 'application/vnd.ms-excel' ||
+    currentSource.fileName?.toLowerCase().endsWith('.xlsx') ||
+    currentSource.fileName?.toLowerCase().endsWith('.xls')
+  );
+
+  const isText = currentSource?.kind === 'file' && (
+    currentSource.mimeType === 'text/plain' ||
+    currentSource.mimeType === 'text/markdown' ||
+    currentSource.fileName?.toLowerCase().endsWith('.txt') ||
+    currentSource.fileName?.toLowerCase().endsWith('.md')
+  );
+
+  useEffect(() => {
+    if (isText && currentSource?.url) {
+      fetch(currentSource.url)
+        .then(res => res.text())
+        .then(text => {
+          setTextContent(text);
+          setState('loaded');
+        })
+        .catch(err => {
+          console.error('Text load error:', err);
+          setState('error');
+          setError('텍스트 파일을 읽을 수 없습니다');
+        });
+    } else {
+      setTextContent(null);
+    }
+  }, [isText, currentSource?.url]);
+
+  const isOfficeFile = isDocx || isPptx || isXlsx;
 
   // 윈도우 타이틀 결정
   const windowTitle = currentSource
@@ -270,29 +334,9 @@ export default function ViewerBlock({
             </div>
           )}
 
-          {state === 'loading' && currentSource && (
+          {state === 'loading' && currentSource && !isImage && !isPdf && !isOfficeFile && !isText && (
             <div className="flex-1 flex items-center justify-center relative">
-              {isImage ? (
-                <>
-                  <img
-                    key={currentSource.url}
-                    src={currentSource.url}
-                    alt={currentSource.fileName}
-                    onLoad={handleImageLoad}
-                    onError={handleImageError}
-                    className="max-w-full max-h-full object-contain p-4"
-                  />
-                  <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
-                    <ProcessingLoader size={24} tone="indigo" label="이미지 로딩 중..." />
-                  </div>
-                </>
-              ) : isPdf ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <ProcessingLoader size={32} tone="indigo" label="PDF 준비 중..." />
-                </div>
-              ) : (
-                <ProcessingLoader size={32} tone="indigo" label="불러오는 중..." />
-              )}
+              <ProcessingLoader size={32} tone="indigo" />
             </div>
           )}
 
@@ -317,14 +361,23 @@ export default function ViewerBlock({
             </div>
           )}
 
-          {state === 'loaded' && currentSource && (
+          {(state === 'loaded' || state === 'loading') && currentSource && (
             <div className="flex-1 w-full h-full relative">
+              {/* 로딩 오버레이 (이미지나 PDF 등이 로드될 때까지 표시) */}
+              {state === 'loading' && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
+                  <ProcessingLoader size={32} tone="indigo" />
+                </div>
+              )}
+
               {isImage && (
                 <div className="w-full h-full flex items-center justify-center bg-black/5 p-2">
                   <img
                     src={currentSource.url}
                     alt={currentSource.fileName}
                     className="max-w-full max-h-full object-contain shadow-sm"
+                    onLoad={handleImageLoad}
+                    onError={handleImageError}
                   />
                 </div>
               )}
@@ -341,11 +394,51 @@ export default function ViewerBlock({
                 />
               )}
               {isDocx && (
-                <DocxViewer
-                  url={currentSource.url}
-                  onLoadSuccess={() => setState('loaded')}
-                  onLoadError={onDocumentLoadError}
-                />
+                currentSource.url.toLowerCase().endsWith('.docx') ? (
+                  <DocxViewer
+                    url={currentSource.url}
+                    onLoadSuccess={() => setState('loaded')}
+                    onLoadError={onDocumentLoadError}
+                  />
+                ) : (
+                  <div className="w-full h-full">
+                    <iframe
+                      src={`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(
+                        currentSource.url.startsWith('http') 
+                          ? currentSource.url 
+                          : `${window.location.origin}${currentSource.url.startsWith('/') ? '' : '/'}${currentSource.url}`
+                      )}`}
+                      className="w-full h-full border-none"
+                      onLoad={() => setState('loaded')}
+                      onError={() => {
+                        setState('error');
+                        setError('문서를 불러올 수 없습니다. 외부에서 접근 가능한 URL이 아닐 수 있습니다.');
+                      }}
+                    />
+                  </div>
+                )
+              )}
+              {isText && textContent !== null && (
+                <div className="w-full h-full p-4 overflow-auto whitespace-pre-wrap font-mono text-xs text-gray-800 bg-white">
+                  {textContent}
+                </div>
+              )}
+              {(isPptx || isXlsx) && (
+                <div className="w-full h-full">
+                  <iframe
+                    src={`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(
+                      currentSource.url.startsWith('http') 
+                        ? currentSource.url 
+                        : `${window.location.origin}${currentSource.url.startsWith('/') ? '' : '/'}${currentSource.url}`
+                    )}`}
+                    className="w-full h-full border-none"
+                    onLoad={() => setState('loaded')}
+                    onError={() => {
+                      setState('error');
+                      setError('문서를 불러올 수 없습니다. 외부에서 접근 가능한 URL이 아닐 수 있습니다.');
+                    }}
+                  />
+                </div>
               )}
               {currentSource.kind === 'url' && (
                 <div className="flex-1 flex flex-col items-center justify-center p-10 text-center h-full">

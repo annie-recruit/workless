@@ -100,7 +100,7 @@ export default function SignInClient() {
             </div>
 
             {/* 오른쪽: 온보딩 미니 보드 */}
-            <div className="relative z-10 w-full lg:w-1/2 flex items-center justify-center p-8 shrink-0">
+            <div className="relative z-10 w-full lg:w-1/2 flex items-center justify-center p-8 pr-12 lg:pr-20 shrink-0">
                 <div className="space-y-4">
                     <div className="text-center">
                         <h2 className="text-xl md:text-2xl font-bold text-white mb-2">
@@ -110,7 +110,7 @@ export default function SignInClient() {
                             {t('auth.signin.guide.desc')}
                         </p>
                     </div>
-                    <div className="transform scale-[0.5] sm:scale-[0.65] md:scale-[0.8] lg:scale-100 origin-center -my-24 sm:-my-12 lg:my-0 w-[800px] h-[600px] relative bg-white border-4 border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,0.1)]">
+                    <div className="transform scale-[0.35] sm:scale-[0.5] md:scale-[0.65] lg:scale-[0.8] xl:scale-[0.9] origin-center -my-24 sm:-my-12 lg:my-0 w-[800px] h-[600px] relative bg-white border-4 border-black shadow-[12px_12px_0px_0px_rgba(0,0,0,0.1)]">
                         {/* 픽셀 코너 포인트 */}
                         <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-black z-20" />
                         <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-black z-20" />

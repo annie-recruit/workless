@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useCallback, ReactNode } from 'rea
 import { ViewerSource } from '@/types';
 
 interface ViewerContextType {
-  openInViewer: (source: ViewerSource, viewerId?: string) => void;
+  openInViewer: (source: ViewerSource, viewerId?: string) => boolean;
   registerViewer: (viewerId: string, updateSource: (source: ViewerSource) => void) => void;
   unregisterViewer: (viewerId: string) => void;
   viewerExists: boolean;
@@ -54,12 +54,14 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
           viewer(source);
           setActiveViewerId(targetId);
         });
+        return true;
       } else {
         console.warn('ViewerContext: viewer not found:', targetId, 'available viewers:', Array.from(viewers.keys()));
       }
     } else {
       console.warn('ViewerContext: no viewer available');
     }
+    return false;
   }, [viewers, activeViewerId]);
 
   const viewerExists = viewers.size > 0;

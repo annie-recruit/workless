@@ -134,9 +134,9 @@ export async function parseWordFile(filepath: string): Promise<string> {
     let text = result?.value || '';
     console.log('📄 [Word 3/3] 텍스트 추출 완료, 길이:', text.length);
 
-    // 너무 길면 앞부분만 (1000자)
-    if (text.length > 1000) {
-      text = text.substring(0, 1000) + '... (내용 계속)';
+    // 너무 길면 앞부분만 (10000자)
+    if (text.length > 10000) {
+      text = text.substring(0, 10000) + '... (내용 계속)';
     }
 
     if (text.trim()) {
@@ -173,7 +173,7 @@ export async function parsePDF(filepath: string): Promise<string> {
       const text = await parsePDFWithAdobe(filepath);
       return text;
     } catch (adobeError) {
-      console.warn('⚠️ Adobe PDF Extract 실패, pdf-parse-fork로 재시도...', adobeError);
+      console.warn('⚠️ Adobe PDF Extract 실패, pdf-parse-fork로 재시도...', (adobeError as any)?.message || adobeError);
 
       // PDF.js 실패 시 백업으로 pdf-parse-fork 사용
       const pdfParse = require('pdf-parse-fork');
@@ -530,9 +530,11 @@ export async function summarizeAttachments(attachments: Attachment[], content?: 
     const urls = extractUrls(content);
     if (urls.length > 0) {
       console.log('🌐 [URL] 기록 내용에서 URL 발견:', urls.length, '개');
+      // 최대 3개까지만 요약 (성능/비용 최적화)
+      const urlsToSummarize = urls.slice(0, 3);
       const urlDescriptions: string[] = [];
-      for (let i = 0; i < urls.length; i++) {
-        const url = urls[i];
+      for (let i = 0; i < urlsToSummarize.length; i++) {
+        const url = urlsToSummarize[i];
         // 캐시 확인
         const cachedUrlContent = attachmentCacheDb.get(url);
         if (cachedUrlContent) {
@@ -541,11 +543,15 @@ export async function summarizeAttachments(attachments: Attachment[], content?: 
           continue;
         }
 
-        console.log(`🌐 [URL ${i + 1}/${urls.length}] 요약 시작:`, url);
-        const summary = await fetchAndSummarizeUrl(url);
-        const urlDescription = `[링크: ${url}]\n요약: ${summary}`;
-        attachmentCacheDb.set(url, urlDescription);
-        urlDescriptions.push(urlDescription);
+        console.log(`🌐 [URL ${i + 1}/${urlsToSummarize.length}] 요약 시작:`, url);
+        try {
+          const summary = await fetchAndSummarizeUrl(url);
+          const urlDescription = `[링크: ${url}]\n요약: ${summary}`;
+          attachmentCacheDb.set(url, urlDescription);
+          urlDescriptions.push(urlDescription);
+        } catch (urlErr) {
+          console.error(`❌ URL 요약 실패 (${url}):`, urlErr);
+        }
       }
       urlContext = urlDescriptions.join('\n\n');
     }
@@ -568,13 +574,14 @@ export async function summarizeAttachments(attachments: Attachment[], content?: 
 
     // 캐시 확인
     const cachedContent = attachmentCacheDb.get(attachment.filepath);
-    if (cachedContent) {
+    if (cachedContent && !cachedContent.includes('추출 실패') && !cachedContent.includes('분석 불가') && !cachedContent.includes('읽을 수 없습니다')) {
       console.log(`💾 [파일 ${i + 1}] 캐시에서 발견! 파싱 건너뛰기`);
       descriptions.push(cachedContent);
       continue;
     }
 
-    const mimetype = attachment.mimetype;
+    const mimetype = attachment.mimetype?.toLowerCase() || '';
+    const filename = attachment.filename?.toLowerCase() || '';
     let parsedContent = '';
 
     if (mimetype.startsWith('image/')) {
@@ -584,28 +591,28 @@ export async function summarizeAttachments(attachments: Attachment[], content?: 
       console.log(`✅ [파일 ${i + 1}] 이미지 분석 완료`);
       parsedContent = `[이미지: ${attachment.filename}] ${imageDesc}`;
 
-    } else if (mimetype === 'application/pdf') {
+    } else if (mimetype === 'application/pdf' || filename.endsWith('.pdf')) {
       // PDF 파일 파싱
       console.log(`📄 [파일 ${i + 1}] → PDF로 판단, 파싱 시작`);
       const pdfText = await parsePDF(attachment.filepath);
       console.log(`✅ [파일 ${i + 1}] PDF 파싱 완료, 텍스트 길이: ${pdfText.length}`);
       parsedContent = `[PDF 문서: ${attachment.filename}]\n내용: ${pdfText}`;
 
-    } else if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || attachment.filename.endsWith('.docx')) {
+    } else if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || filename.endsWith('.docx') || filename.endsWith('.doc')) {
       // Word 파일 파싱
-      console.log(`📄 [파일 ${i + 1}] → Word(.docx)로 판단, 파싱 시작`);
+      console.log(`📄 [파일 ${i + 1}] → Word로 판단, 파싱 시작`);
       const wordText = await parseWordFile(attachment.filepath);
       console.log(`✅ [파일 ${i + 1}] Word 파싱 완료, 텍스트 길이: ${wordText.length}`);
       parsedContent = `[Word 문서: ${attachment.filename}]\n내용: ${wordText}`;
 
-    } else if (mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' || attachment.filename.endsWith('.pptx')) {
+    } else if (mimetype === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' || filename.endsWith('.pptx') || filename.endsWith('.ppt')) {
       // PowerPoint 파일 파싱
-      console.log(`📊 [파일 ${i + 1}] → PowerPoint(.pptx)로 판단, 파싱 시작`);
+      console.log(`📊 [파일 ${i + 1}] → PowerPoint로 판단, 파싱 시작`);
       const pptText = await parsePowerPointFile(attachment.filepath);
       console.log(`✅ [파일 ${i + 1}] PPT 파싱 완료, 텍스트 길이: ${pptText.length}`);
       parsedContent = `[PowerPoint 문서: ${attachment.filename}]\n내용: ${pptText}`;
 
-    } else if (mimetype === 'text/plain' || mimetype === 'text/markdown' || attachment.filename.endsWith('.txt') || attachment.filename.endsWith('.md')) {
+    } else if (mimetype === 'text/plain' || mimetype === 'text/markdown' || filename.endsWith('.txt') || filename.endsWith('.md')) {
       // 텍스트 파일 읽기
       console.log(`📝 [파일 ${i + 1}] → 텍스트 파일로 판단, 읽기 시작`);
       const textContent = await readTextFile(attachment.filepath);

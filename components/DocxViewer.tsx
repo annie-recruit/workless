@@ -117,7 +117,7 @@ export default function DocxViewer({
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
-        <ProcessingLoader size={32} variant="panel" tone="indigo" label="DOCX 파일 로딩 중..." />
+        <ProcessingLoader size={32} variant="panel" tone="indigo" />
       </div>
     );
   }

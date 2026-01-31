@@ -33,11 +33,11 @@ export default function OnboardingMiniBoard({
     const [size, setSize] = useState({ width: 0, height: 0 });
     const [positions, setPositions] = useState<CardPositions>(initialPositions || {
         card1: { x: 40, y: 40 },
-        card2: { x: 300, y: 40 },
-        card3: { x: 300, y: 240 },
+        card2: { x: 260, y: 40 },
+        card3: { x: 260, y: 240 },
         action: { x: 40, y: 350 },
-        calendar: { x: 560, y: 40 },
-        viewer: { x: 520, y: 300 },
+        calendar: { x: 520, y: 40 },
+        viewer: { x: 480, y: 300 },
     });
 
     // 초기 랜덤 위치 배정
@@ -51,12 +51,12 @@ export default function OnboardingMiniBoard({
                 const getRandom = (min: number, max: number) => Math.floor(Math.random() * (max - min) + min);
 
                 setPositions({
-                    card1: { x: getRandom(margin, boardW / 2.5), y: getRandom(margin, boardH / 3) },
-                    card2: { x: getRandom(boardW / 2.5, boardW / 1.5), y: getRandom(margin, boardH / 3) },
-                    card3: { x: getRandom(boardW / 2.5, boardW / 1.5), y: getRandom(boardH / 3, (boardH / 3) * 2) },
-                    action: { x: getRandom(margin, boardW / 3), y: getRandom((boardH / 3) * 2, boardH - 180) },
-                    calendar: { x: getRandom(boardW / 1.5, boardW - 180 - margin), y: getRandom(margin, boardH / 2) },
-                    viewer: { x: getRandom(boardW / 1.8, boardW - 240 - margin), y: getRandom(boardH / 2, boardH - 200 - margin) },
+                    card1: { x: getRandom(margin, boardW / 2.8), y: getRandom(margin, boardH / 3.5) },
+                    card2: { x: getRandom(boardW / 2.8, boardW / 1.6), y: getRandom(margin, boardH / 3.5) },
+                    card3: { x: getRandom(boardW / 2.8, boardW / 1.6), y: getRandom(boardH / 3.5, (boardH / 3.5) * 2) },
+                    action: { x: getRandom(margin, boardW / 3.2), y: getRandom((boardH / 3.5) * 2, boardH - 200) },
+                    calendar: { x: getRandom(boardW / 1.6, boardW - 180 - margin - 20), y: getRandom(margin, boardH / 2.2) },
+                    viewer: { x: getRandom(boardW / 1.8, boardW - 240 - margin - 20), y: getRandom(boardH / 2.2, boardH - 220 - margin) },
                 });
             };
             randomize();

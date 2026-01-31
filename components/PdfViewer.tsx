@@ -250,7 +250,7 @@ export default function PdfViewer({
   if (isLoading || !Document || !Page) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
-        <ProcessingLoader size={32} variant="panel" tone="indigo" label="PDF 라이브러리 로딩 중..." />
+        <ProcessingLoader size={32} variant="panel" tone="indigo" />
       </div>
     );
   }
@@ -259,7 +259,7 @@ export default function PdfViewer({
   if (!pdfUrl) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
-        <ProcessingLoader size={32} variant="panel" tone="indigo" label="PDF 파일 로딩 중..." />
+        <ProcessingLoader size={32} variant="panel" tone="indigo" />
         {loadError && (
           <p className="text-rose-500 text-xs mt-2">{loadError}</p>
         )}
@@ -277,7 +277,7 @@ export default function PdfViewer({
       <Document
         file={pdfUrl}
         onLoadSuccess={(data: { numPages: number }) => {
-          console.log('PDF Document loaded successfully:', data);
+          console.log('PDF Document loaded successfully, pages:', data.numPages);
           setIsLoadingPdf(false);
           isLoadingPdfRef.current = false;
           if (timeoutRef.current) {
@@ -299,7 +299,7 @@ export default function PdfViewer({
         }}
         loading={
           <div className="flex flex-col items-center justify-center h-full">
-            <ProcessingLoader size={32} variant="panel" tone="orange" label="PDF 파싱 중..." />
+            <ProcessingLoader size={32} variant="panel" tone="orange" />
           </div>
         }
         error={

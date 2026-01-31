@@ -595,6 +595,13 @@ export class DataLayer {
       userIds: Array.from(new Set(memories.map(m => m.userId)))
     };
   }
+
+  /**
+   * 외부에서 생성된 메모리를 로컬에 저장 (Immediate UI Update용)
+   */
+  async saveMemoryLocal(memory: Memory): Promise<void> {
+    await localDB.memories.put(memory);
+  }
 }
 
 // 싱글톤 인스턴스

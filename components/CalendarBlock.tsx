@@ -165,41 +165,40 @@ export default function CalendarBlock({
         }
       }}
     >
-      {/* 헤더 */}
-      <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          <PixelIcon name="calendar" size={18} />
-          <h3 className="text-sm font-semibold text-gray-800">{t('calendar.title')}</h3>
-        </div>
-        <div className="flex items-center gap-1">
-          {view === 'month' && (
-            <>
-              <button
-                onClick={() => handleViewChange('week')}
-                className="px-2 py-1 text-xs rounded text-gray-600 hover:bg-gray-100"
-              >
-                {t('calendar.view.week')}
-              </button>
-              <button
-                onClick={() => onDelete(blockId)}
-                className="ml-2 text-gray-400 hover:text-red-500 text-xs"
-                title={t('common.delete')}
-              >
-                ×
-              </button>
-            </>
-          )}
-          {view === 'day' && (
-            <button
-              onClick={() => onDelete(blockId)}
-              className="text-gray-400 hover:text-red-500 text-xs"
-              title={t('common.delete')}
-            >
-              ×
-            </button>
-          )}
-        </div>
-      </div>
+          <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-200">
+            <div className="flex items-center gap-2">
+              <PixelIcon name="calendar" size={16} />
+              <h3 className="text-[13px] font-semibold text-gray-800">{t('calendar.title')}</h3>
+            </div>
+            <div className="flex items-center gap-1">
+              {view === 'month' && (
+                <>
+                  <button
+                    onClick={() => handleViewChange('week')}
+                    className="px-2 py-1 text-[10px] rounded text-gray-600 hover:bg-gray-100"
+                  >
+                    {t('calendar.view.week')}
+                  </button>
+                  <button
+                    onClick={() => onDelete(blockId)}
+                    className="ml-2 text-gray-400 hover:text-red-500 text-[10px]"
+                    title={t('common.delete')}
+                  >
+                    ×
+                  </button>
+                </>
+              )}
+              {view === 'day' && (
+                <button
+                  onClick={() => onDelete(blockId)}
+                  className="text-gray-400 hover:text-red-500 text-[10px]"
+                  title={t('common.delete')}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          </div>
 
       {/* 월 뷰 */}
       {view === 'month' && (
@@ -210,18 +209,18 @@ export default function CalendarBlock({
               onClick={handlePrevMonth}
               className="p-1 hover:bg-gray-100 rounded"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <span className="text-sm font-semibold text-gray-800">
+            <span className="text-[13px] font-semibold text-gray-800">
               {format(currentDate, t('calendar.format.month'), { locale: language === 'ko' ? ko : enUS })}
             </span>
             <button
               onClick={handleNextMonth}
               className="p-1 hover:bg-gray-100 rounded"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </button>
@@ -232,7 +231,7 @@ export default function CalendarBlock({
             {(language === 'ko' 
               ? ['일', '월', '화', '수', '목', '금', '토'] 
               : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']).map(day => (
-              <div key={day} className="text-center text-[10px] md:text-xs font-medium text-gray-500 py-1">
+              <div key={day} className="text-center text-[9px] font-medium text-gray-500 py-1">
                 {day}
               </div>
             ))}
@@ -265,7 +264,7 @@ export default function CalendarBlock({
                     e.stopPropagation();
                   }}
                   className={`
-                    relative p-1 text-xs rounded transition-colors cursor-pointer
+                    relative p-1 text-[11px] rounded transition-colors cursor-pointer
                     ${!isCurrentMonth ? 'text-gray-300' : 'text-gray-700'}
                     ${isToday ? 'bg-blue-100 font-bold' : 'hover:bg-gray-100'}
                     ${isLinked ? 'ring-2 ring-blue-400' : ''}
@@ -305,31 +304,31 @@ export default function CalendarBlock({
       {view === 'week' && (
         <div className="flex flex-col h-[calc(100%-60px)] overflow-y-auto">
           <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-200">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  onUpdate(blockId, {
-                    config: { ...config, view: 'month' }
-                  });
-                }}
-                className="p-1 hover:bg-gray-100 rounded"
-                title={t('calendar.back')}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <h3 className="text-sm font-semibold text-gray-800">{t('calendar.view.week')}</h3>
-            </div>
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => onDelete(blockId)}
-              className="text-gray-400 hover:text-red-500 text-xs"
-              title={t('common.delete')}
+              onClick={() => {
+                onUpdate(blockId, {
+                  config: { ...config, view: 'month' }
+                });
+              }}
+              className="p-1 hover:bg-gray-100 rounded"
+              title={t('calendar.back')}
             >
-              ×
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
             </button>
+            <h3 className="text-[13px] font-semibold text-gray-800">{t('calendar.view.week')}</h3>
           </div>
-          <div className="text-center text-gray-500 text-sm py-8">
+          <button
+            onClick={() => onDelete(blockId)}
+            className="text-gray-400 hover:text-red-500 text-[10px]"
+            title={t('common.delete')}
+          >
+            ×
+          </button>
+          </div>
+          <div className="text-center text-gray-500 text-[13px] py-8">
             {t('calendar.view.week.empty')}
           </div>
         </div>
@@ -405,6 +404,7 @@ interface DayViewProps {
 }
 
 function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onToggleTodo, onDeleteTodo, onMemoryClick }: DayViewProps) {
+  const { t, language } = useLanguage();
   const [newTodoText, setNewTodoText] = useState('');
   const [newTodoTime, setNewTodoTime] = useState('');
   const [showAddTodo, setShowAddTodo] = useState(false);
@@ -499,42 +499,42 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
     <div className="flex flex-col h-[calc(100%-60px)] overflow-y-auto">
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onBack();
-            }}
-            onPointerDown={(e) => {
-              e.stopPropagation();
-            }}
-            className="p-1 hover:bg-gray-100 rounded"
-            title="월 뷰로 돌아가기"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div>
-            <h3 className="text-sm font-semibold text-gray-800">
-              {format(date, t('calendar.format.day'), { locale: language === 'ko' ? ko : enUS })}
-            </h3>
-            <p className="text-xs text-gray-500">
-              {t('calendar.record.count').replace('{count}', memories.length.toString())}
-            </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onBack();
+              }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+              }}
+              className="p-1 hover:bg-gray-100 rounded"
+              title="월 뷰로 돌아가기"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div>
+              <h3 className="text-[13px] font-semibold text-gray-800">
+                {format(date, t('calendar.format.day'), { locale: language === 'ko' ? ko : enUS })}
+              </h3>
+              <p className="text-[10px] text-gray-500">
+                {t('calendar.record.count').replace('{count}', memories.length.toString())}
+              </p>
+            </div>
           </div>
-        </div>
       </div>
 
       {/* 일정(투두) 섹션 */}
       <div className="mb-3">
         <div className="flex items-center justify-between mb-2">
-          <h4 className="text-xs font-semibold text-gray-700">{t('calendar.todo.title')}</h4>
+          <h4 className="text-[11px] font-semibold text-gray-700">{t('calendar.todo.title')}</h4>
           {!showAddTodo && (
             <button
               onClick={() => setShowAddTodo(true)}
-              className="text-xs text-blue-500 hover:text-blue-600"
+              className="text-[11px] text-blue-500 hover:text-blue-600"
             >
               {t('calendar.todo.add')}
             </button>
@@ -572,7 +572,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
                     }
                   }}
                   placeholder={t('calendar.todo.placeholder')}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-2 py-1 text-[11px] border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                   autoFocus
                 />
                 {showMentions && filteredMemoriesForMention.length > 0 && (
@@ -600,12 +600,12 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
                 type="time"
                 value={newTodoTime}
                 onChange={(e) => setNewTodoTime(e.target.value)}
-                className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="px-2 py-1 text-[11px] border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                 placeholder="시간 (선택)"
               />
               <button
                 onClick={handleAddTodo}
-                className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                className="px-2 py-1 text-[11px] bg-blue-500 text-white rounded hover:bg-blue-600"
               >
                 {t('common.add') || '추가'}
               </button>
@@ -617,7 +617,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
                   setSelectedMemoryIds([]);
                   setShowMentions(false);
                 }}
-                className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                className="px-2 py-1 text-[11px] bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
               >
                 {t('common.cancel')}
               </button>
@@ -628,21 +628,21 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
         <div className="space-y-1">
           {dateTodos.length > 0 ? (
             dateTodos.map(todo => (
-              <div key={todo.id} className="flex items-center gap-2 group">
+              <div key={todo.id} className="flex items-center gap-1.5 group">
                 <input
                   type="checkbox"
                   checked={todo.completed}
                   onChange={() => onToggleTodo(todo.id)}
-                  className="w-3 h-3"
+                  className="w-2.5 h-2.5"
                 />
                 {todo.time && (
-                  <span className="text-xs text-gray-500 font-medium min-w-[45px]">
+                  <span className="text-[11px] text-gray-500 font-medium min-w-[40px]">
                     {todo.time}
                   </span>
                 )}
                 <div className="flex-1">
                   <div
-                    className={`text-xs flex flex-wrap items-center gap-1 ${todo.completed ? 'line-through text-gray-400' : 'text-gray-700'
+                    className={`text-[11px] flex flex-wrap items-center gap-1 ${todo.completed ? 'line-through text-gray-400' : 'text-gray-700'
                       }`}
                   >
                     {(() => {
@@ -741,7 +741,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
                                 e.preventDefault();
                                 onMemoryClick(part.memoryId!);
                               }}
-                              className="inline-flex items-center text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
+                              className="inline-flex items-center text-[9px] px-1 py-0.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
                               title={part.displayText || part.content}
                             >
                               @{part.displayText || part.content}
@@ -762,15 +762,15 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
               </div>
             ))
           ) : (
-            <p className="text-xs text-gray-400">{t('calendar.todo.none')}</p>
+            <p className="text-[11px] text-gray-400">{t('calendar.todo.none')}</p>
           )}
         </div>
       </div>
 
       {/* 기록 섹션 */}
       <div className="flex-1">
-        <h4 className="text-xs font-semibold text-gray-700 mb-2">{t('calendar.memory.title')}</h4>
-        <div className="space-y-2">
+        <h4 className="text-[11px] font-semibold text-gray-700 mb-1.5">{t('calendar.memory.title')}</h4>
+        <div className="space-y-1">
           {sortedMemories.length > 0 ? (
             sortedMemories.map(memory => {
               const content = stripHtml(memory.content);
@@ -781,19 +781,19 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
                 <button
                   key={memory.id}
                   onClick={() => onMemoryClick(memory.id)}
-                  className="w-full text-left p-2 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition-colors"
+                  className="w-full text-left py-1.5 px-2 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition-colors"
                 >
                   <div className="flex items-start gap-2">
-                    <span className="text-xs text-gray-500 mt-0.5">
+                    <span className="text-[10px] text-gray-500 mt-0.5">
                       {format(new Date(memory.createdAt), 'HH:mm')}
                     </span>
                     <div className="flex-1 min-w-0">
                       {memory.title && (
-                        <div className="text-xs font-semibold text-gray-800 mb-0.5 truncate">
+                        <div className="text-[11px] font-semibold text-gray-800 mb-0.5 truncate">
                           {memory.title}
                         </div>
                       )}
-                      <div className="text-xs text-gray-600 line-clamp-2">
+                      <div className="text-[11px] text-gray-600 line-clamp-2">
                         {displayContent}
                       </div>
                     </div>
@@ -802,7 +802,7 @@ function DayView({ date, memories, allMemories, todos, onBack, onAddTodo, onTogg
               );
             })
           ) : (
-            <p className="text-xs text-gray-400 text-center py-4">{t('calendar.memory.none')}</p>
+            <p className="text-[11px] text-gray-400 text-center py-4">{t('calendar.memory.none')}</p>
           )}
         </div>
       </div>

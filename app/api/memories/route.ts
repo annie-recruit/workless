@@ -72,64 +72,68 @@ export async function POST(req: NextRequest) {
     // 기존 기억 조회 (사용자별)
     const existingMemories = memoryDb.getAll(userId);
 
-    // @멘션 기반 연결 + 기존 유사 기록 찾기
-    let relatedFromClient: string[] = [];
-    if (relatedMemoryIdsRaw) {
-      try {
-        relatedFromClient = JSON.parse(relatedMemoryIdsRaw) as string[];
-      } catch {
-        relatedFromClient = [];
-      }
-    }
-    const relatedFromContent = extractMentionIds(content);
-    const relatedFromAI = await findRelatedMemories(stripHtml(content), existingMemories);
-    const relatedIds = Array.from(new Set([
-      ...relatedFromClient,
-      ...relatedFromContent,
-      ...relatedFromAI,
-    ])).filter(Boolean);
+    // 1. 기억 먼저 생성 (AI 분석 전에 저장하여 사용자 경험 개선 및 실패 방지)
+    const relatedFromClient: string[] = relatedMemoryIdsRaw 
+      ? (typeof relatedMemoryIdsRaw === 'string' ? JSON.parse(relatedMemoryIdsRaw) : relatedMemoryIdsRaw)
+      : [];
 
-    // 기억 생성 (분류 정보 없이)
     const memory = memoryDb.create(content, userId, {
-      // topic, nature, timeContext, clusterTag 제거 - 자동 분류 안 함
       title: title,
       derivedFromCardId: derivedFromCardId,
-      relatedMemoryIds: relatedIds,
       attachments: attachments.length > 0 ? attachments : undefined,
     });
 
-    // 양방향 링크 생성 - 관련 기록들에도 새 기록 ID 추가 (같은 사용자의 기록만)
-    relatedIds.forEach(relatedId => {
-      const relatedMemory = memoryDb.getById(relatedId, userId);
-      if (relatedMemory) {
-        const existingLinks = relatedMemory.relatedMemoryIds || [];
-        // 중복 방지
-        if (!existingLinks.includes(memory.id)) {
-          memoryDb.update(relatedId, {
-            relatedMemoryIds: [...existingLinks, memory.id]
-          });
-        }
-      }
-    });
-
-    // AI가 관련 기록 제안 (모든 기록 중에서)
-    const candidateMemories = existingMemories
-      .filter(m => m.id !== memory.id)
-      .slice(0, 30); // 최대 30개만 검토
-
+    // 2. AI 분석 및 연관 기록 찾기 (별도 try-catch로 감싸서 실패해도 저장은 유지)
+    let relatedIds: string[] = [];
     let connectionSuggestions: Array<{ id: string; content: string; reason: string }> = [];
 
-    if (candidateMemories.length > 0) {
-      try {
-        const relatedIds = await findRelatedMemories(stripHtml(content), candidateMemories);
+    try {
+      // @멘션 기반 연결 (동기적으로 즉시 처리 가능)
+      const relatedFromContent = extractMentionIds(content);
+      
+      // AI 기반 유사 기록 찾기 (최근 50개로 제한하여 성능 및 비용 최적화)
+      const candidateMemories = existingMemories
+        .filter(m => m.id !== memory.id)
+        .slice(0, 50); 
 
-        if (relatedIds.length > 0) {
-          // 관련 기록들의 상세 정보 가져오기
-          const relatedMemories = relatedIds
-            .map(id => candidateMemories.find(m => m.id === id))
-            .filter(Boolean) as typeof candidateMemories;
+      let relatedFromAI: string[] = [];
+      if (candidateMemories.length > 0) {
+        relatedFromAI = await findRelatedMemories(stripHtml(content), candidateMemories);
+      }
 
-          // AI에게 묶을 수 있는지 확인
+      relatedIds = Array.from(new Set([
+        ...relatedFromClient,
+        ...relatedFromContent,
+        ...relatedFromAI,
+      ])).filter(Boolean);
+
+      // 연관 기록 업데이트
+      if (relatedIds.length > 0) {
+        memoryDb.update(memory.id, { relatedMemoryIds: relatedIds });
+        
+        // 양방향 링크 생성
+        relatedIds.forEach(relatedId => {
+          const relatedMemory = memoryDb.getById(relatedId, userId);
+          if (relatedMemory) {
+            const existingLinks = relatedMemory.relatedMemoryIds || [];
+            if (!existingLinks.includes(memory.id)) {
+              memoryDb.update(relatedId, {
+                relatedMemoryIds: [...existingLinks, memory.id]
+              });
+            }
+          }
+        });
+      }
+
+      // AI 연결 제안 생성
+      if (candidateMemories.length > 0 && relatedFromAI.length > 0) {
+        // ... (기존 연결 제안 로직 생략 가능하거나 유지)
+        // 여기서는 기존 로직 유지
+        const relatedMemoriesForSuggestions = relatedFromAI
+          .map(id => candidateMemories.find(m => m.id === id))
+          .filter(Boolean) as typeof candidateMemories;
+
+        if (relatedMemoriesForSuggestions.length > 0) {
           const openaiClient = new OpenAI({
             apiKey: process.env.OPENAI_API_KEY,
           });
@@ -141,7 +145,7 @@ export async function POST(req: NextRequest) {
 "${stripHtml(content).substring(0, 300)}"
 
 [관련 기록 후보들]
-${relatedMemories.slice(0, 5).map((m, idx) => {
+${relatedMemoriesForSuggestions.slice(0, 5).map((m, idx) => {
             const plain = stripHtml(m.content);
             return `${idx}. "${plain.substring(0, 150)}..."`;
           }).join('\n\n')}
@@ -172,7 +176,7 @@ JSON 형식:
           connectionSuggestions = suggestions
             .filter((s: any) => s.shouldLink === true)
             .map((s: any) => {
-              const mem = relatedMemories[s.index];
+              const mem = relatedMemoriesForSuggestions[s.index];
               if (!mem) return null;
               return {
                 id: mem.id,
@@ -182,14 +186,16 @@ JSON 형식:
             })
             .filter(Boolean);
         }
-      } catch (error) {
-        console.error('Failed to generate connection suggestions:', error);
-        // 에러가 나도 메모리는 저장됨
       }
+    } catch (aiError) {
+      console.error('AI 분석 중 오류 발생 (무시하고 저장 진행):', aiError);
     }
 
+    // 최종 업데이트된 메모리 정보 가져오기
+    const finalMemory = memoryDb.getById(memory.id, userId) || memory;
+
     return NextResponse.json({
-      memory,
+      memory: finalMemory,
       connectionSuggestions: connectionSuggestions.length > 0 ? connectionSuggestions : undefined,
     });
   } catch (error) {

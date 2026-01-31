@@ -124,6 +124,9 @@ export default function Home() {
 
   const handleMemoryCreated = async (newMemory?: Memory) => {
     if (newMemory) {
+      // 로컬 DB에도 즉시 반영 (fetchDashboardData 시 사라짐 방지)
+      await dataLayer.saveMemoryLocal(newMemory);
+      
       setMemories(prev => {
         if (prev.some(m => m.id === newMemory.id)) return prev;
         const updated = [newMemory, ...prev];

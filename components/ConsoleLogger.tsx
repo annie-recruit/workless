@@ -31,9 +31,31 @@ export default function ConsoleLogger() {
     // 로그 수집 함수
     const collectLog = (level: string, ...args: any[]) => {
       const timestamp = new Date().toISOString();
-      const message = args
-        .map((arg) => {
+      
+      // 안전하게 인자 변환 (SecurityError 방지)
+      const safeArgs = args.map(arg => {
+        try {
+          if (arg === null || arg === undefined) return arg;
+          
+          // Window, Document, HTMLElement 등 보안 위험이 있는 객체 체크
           if (typeof arg === 'object') {
+            if (arg instanceof Window || 
+                arg.constructor?.name === 'Window' ||
+                arg instanceof Document || 
+                arg instanceof HTMLElement ||
+                ('toJSON' in arg && typeof arg.toJSON !== 'function')) {
+              return `[${arg.constructor?.name || 'Complex Object'}]`;
+            }
+          }
+          return arg;
+        } catch (e) {
+          return '[Unaccessible Object]';
+        }
+      });
+
+      const message = safeArgs
+        .map((arg) => {
+          if (typeof arg === 'object' && arg !== null) {
             try {
               return JSON.stringify(arg, null, 2);
             } catch {
@@ -60,13 +82,16 @@ export default function ConsoleLogger() {
         level,
         message,
         isMinimap: isMinimapLog,
-        args: args.map((arg) => {
-          // 순환 참조 방지
-          try {
-            return JSON.parse(JSON.stringify(arg));
-          } catch {
-            return String(arg);
+        args: safeArgs.map((arg) => {
+          if (typeof arg === 'object' && arg !== null) {
+            try {
+              // 순환 참조 및 복잡한 객체 방지
+              return JSON.parse(JSON.stringify(arg));
+            } catch {
+              return String(arg);
+            }
           }
+          return arg;
         }),
       };
 

@@ -832,7 +832,7 @@ ${summary}`;
 
       {/* 조건부 제안 (입력창 근처 토스트로) */}
       {suggestions.length > 0 && (
-        <div className="fixed bottom-[400px] left-1/2 -translate-x-1/2 w-full max-w-md z-[90] animate-slide-up font-galmuri11 px-4">
+        <div className="fixed bottom-6 right-6 w-[92%] max-w-md z-[90] animate-slide-up font-galmuri11">
           <div className="bg-amber-50 border-4 border-amber-900 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]">
             <h3 className="text-xs font-bold text-amber-900 mb-2 flex items-center gap-2">
               <PixelIcon name="lightbulb" size={14} />
@@ -855,8 +855,8 @@ ${summary}`;
 
       {/* 연결 제안 토스트 (기존 스타일 유지하되 일관성 보완) */}
       {showConnectionModal && connectionSuggestions.length > 0 && (
-        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-md px-4 animate-slide-up font-galmuri11">
-          <div className="bg-white border-4 border-gray-900 p-5 min-w-[350px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+        <div className="fixed bottom-6 right-6 z-[1000] w-[92%] max-w-md animate-slide-up font-galmuri11">
+          <div className="bg-white border-4 border-gray-900 p-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
             <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
             <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
             <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
@@ -886,9 +886,13 @@ ${summary}`;
                           }}
                           className="mt-1"
                         />
-                        <div className="flex-1 overflow-hidden">
-                          <p className="text-[10px] text-gray-800 font-bold truncate">{suggestion.content}</p>
-                          <p className="text-[9px] text-gray-500 line-clamp-1">{suggestion.reason}</p>
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <p className="text-[11px] text-gray-800 font-bold line-clamp-2 leading-tight mb-0.5">
+                            {stripHtmlClient(suggestion.content)}
+                          </p>
+                          <p className="text-[10px] text-gray-500 line-clamp-2 leading-snug">
+                            {suggestion.reason}
+                          </p>
                         </div>
                       </label>
                     ))}
@@ -902,7 +906,7 @@ ${summary}`;
                       setConnectionSuggestions([]);
                       onMemoryCreated(newMemory || undefined);
                     }}
-                    className="flex-1 py-2 text-[10px] font-bold border-2 border-gray-300 hover:bg-gray-50 active:translate-y-0.5"
+                    className="flex-1 py-2 text-[11px] font-bold border-2 border-gray-900 text-gray-700 hover:bg-gray-100 active:translate-y-0.5"
                   >
                     {t('memory.input.link.suggestion.skip')}
                   </button>
@@ -916,8 +920,9 @@ ${summary}`;
                       }
                       try {
                         const selectedIds = Array.from(selectedConnectionIds);
-                        for (const relatedId of selectedIds) {
-                          await fetch('/api/memories/link', {
+                        // 병렬 처리로 속도 개선
+                        await Promise.all(selectedIds.map(relatedId => 
+                          fetch('/api/memories/link', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -925,12 +930,13 @@ ${summary}`;
                               memoryId2: relatedId,
                               isAIGenerated: true,
                             }),
-                          });
-                        }
+                          })
+                        ));
+                        
                         setShowConnectionModal(false);
                         setConnectionSuggestions([]);
                         setSelectedConnectionIds(new Set());
-                        onMemoryCreated();
+                        onMemoryCreated(newMemory || undefined);
                       } catch (error) {
                         console.error('Failed to create connections:', error);
                         setShowConnectionModal(false);
@@ -938,7 +944,7 @@ ${summary}`;
                         onMemoryCreated(newMemory || undefined);
                       }
                     }}
-                    className="flex-1 py-2 text-[10px] font-bold bg-indigo-600 text-white border-2 border-gray-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:bg-indigo-700 active:translate-y-0.5 active:shadow-none"
+                    className="flex-1 py-2 text-[11px] font-bold bg-indigo-600 text-white border-2 border-gray-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:bg-indigo-700 active:translate-y-0.5 active:shadow-none"
                   >
                     {t('memory.input.link.suggestion.connect')} ({selectedConnectionIds.size})
                   </button>
@@ -951,7 +957,7 @@ ${summary}`;
 
       {/* 성공 토스트 */}
       {toast.type === 'success' && (
-        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-md px-4 animate-slide-up font-galmuri11">
+        <div className="fixed bottom-6 right-6 z-[9999] w-[92%] max-w-md animate-slide-up font-galmuri11">
           <div className="bg-green-500 text-white border-4 border-gray-900 p-4 min-w-[250px] shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] relative">
             <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
             <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />

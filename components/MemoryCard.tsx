@@ -690,20 +690,42 @@ const MemoryCard = memo(
                 attachment.mimetype === 'application/msword' ||
                 attachment.filename.toLowerCase().endsWith('.docx') ||
                 attachment.filename.toLowerCase().endsWith('.doc');
-              const isSupported = isImage || isPdf || isDocx;
+              const isPptx =
+                attachment.mimetype ===
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation' ||
+                attachment.mimetype === 'application/vnd.ms-powerpoint' ||
+                attachment.filename.toLowerCase().endsWith('.pptx') ||
+                attachment.filename.toLowerCase().endsWith('.ppt');
+              const isXlsx =
+                attachment.mimetype ===
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                attachment.mimetype === 'application/vnd.ms-excel' ||
+                attachment.filename.toLowerCase().endsWith('.xlsx') ||
+                attachment.filename.toLowerCase().endsWith('.xls');
+              const isText =
+                attachment.mimetype === 'text/plain' ||
+                attachment.mimetype === 'text/markdown' ||
+                attachment.filename.toLowerCase().endsWith('.txt') ||
+                attachment.filename.toLowerCase().endsWith('.md');
+              const isSupported = isImage || isPdf || isDocx || isPptx || isXlsx || isText;
 
               const handleAttachmentClick = (e: React.MouseEvent) => {
-                if (viewerExists && isSupported) {
+                if (isSupported) {
                   e.preventDefault();
                   e.stopPropagation();
-                  openInViewer({
+                  
+                  const success = openInViewer({
                     kind: 'file',
                     url: attachment.filepath,
                     fileName: attachment.filename,
                     mimeType: attachment.mimetype,
                   });
+
+                  if (!success) {
+                    alert('보드에 뷰어 위젯이 없습니다. 먼저 상단 메뉴의 [+] 버튼을 눌러 뷰어 위젯을 생성해주세요.');
+                  }
                 }
-                // Viewer가 없거나 지원 안 되는 파일은 기본 동작 유지
+                // 지원 안 되는 파일은 기본 동작 유지
               };
 
               if (isImage) {
@@ -734,27 +756,34 @@ const MemoryCard = memo(
                 );
               } else {
                 return (
-                  <div key={attachment.id} className="flex items-center gap-1.5">
+                  <div key={attachment.id} className="flex items-center gap-1.5 min-w-0">
                     <a
                       href={attachment.filepath}
                       target={viewerExists && isSupported ? undefined : '_blank'}
                       rel="noopener noreferrer"
                       onClick={handleAttachmentClick}
-                      className={`flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors flex-1 ${viewerExists && isSupported ? 'cursor-pointer' : ''
+                      className={`flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors flex-1 min-w-0 ${viewerExists && isSupported ? 'cursor-pointer' : ''
                         }`}
                     >
                       <PixelIcon
-                        name={attachment.mimetype.includes('pdf') ? 'pdf' : isDocx ? 'docx' : 'attachment'}
+                        name={
+                          attachment.mimetype.includes('pdf') ? 'pdf' : 
+                          isDocx ? 'docx' : 
+                          isPptx ? 'pptx' : 
+                          isXlsx ? 'xlsx' : 
+                          isText ? 'text' : 
+                          'attachment'
+                        }
                         size={16}
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-[10px] text-gray-700 truncate">{attachment.filename}</p>
                         <p className="text-[9px] text-gray-500">{(attachment.size / 1024).toFixed(1)} KB</p>
                       </div>
-                      {!viewerExists || !isSupported ? (
-                        <span className="text-indigo-500 text-[10px]">{t('memory.card.attachment.open')}</span>
+                      {!isSupported ? (
+                        <span className="text-indigo-500 text-[10px] flex-shrink-0 whitespace-nowrap">{t('memory.card.attachment.open')}</span>
                       ) : (
-                        <span className="text-indigo-500 text-[10px]">{t('memory.card.attachment.viewInViewer')}</span>
+                        <span className="text-indigo-500 text-[10px] flex-shrink-0 whitespace-nowrap">{t('memory.card.attachment.viewInViewer')}</span>
                       )}
                     </a>
                     {viewerExists && (
