@@ -66,6 +66,16 @@ export default function OnboardingMiniBoard({
     const [scale, setScale] = useState(1);
     const [dragging, setDragging] = useState<keyof CardPositions | null>(null);
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+    const [visibleCards, setVisibleCards] = useState<Set<keyof CardPositions>>(new Set(['card1', 'card2', 'card3', 'action', 'calendar', 'viewer']));
+
+    const handleDelete = (card: keyof CardPositions, e: React.MouseEvent | React.PointerEvent) => {
+        e.stopPropagation();
+        setVisibleCards(prev => {
+            const next = new Set(prev);
+            next.delete(card);
+            return next;
+        });
+    };
 
     // 롱프레스 타이머
     const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -153,11 +163,19 @@ export default function OnboardingMiniBoard({
         const actionCenter = { x: positions.action.x + 75, y: positions.action.y + 70 };
         const viewerCenter = { x: positions.viewer.x + 120, y: positions.viewer.y + 100 };
 
-        drawPixelLine(card1Center.x, card1Center.y, card2Center.x, card2Center.y, '#818CF8');
-        drawPixelLine(card2Center.x, card2Center.y, card3Center.x, card3Center.y, '#A78BFA');
-        drawPixelLine(card1Center.x, card1Center.y, actionCenter.x, actionCenter.y, '#FB923C');
-        drawPixelLine(card2Center.x, card2Center.y, viewerCenter.x, viewerCenter.y, '#3B82F6');
-    }, [positions, size, showLines]);
+        if (visibleCards.has('card1') && visibleCards.has('card2')) {
+            drawPixelLine(card1Center.x, card1Center.y, card2Center.x, card2Center.y, '#818CF8');
+        }
+        if (visibleCards.has('card2') && visibleCards.has('card3')) {
+            drawPixelLine(card2Center.x, card2Center.y, card3Center.x, card3Center.y, '#A78BFA');
+        }
+        if (visibleCards.has('card1') && visibleCards.has('action')) {
+            drawPixelLine(card1Center.x, card1Center.y, actionCenter.x, actionCenter.y, '#FB923C');
+        }
+        if (visibleCards.has('card2') && visibleCards.has('viewer')) {
+            drawPixelLine(card2Center.x, card2Center.y, viewerCenter.x, viewerCenter.y, '#3B82F6');
+        }
+    }, [positions, size, showLines, visibleCards]);
 
     const handlePointerDown = (card: keyof CardPositions, e: React.PointerEvent) => {
         const isTouch = e.pointerType === 'touch';
@@ -232,7 +250,7 @@ export default function OnboardingMiniBoard({
     return (
         <div
             ref={containerRef}
-            className="w-full h-full bg-transparent overflow-hidden pointer-events-none"
+            className="w-full h-full bg-transparent overflow-hidden pointer-events-none select-none"
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerUp}
@@ -257,12 +275,22 @@ export default function OnboardingMiniBoard({
                 )}
 
                 {/* 메모리 카드 1: 메모 작성 */}
-                <div
-                    className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[160px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
-                    style={{ left: `${positions.card1.x}px`, top: `${positions.card1.y}px`, zIndex: dragging === 'card1' ? 20 : 10 }}
-                    onPointerDown={(e) => handlePointerDown('card1', e)}
-                >
-                    {/* 장식용 코너 포인트 */}
+                {visibleCards.has('card1') && (
+                    <div
+                        className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[160px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto group"
+                        style={{ left: `${positions.card1.x}px`, top: `${positions.card1.y}px`, zIndex: dragging === 'card1' ? 20 : 10 }}
+                        onPointerDown={(e) => handlePointerDown('card1', e)}
+                    >
+                        {/* 삭제 버튼 */}
+                        <button
+                            onClick={(e) => handleDelete('card1', e)}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="absolute top-1 right-1 w-4 h-4 flex items-center justify-center bg-gray-800 text-white text-[10px] opacity-0 group-hover:opacity-100 transition-opacity z-30"
+                        >
+                            ×
+                        </button>
+
+                        {/* 장식용 코너 포인트 */}
                     <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
                     <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
@@ -284,12 +312,22 @@ export default function OnboardingMiniBoard({
                 </div>
 
                 {/* 메모리 카드 2: 카드 연결 */}
-                <div
-                    className="absolute bg-purple-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[160px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
-                    style={{ left: `${positions.card2.x}px`, top: `${positions.card2.y}px`, zIndex: dragging === 'card2' ? 20 : 10 }}
-                    onPointerDown={(e) => handlePointerDown('card2', e)}
-                >
-                    <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
+                {visibleCards.has('card2') && (
+                    <div
+                        className="absolute bg-purple-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[160px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto group"
+                        style={{ left: `${positions.card2.x}px`, top: `${positions.card2.y}px`, zIndex: dragging === 'card2' ? 20 : 10 }}
+                        onPointerDown={(e) => handlePointerDown('card2', e)}
+                    >
+                        {/* 삭제 버튼 */}
+                        <button
+                            onClick={(e) => handleDelete('card2', e)}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="absolute top-1 right-1 w-4 h-4 flex items-center justify-center bg-gray-800 text-white text-[10px] opacity-0 group-hover:opacity-100 transition-opacity z-30"
+                        >
+                            ×
+                        </button>
+
+                        <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
                     <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
                     <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
@@ -310,12 +348,22 @@ export default function OnboardingMiniBoard({
                 </div>
 
                 {/* 메모리 카드 3: 태그 & 분류 */}
-                <div
-                    className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[160px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
-                    style={{ left: `${positions.card3.x}px`, top: `${positions.card3.y}px`, zIndex: dragging === 'card3' ? 20 : 10 }}
-                    onPointerDown={(e) => handlePointerDown('card3', e)}
-                >
-                    <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
+                {visibleCards.has('card3') && (
+                    <div
+                        className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[160px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto group"
+                        style={{ left: `${positions.card3.x}px`, top: `${positions.card3.y}px`, zIndex: dragging === 'card3' ? 20 : 10 }}
+                        onPointerDown={(e) => handlePointerDown('card3', e)}
+                    >
+                        {/* 삭제 버튼 */}
+                        <button
+                            onClick={(e) => handleDelete('card3', e)}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="absolute top-1 right-1 w-4 h-4 flex items-center justify-center bg-gray-800 text-white text-[10px] opacity-0 group-hover:opacity-100 transition-opacity z-30"
+                        >
+                            ×
+                        </button>
+
+                        <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
                     <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
                     <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
@@ -333,12 +381,22 @@ export default function OnboardingMiniBoard({
                 </div>
 
                 {/* 액션 플랜 카드 */}
-                <div
-                    className="absolute w-[150px] bg-white border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-2.5 cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
-                    style={{ left: `${positions.action.x}px`, top: `${positions.action.y}px`, zIndex: dragging === 'action' ? 20 : 10 }}
-                    onPointerDown={(e) => handlePointerDown('action', e)}
-                >
-                    <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
+                {visibleCards.has('action') && (
+                    <div
+                        className="absolute w-[150px] bg-white border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-2.5 cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto group"
+                        style={{ left: `${positions.action.x}px`, top: `${positions.action.y}px`, zIndex: dragging === 'action' ? 20 : 10 }}
+                        onPointerDown={(e) => handlePointerDown('action', e)}
+                    >
+                        {/* 삭제 버튼 */}
+                        <button
+                            onClick={(e) => handleDelete('action', e)}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="absolute top-1 right-1 w-4 h-4 flex items-center justify-center bg-gray-800 text-white text-[10px] opacity-0 group-hover:opacity-100 transition-opacity z-30"
+                        >
+                            ×
+                        </button>
+
+                        <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
                     <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
                     <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
@@ -384,12 +442,22 @@ export default function OnboardingMiniBoard({
                 </div>
 
                 {/* 캘린더 위젯 */}
-                <div
-                    className="absolute bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black p-3 cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto"
-                    style={{ left: `${positions.calendar.x}px`, top: `${positions.calendar.y}px`, width: '180px', zIndex: dragging === 'calendar' ? 20 : 10 }}
-                    onPointerDown={(e) => handlePointerDown('calendar', e)}
-                >
-                    <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-gray-200">
+                {visibleCards.has('calendar') && (
+                    <div
+                        className="absolute bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black p-3 cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto group"
+                        style={{ left: `${positions.calendar.x}px`, top: `${positions.calendar.y}px`, width: '180px', zIndex: dragging === 'calendar' ? 20 : 10 }}
+                        onPointerDown={(e) => handlePointerDown('calendar', e)}
+                    >
+                        {/* 삭제 버튼 */}
+                        <button
+                            onClick={(e) => handleDelete('calendar', e)}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="absolute -top-3 -right-3 w-6 h-6 flex items-center justify-center bg-black text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity z-30 shadow-md"
+                        >
+                            ×
+                        </button>
+
+                        <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-gray-200">
                         <div className="flex items-center gap-1.5">
                             <PixelIcon name="calendar" size={16} ariaLabel={t('onboarding.calendar')} />
                             <h3 className="text-[12px] font-semibold text-gray-800">{t('onboarding.calendar')}</h3>
@@ -442,18 +510,28 @@ export default function OnboardingMiniBoard({
                 </div>
 
                 {/* 뷰어 위젯 */}
-                <div
-                    className="absolute flex flex-col bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,0.15)] overflow-hidden cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] transition-shadow pointer-events-auto"
-                    style={{
-                        left: `${positions.viewer.x}px`,
-                        top: `${positions.viewer.y}px`,
-                        width: '240px',
-                        height: '200px',
-                        zIndex: dragging === 'viewer' ? 20 : 10
-                    }}
-                    onPointerDown={(e) => handlePointerDown('viewer', e)}
-                >
-                    <div className="h-7 bg-[#EEEEEE] border-b-[3px] border-black flex items-center justify-between px-2 select-none shrink-0">
+                {visibleCards.has('viewer') && (
+                    <div
+                        className="absolute flex flex-col bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,0.15)] overflow-hidden cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] transition-shadow pointer-events-auto group"
+                        style={{
+                            left: `${positions.viewer.x}px`,
+                            top: `${positions.viewer.y}px`,
+                            width: '240px',
+                            height: '200px',
+                            zIndex: dragging === 'viewer' ? 20 : 10
+                        }}
+                        onPointerDown={(e) => handlePointerDown('viewer', e)}
+                    >
+                        {/* 삭제 버튼 */}
+                        <button
+                            onClick={(e) => handleDelete('viewer', e)}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="absolute -top-1 right-1 w-6 h-7 flex items-center justify-center text-gray-500 hover:text-black text-sm opacity-0 group-hover:opacity-100 transition-opacity z-30"
+                        >
+                            ×
+                        </button>
+
+                        <div className="h-7 bg-[#EEEEEE] border-b-[3px] border-black flex items-center justify-between px-2 select-none shrink-0">
                         <div className="flex items-center gap-1.5">
                             <div className="flex gap-1">
                                 <div className="w-2.5 h-2.5 border border-black bg-[#FF5F56]" />
