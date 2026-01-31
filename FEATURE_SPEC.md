@@ -1,8 +1,8 @@
 # Workless 기능명세서
 
-**작성일**: 2026-01-24  
+**작성일**: 2026-01-30  
 **프로젝트**: Workless - 사고의 흐름을 보는 비정형 워크스페이스  
-**버전**: 1.0
+**버전**: 1.1
 
 ---
 
@@ -36,10 +36,12 @@ Workless는 생각과 아이디어를 자유롭게 펼쳐놓고 연결할 수 �
 - **무한 캔버스**: 제한 없는 공간에서 사고를 확장
 
 ### 1.3 기술 스택
-- **Frontend**: Next.js 16.1, React 19, TypeScript, Tailwind CSS 4.0
+- **Frontend**: Next.js 16.1 (Turbopack), React 19, TypeScript, Tailwind CSS 4.0
 - **Backend**: Next.js API Routes, Better SQLite3
+- **Local Storage**: IndexedDB (Dexie.js) - 로컬 우선(Local-First) 아키텍처
 - **AI**: OpenAI GPT (분석, 요약), OpenAI Whisper (음성 전사)
 - **인증**: NextAuth.js (Google OAuth)
+- **i18n**: React Context 기반 커스텀 다국어 시스템 (KO/EN)
 - **PWA**: next-pwa
 
 ---
@@ -59,12 +61,16 @@ Workless는 생각과 아이디어를 자유롭게 펼쳐놓고 연결할 수 �
 - 연결선 시각화
 - 미니맵을 통한 전체 보기
 
-### 2.3 AI 기반 자동화
-- 메모리 자동 분류 (주제, 성격, 시간 맥락)
-- 관련 메모리 자동 연결 제안
-- 자동 그룹화 제안
-- 패턴 및 트렌드 발견
-- 인사이트 생성
+### 2.4 다국어 지원 (i18n)
+- 한국어 및 영어 전체 로컬라이징
+- 픽셀 스타일 언어 토글 스위치
+- 날짜/시간 형식 현지화 (date-fns/locale)
+
+### 2.5 로컬 우선(Local-First) 데이터 관리
+- 모든 데이터는 IndexedDB에 즉시 저장
+- 백그라운드 서버 동기화 (DataLayer)
+- 오프라인 상태에서도 조회, 생성, 삭제 가능
+- 서버-로컬 간 원자적(Atomic) 삭제 보장
 
 ---
 
@@ -112,8 +118,10 @@ Workless는 생각과 아이디어를 자유롭게 펼쳐놓고 연결할 수 �
 - 파일 추가/삭제
 
 #### 삭제
-- 메모리 삭제
-- 연결된 링크 자동 정리
+- 메모리 삭제 (로컬 및 서버 동시 삭제)
+- **DataLayer 통합**: 로컬 DB에서 즉시 삭제 후 서버 백그라운드 연동
+- **무결성 유지**: 서버 DB 트랜잭션을 통한 연결 링크, 위치 정보, 색상 설정 연쇄 삭제
+- 삭제 시 다국어 확인 메시지 제공
 
 #### API 엔드포인트
 - `PUT /api/memories?id={id}` - 메모리 수정
@@ -599,9 +607,23 @@ Workless는 생각과 아이디어를 자유롭게 펼쳐놓고 연결할 수 �
 
 ---
 
-## 12. PWA 기능
+## 12. PWA 및 현지화
 
-### 12.1 오프라인 지원
+### 12.1 다국어 지원 (i18n)
+- **지원 언어**: 한국어(KO), 영어(EN)
+- **상태 관리**: `LanguageContext`를 통한 전역 언어 상태 관리
+- **영역별 적용**:
+  - 랜딩 페이지 및 온보딩 가이드
+  - 대시보드 UI 및 AI 분석 메시지
+  - 서비스 약관(Terms) 및 개인정보처리방침(Privacy)
+- **날짜 현지화**: `date-fns/locale`을 사용한 상대 시간 표시 (예: "3분 전" vs "3m ago")
+
+### 12.2 SEO 및 브랜딩
+- **검색 엔진 최적화**: `robots.txt`를 통한 크롤링 관리 및 `sitemap.xml` 연동
+- **메타데이터**: `real_logo.png`를 활용한 Open Graph(OG) 및 Twitter Card 메타데이터 최적화
+- **파비콘**: 고해상도 `real_logo.png`를 기반으로 한 파비콘 및 애플 터치 아이콘 적용
+
+### 12.3 오프라인 지원
 
 #### 서비스 워커
 - next-pwa를 통한 서비스 워커 등록
@@ -709,6 +731,8 @@ Workless는 생각과 아이디어를 자유롭게 펼쳐놓고 연결할 수 �
 | POST | `/api/goals` | 목표 생성 |
 | PUT | `/api/goals` | 목표 수정 |
 | DELETE | `/api/goals?id={id}` | 목표 삭제 |
+| POST | `/api/sync/backup` | 로컬 데이터 서버 백업 |
+| GET | `/api/sync/restore` | 서버 데이터 로컬 복원 |
 | POST | `/api/console-logs` | 콘솔 로그 전송 |
 
 ---
@@ -808,6 +832,13 @@ Workless는 생각과 아이디어를 자유롭게 펼쳐놓고 연결할 수 �
 ---
 
 ## 17. 변경 이력
+
+### 2026-01-30
+- ✅ 한국어/영어 다국어(i18n) 시스템 구축 및 전체 로컬라이징 완료
+- ✅ 로컬 우선(Local-First) 데이터 아키텍처 도입 (IndexedDB + DataLayer)
+- ✅ 메모리, 목표, 프로젝트 삭제 로직 개선 (원자적 삭제 및 트랜잭션 적용)
+- ✅ SEO 최적화 (robots.txt 추가, 공유 로고 및 메타데이터 업데이트)
+- ✅ 위젯 및 에디터 UI/UX 미세 조정 (폰트 크기 및 색상 수정)
 
 ### 2026-01-24
 - ✅ 전체 기능명세서 초안 작성
