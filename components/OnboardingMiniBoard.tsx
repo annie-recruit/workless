@@ -178,6 +178,9 @@ export default function OnboardingMiniBoard({
     }, [positions, size, showLines, visibleCards]);
 
     const handlePointerDown = (card: keyof CardPositions, e: React.PointerEvent) => {
+        // 텍스트 선택 방지
+        e.preventDefault();
+        
         const isTouch = e.pointerType === 'touch';
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         const startX = e.clientX;
@@ -185,6 +188,11 @@ export default function OnboardingMiniBoard({
 
         const startDrag = () => {
             setDragging(card);
+            // 드래그 중 포인터 캡처 (브라우저 기본 드래그/선택 방지)
+            try {
+                (e.target as HTMLElement).setPointerCapture(e.pointerId);
+            } catch (err) {}
+            
             setDragOffset({
                 x: startX - rect.left,
                 y: startY - rect.top,
@@ -277,7 +285,7 @@ export default function OnboardingMiniBoard({
                 {/* 메모리 카드 1: 메모 작성 */}
                 {visibleCards.has('card1') && (
                     <div
-                        className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[160px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto group"
+                        className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[160px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto group select-none"
                         style={{ left: `${positions.card1.x}px`, top: `${positions.card1.y}px`, zIndex: dragging === 'card1' ? 20 : 10 }}
                         onPointerDown={(e) => handlePointerDown('card1', e)}
                     >
@@ -310,11 +318,12 @@ export default function OnboardingMiniBoard({
                         </span>
                     </div>
                 </div>
+                )}
 
                 {/* 메모리 카드 2: 카드 연결 */}
                 {visibleCards.has('card2') && (
                     <div
-                        className="absolute bg-purple-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[160px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto group"
+                        className="absolute bg-purple-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[160px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto group select-none"
                         style={{ left: `${positions.card2.x}px`, top: `${positions.card2.y}px`, zIndex: dragging === 'card2' ? 20 : 10 }}
                         onPointerDown={(e) => handlePointerDown('card2', e)}
                     >
@@ -346,11 +355,12 @@ export default function OnboardingMiniBoard({
                         </span>
                     </div>
                 </div>
+                )}
 
                 {/* 메모리 카드 3: 태그 & 분류 */}
                 {visibleCards.has('card3') && (
                     <div
-                        className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[160px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto group"
+                        className="absolute bg-orange-50 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-3.5 w-[160px] cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto group select-none"
                         style={{ left: `${positions.card3.x}px`, top: `${positions.card3.y}px`, zIndex: dragging === 'card3' ? 20 : 10 }}
                         onPointerDown={(e) => handlePointerDown('card3', e)}
                     >
@@ -379,11 +389,12 @@ export default function OnboardingMiniBoard({
                         <span>{t('onboarding.justNow')}</span>
                     </div>
                 </div>
+                )}
 
                 {/* 액션 플랜 카드 */}
                 {visibleCards.has('action') && (
                     <div
-                        className="absolute w-[150px] bg-white border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-2.5 cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto group"
+                        className="absolute w-[150px] bg-white border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] p-2.5 cursor-move hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto group select-none"
                         style={{ left: `${positions.action.x}px`, top: `${positions.action.y}px`, zIndex: dragging === 'action' ? 20 : 10 }}
                         onPointerDown={(e) => handlePointerDown('action', e)}
                     >
@@ -440,11 +451,12 @@ export default function OnboardingMiniBoard({
                         </div>
                     </div>
                 </div>
+                )}
 
                 {/* 캘린더 위젯 */}
                 {visibleCards.has('calendar') && (
                     <div
-                        className="absolute bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black p-3 cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto group"
+                        className="absolute bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black p-3 cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.15)] transition-shadow pointer-events-auto group select-none"
                         style={{ left: `${positions.calendar.x}px`, top: `${positions.calendar.y}px`, width: '180px', zIndex: dragging === 'calendar' ? 20 : 10 }}
                         onPointerDown={(e) => handlePointerDown('calendar', e)}
                     >
@@ -508,11 +520,12 @@ export default function OnboardingMiniBoard({
                         })}
                     </div>
                 </div>
+                )}
 
                 {/* 뷰어 위젯 */}
                 {visibleCards.has('viewer') && (
                     <div
-                        className="absolute flex flex-col bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,0.15)] overflow-hidden cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] transition-shadow pointer-events-auto group"
+                        className="absolute flex flex-col bg-white border-[3px] border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,0.15)] overflow-hidden cursor-move hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] transition-shadow pointer-events-auto group select-none"
                         style={{
                             left: `${positions.viewer.x}px`,
                             top: `${positions.viewer.y}px`,
@@ -551,6 +564,7 @@ export default function OnboardingMiniBoard({
                         <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
                     </div>
                 </div>
+                )}
             </div>
         </div>
     );
