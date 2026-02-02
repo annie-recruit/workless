@@ -91,7 +91,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'gmail.import.importing': '가져오는 중...',
     'gmail.import.selecting': '선택 중...',
     'gmail.import.failed': '실패',
-    
+
     // Onboarding
     'onboarding.note': '메모 작성',
     'onboarding.note.desc1': '• 파일 첨부 가능',
@@ -118,6 +118,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'dashboard.subtitle': '사고의 흐름을 보는 비정형 워크스페이스',
     'dashboard.menu.groups': '그룹 관리',
     'dashboard.menu.memories': '기억 관리',
+    'dashboard.menu.insights': '인사이트',
     'dashboard.menu.settings': '설정',
     'dashboard.auth.logout': '로그아웃',
     'dashboard.auth.login': '로그인',
@@ -128,7 +129,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'dashboard.insights.hide': '인사이트 숨기기',
     'dashboard.modal.groups.title': '그룹 관리',
     'dashboard.modal.query.title': '물어보기',
-    
+
     // MemoryListPanel
     'memory.list.title': '기억 관리',
     'memory.list.tab.all': '전체 ({count})',
@@ -139,7 +140,9 @@ export const translations: Record<Language, Record<string, string>> = {
     'memory.list.item.noTitle': '제목 없음',
     'memory.list.project.title': '액션 프로젝트',
     'memory.list.project.estimated': '예상: {duration}',
-    
+    'project.draft.button': '초안',
+    'project.draft.generating': '생성 중...',
+
     // MemoryView
     'memory.view.button.board': '보드로 이동',
     'memory.view.mode.board': '보드 뷰',
@@ -159,6 +162,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'memory.view.board.import.gmail': 'Gmail 가져오기',
     'memory.view.board.import.gmail.success': 'Gmail에서 {count}개의 이메일을 가져왔습니다.',
     'memory.view.board.widget.add': '위젯 추가',
+    'memory.view.board.widget': '위젯',
     'memory.view.board.widget.menu': '위젯 모음',
     'memory.view.board.widget.synergy': '위젯 시너지',
     'memory.view.board.group.manage': '그룹 관리',
@@ -227,7 +231,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'insights.goal.toast.updateError': '업데이트 중 오류 발생',
     'insights.goal.toast.archiveFailed': '보관 실패',
     'insights.goal.toast.archiveError': '보관 중 오류 발생',
-    
+
     // Settings
     'settings.title': '데이터 및 동기화 설정',
     'settings.desc': 'Workless는 데이터를 브라우저에 우선 저장하여 오프라인에서도 작동합니다.',
@@ -277,7 +281,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.button.back': '대시보드로 돌아가기',
     'settings.auth.required': '로그인이 필요합니다.',
     'settings.auth.button': '로그인하러 가기',
-    
+
     // QueryPanel
     'query.placeholder': '예: 요즘 내가 무슨 생각 많이 했어?',
     'query.button.ask': '물어보기',
@@ -286,11 +290,109 @@ export const translations: Record<Language, Record<string, string>> = {
     'query.quick.2': '아이디어 관련해서 뭐 쌓여 있어?',
     'query.quick.3': '업무 관련 기록 보여줘',
     'query.quick.4': '최근 회의록 요약해줘',
+
+    // Features Page
+    'features.title': '기능 소개',
+    'features.section1.badge': '메모앱이 아닌, 생각앱',
+    'features.section1.title': '흩어진 생각을 카드로 정리하고\n맥락을 발견하세요',
+    'features.section1.desc': '단순한 메모 저장이 아닙니다. 워크리스는 당신의 생각을 구조화하고, @ 멘션으로 연결하며, AI가 맥락을 찾아 액션 아이템으로 변환합니다.',
+    'features.section1.item1.title': '빠른 메모 작성',
+    'features.section1.item1.desc': '텍스트, 파일, 음성 녹음을 카드에 기록. 리치 에디터로 서식 자유롭게 편집',
+    'features.section1.item2.title': '@ 멘션으로 연결',
+    'features.section1.item2.desc': '다른 메모리를 @로 참조하여 생각의 흐름을 시각화',
+    'features.section1.item3.title': '파일 첨부 & 뷰어',
+    'features.section1.item3.desc': 'PDF, 이미지, DOCX 등 파일을 첨부하고 위젯에서 바로 미리보기',
+    'features.section1.item4.title': '색상 구분',
+    'features.section1.item4.desc': '카드 색상으로 직관적으로 분류하고 무한 캔버스에 배치',
+    
+    'features.section2.title': 'AI가 맥락을 발견하고\n액션을 제안합니다',
+    'features.section2.badge': '페르소나 기능이 핵심!',
+    'features.section2.subtitle': 'AI 멘토가 당신의\n액션을 책임집니다',
+    'features.section2.desc': '단순한 요약이 아닙니다. 선택한 페르소나(멘토, 코치, 전문가 등)가 당신의 맥락을 이해하고, 구체적인 다음 단계를 제안하며, 관련 자료까지 추천합니다.',
+    'features.section2.item1.title': '페르소나 선택',
+    'features.section2.item1.desc': '멘토, 코치, 비평가 등 원하는 역할을 선택하여 맞춤형 조언 받기',
+    'features.section2.item2.title': '자동 요약 & 제안',
+    'features.section2.item2.desc': '메모리 내용을 분석하여 핵심만 추출하고 다음 액션 단계 제안',
+    'features.section2.item3.title': '목표로 즉시 전환',
+    'features.section2.item3.desc': 'AI가 제안한 액션 플랜을 클릭 한 번으로 나의 목표로 등록하고 관리',
+
+    'features.section2.item4.title': '스마트 연결 제안',
+    'features.section2.item4.desc': '연관된 메모리를 자동으로 찾아 연결 제안',
+    'features.section2.item5.title': '자동 그룹핑',
+    'features.section2.item5.desc': '비슷한 주제의 메모리를 자동으로 묶어 그룹 생성',
+    'features.section2.item6.title': '다양한 위젯',
+    'features.section2.item6.desc': '캘린더, 뷰어, 데이터베이스, 회의 녹음 등 필요한 도구를 위젯으로 추가',
+
+    'features.section_extra.title': '지능적인 연결과 강력한 도구',
+    'features.section_extra.badge': '더욱 똑똑해지는 워크스페이스',
+    'features.section_extra.subtitle': '모든 것을 하나로 연결하는\n스마트한 환경',
+    'features.section_extra.desc': '메모들이 서로 연결되어 맥락을 형성하고, 강력한 위젯들이 당신의 업무 효율을 극대화합니다. 더 이상 정보를 찾으러 헤매지 마세요.',
+
+    'features.section3.title': '당신의 액션을 책임지는\n워크스페이스',
+    'features.section3.badge': '액션 아이템을 발견하고 실행하기',
+    'features.section3.subtitle': 'AI 제안을 실행 가능한\n프로젝트로 변환',
+    'features.section3.desc': 'AI가 제안한 액션 플랜을 클릭 한 번으로 체계적인 프로젝트로 변환합니다. 단계별 마일스톤과 체크리스트로 나누어 당신의 목표 달성을 책임집니다.',
+    'features.section3.item1.title': 'AI 제안 → 프로젝트 변환',
+    'features.section3.item1.desc': '"다음 단계" 제안을 클릭 한 번으로 실행 가능한 액션 프로젝트로 생성',
+    'features.section3.item2.title': '체크리스트로 진행 추적',
+    'features.section3.item2.desc': '각 액션 아이템을 체크하며 진행률을 실시간으로 확인',
+    'features.section3.item3.title': '예상 소요 시간 표시',
+    'features.section3.item3.desc': '각 단계마다 예상 시간을 표시하여 일정 관리 지원',
+    'features.section3.item4.title': '캔버스에 자유 배치',
+    'features.section3.item4.desc': '메모리와 함께 드래그하여 무한 캔버스에 원하는 위치에 배치',
+    'features.section3.item5.title': '다양한 위젯 지원',
+    'features.section3.item5.desc': '캘린더, 뷰어, 미니맵, DB, 레코더, Blob 등 필요한 위젯 추가',
+
+    'features.cta.title': '지금 시작하세요',
+    'features.cta.desc1': '생각을 기록하고, AI가 맥락을 발견하고,',
+    'features.cta.desc2': '당신의 액션을 책임지는 워크스페이스',
+    'features.cta.button': 'WORKLESS 시작하기',
+
+    // Demo Content
+    'features.demo.card1.title': '신규 브랜드 런칭 캠페인',
+    'features.demo.card1.content': '타겟: MZ세대 직장인. 인스타그램 & 틱톡 중심 콘텐츠. 인플루언서 3명 섭외 완료. 런칭 D-14. 예산 1,500만원. A/B 테스트용 배너 2종 제작 중.',
+    'features.demo.card2.content': '<span class="mention">@신규 브랜드 런칭 캠페인</span> 연계. 콘텐츠 캘린더 작성 완료. 주 3회 포스팅 (월/수/금). 해시태그 전략: #직장인꿀팁 #워라밸 #자기계발. 인플루언서 협업 가이드 문서 공유.',
+    'features.demo.tag.campaign': '캠페인',
+    'features.demo.tag.content': '콘텐츠',
+    'features.demo.tag.planning': '기획',
+    'features.demo.time.2h': '2시간 전',
+    'features.demo.time.1h': '1시간 전',
+    'features.demo.summary.title': 'AI 요약',
+    'features.demo.summary.content': 'Q2 신규 기능 출시를 위해 백로그 우선순위를 재조정하고, 개발팀과 협업하여 3주 스프린트 계획을 수립했습니다. 사용자 피드백 분석 결과 검색 기능 개선이 가장 시급하며, 이해관계자 미팅에서 MVP 범위를 확정했습니다.',
+    'features.demo.next.title': '다음 단계',
+    'features.demo.next.item1': '개발팀과 스프린트 킥오프 미팅 일정 잡기 (이번 주 금요일)',
+    'features.demo.next.item2': '검색 기능 개선을 위한 사용자 스토리 작성 및 AC 정의',
+    'features.demo.next.item3': '디자이너에게 와이어프레임 리뷰 요청 및 피드백 반영',
+    'features.demo.related.title': '관련 자료',
+    'features.demo.related.item1.title': 'Q1 사용자 피드백 분석 보고서',
+    'features.demo.related.item1.desc': '500+ 피드백 데이터 분석 및 인사이트 도출',
+    'features.demo.calendar.title': '캘린더',
+    'features.demo.project.title': 'SNS 콘텐츠 마케팅 전략',
+    'features.demo.project.summary': '"MZ세대 타겟 브랜드 런칭을 위한 인스타그램 & 틱톡 콘텐츠 전략을 수립하고, 인플루언서 협업을 통해 바이럴 마케팅을 실행합니다."',
+    'features.demo.project.step1': '[1단계: 콘텐츠 기획]',
+    'features.demo.project.action1': '타겟 오디언스 페르소나 정의',
+    'features.demo.project.action2': '콘텐츠 캘린더 작성 (월/수/금 포스팅)',
+    'features.demo.project.action3': '인플루언서 3명 섭외 완료',
+    'features.demo.project.action4': 'A/B 테스트용 배너 최종 검토',
+    'features.demo.widget.minimap': '미니맵',
+    'features.demo.widget.viewer': '뷰어',
+    'features.demo.widget.recorder': '레코더',
+    'features.demo.widget.db': 'DB',
+    'features.demo.widget.actionPlan': '액션플랜',
+    'features.demo.widget.blob': 'Blob',
+    'features.demo.whiteboard': '화이트보드',
+    'features.demo.arrange': '맞춤 배열',
+    'features.demo.selecting': '선택 중...',
+    'features.demo.widgets': '위젯 모음',
+    'features.demo.group': '그룹',
+    'features.demo.flag': '깃발',
+    'features.demo.expected': '예상',
+
     'query.result.summary': '요약',
     'query.result.related': '관련 기억 ({count}개)',
     'query.result.suggestions': '제안',
     'query.error.failed': '요약 생성에 실패했습니다',
-    
+
     // Auth
     'auth.signin.title': 'WORKLESS',
     'auth.signin.subtitle': '맥락을 구체화. 비정형 애자일 워크스페이스',
@@ -299,7 +401,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'auth.signin.guide.title': '이렇게 사용해요 👇',
     'auth.signin.guide.desc': '로그인하면 바로 시작할 수 있어요',
     'auth.signin.alert.terms': '약관 동의가 필요합니다.',
-    
+
     // GlobalSearch
     'search.placeholder': '/ 를 눌러 기억 검색...',
     'search.guide.move': '이동',
@@ -346,7 +448,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'settings.danger.withdraw.title': '계정 탈퇴',
     'settings.danger.withdraw.desc': '서버에 저장된 귀하의 계정 정보와 모든 데이터를 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.',
     'settings.danger.withdraw.button': '계정 및 데이터 탈퇴',
-    
+
     // MemoryInput
     'memory.input.guide.widgets': '위젯 가이드',
     'memory.input.guide.widgets.calendar': '캘린더: 날짜 기반 일정 관리',
@@ -382,7 +484,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'memory.input.link.suggestion.connect': '연결하기',
     'memory.input.voice.error': '마이크 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해주세요.',
     'memory.input.voice.failed': '음성을 텍스트로 변환하지 못했습니다.',
-    
+
     // MemoryCard
     'memory.card.action.autoGroup': 'AI로 자동 묶기',
     'memory.card.action.edit': '수정',
@@ -406,6 +508,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'memory.card.attachment.download': '다운로드',
     'memory.card.attachment.open': '열기',
     'memory.card.attachment.viewInViewer': 'Viewer에서 보기',
+    'memory.card.audio.summarize': '🎤 음성 요약',
+    'memory.card.audio.transcribing': '변환 중...',
+    'memory.card.audio.completed': '✅ 완료',
+    'memory.card.audio.error': '음성 변환에 실패했습니다.',
     'memory.card.related.title': '연결된 기록',
     'memory.card.related.add': '+ 추가',
     'memory.card.related.none': '아직 연결된 기록이 없습니다',
@@ -418,7 +524,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'memory.card.source.openLink': '링크 열기',
     'memory.card.edit.failed': '수정에 실패했습니다',
     'memory.card.action.card': '카드',
-    
+
     // Persona
     'persona.selector.title': '페르소나 선택',
     'persona.selector.desc': 'AI가 당신의 역할에 맞춰 분석합니다',
@@ -435,10 +541,11 @@ export const translations: Record<Language, Record<string, string>> = {
     'persona.selector.modal.context.placeholder': 'HR 업무에 관심 많음. 채용 프로세스 개선, 조직 문화, 성과 관리 등에 대해 공부 중.',
     'persona.selector.modal.button.create': '만들기',
     'persona.selector.delete.confirm': '이 페르소나를 삭제하시겠습니까?',
-    
+
     // Common
     'common.backToHome': '홈으로 돌아가기',
     'common.cancel': '취소',
+    'common.close': '닫기',
     'common.delete': '삭제',
     'common.add': '추가',
     'common.note': '메모',
@@ -496,7 +603,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'gmail.import.importing': 'Importing...',
     'gmail.import.selecting': 'Selecting...',
     'gmail.import.failed': 'Failed',
-    
+
     // Onboarding
     'onboarding.note': 'Create Note',
     'onboarding.note.desc1': '• Attach files',
@@ -523,6 +630,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'dashboard.subtitle': 'Unstructured workspace for flow of thought',
     'dashboard.menu.groups': 'Manage Groups',
     'dashboard.menu.memories': 'Manage Memories',
+    'dashboard.menu.insights': 'Insights',
     'dashboard.menu.settings': 'Settings',
     'dashboard.auth.logout': 'Logout',
     'dashboard.auth.login': 'Login',
@@ -533,7 +641,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'dashboard.insights.hide': 'Hide Insights',
     'dashboard.modal.groups.title': 'Manage Groups',
     'dashboard.modal.query.title': 'Ask AI',
-    
+
     // MemoryListPanel
     'memory.list.title': 'Manage Memories',
     'memory.list.tab.all': 'All ({count})',
@@ -544,6 +652,8 @@ export const translations: Record<Language, Record<string, string>> = {
     'memory.list.item.noTitle': 'No Title',
     'memory.list.project.title': 'Action Project',
     'memory.list.project.estimated': 'Est: {duration}',
+    'project.draft.button': 'Draft',
+    'project.draft.generating': 'Generating...',
 
     // MemoryView
     'memory.view.button.board': 'Go to Board',
@@ -564,6 +674,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'memory.view.board.import.gmail': 'Import Gmail',
     'memory.view.board.import.gmail.success': 'Imported {count} emails from Gmail.',
     'memory.view.board.widget.add': 'Add Widget',
+    'memory.view.board.widget': 'Widget',
     'memory.view.board.widget.menu': 'Widgets',
     'memory.view.board.widget.synergy': 'Widget Synergy',
     'memory.view.board.group.manage': 'Manage Groups',
@@ -691,6 +802,104 @@ export const translations: Record<Language, Record<string, string>> = {
     'query.quick.2': 'What ideas have I collected?',
     'query.quick.3': 'Show work-related records',
     'query.quick.4': 'Summarize recent minutes',
+
+    // Features Page
+    'features.title': 'Features',
+    'features.section1.badge': 'Not just a memo app, a thought app',
+    'features.section1.title': 'Organize scattered thoughts into cards\nand discover context',
+    'features.section1.desc': 'It\'s more than just saving notes. Workless structures your thoughts, connects them with @ mentions, and AI finds context to convert them into action items.',
+    'features.section1.item1.title': 'Quick Memo Creation',
+    'features.section1.item1.desc': 'Record text, files, and voice recordings on cards. Edit freely with a rich editor.',
+    'features.section1.item2.title': 'Connect with @ Mentions',
+    'features.section1.item2.desc': 'Visualize the flow of thoughts by referencing other memories with @.',
+    'features.section1.item3.title': 'File Attachments & Viewer',
+    'features.section1.item3.desc': 'Attach PDF, images, DOCX, etc., and preview them directly in widgets.',
+    'features.section1.item4.title': 'Color Coding',
+    'features.section1.item4.desc': 'Intuitively classify cards by color and place them on an infinite canvas.',
+    
+    'features.section2.title': 'AI discovers context and\nsuggests actions',
+    'features.section2.badge': 'Persona feature is key!',
+    'features.section2.subtitle': 'AI Mentor takes responsibility\nfor your actions',
+    'features.section2.desc': 'It\'s not just a summary. Your chosen persona (mentor, coach, expert, etc.) understands your context, suggests specific next steps, and even recommends related materials.',
+    'features.section2.item1.title': 'Select Persona',
+    'features.section2.item1.desc': 'Get tailored advice by choosing roles like mentor, coach, or critic.',
+    'features.section2.item2.title': 'Auto Summary & Suggestions',
+    'features.section2.item2.desc': 'Analyze memory content to extract key points and suggest next action steps.',
+    'features.section2.item3.title': 'Convert to Goal Instantly',
+    'features.section2.item3.desc': 'Register and manage AI-suggested action plans as your own goals with a single click.',
+
+    'features.section2.item4.title': 'Smart Connection Suggestions',
+    'features.section2.item4.desc': 'Automatically find and suggest connections between related memories.',
+    'features.section2.item5.title': 'Auto Grouping',
+    'features.section2.item5.desc': 'Create groups automatically by grouping memories with similar themes.',
+    'features.section2.item6.title': 'Various Widgets',
+    'features.section2.item6.desc': 'Add necessary tools like calendar, viewer, database, and meeting recorder as widgets.',
+
+    'features.section_extra.title': 'Intelligent Connections & Powerful Tools',
+    'features.section_extra.badge': 'Smarter Workspace',
+    'features.section_extra.subtitle': 'A Smart Environment\nConnecting Everything',
+    'features.section_extra.desc': 'Memos connect to form context, and powerful widgets maximize your work efficiency. Stop searching for information and let it find you.',
+
+    'features.section3.title': 'A workspace that takes responsibility\nfor your actions',
+    'features.section3.badge': 'Discover and execute action items',
+    'features.section3.subtitle': 'Convert AI suggestions into\nactionable projects',
+    'features.section3.desc': 'Convert AI-suggested action plans into structured projects with one click. Stay on track with milestones and checklists.',
+    'features.section3.item1.title': 'AI Suggestion → Project Conversion',
+    'features.section3.item1.desc': 'Generate actionable projects from "Next Step" suggestions with a single click.',
+    'features.section3.item2.title': 'Track Progress with Checklists',
+    'features.section3.item2.desc': 'Check off action items and monitor progress in real-time.',
+    'features.section3.item3.title': 'Estimated Time Display',
+    'features.section3.item3.desc': 'Support schedule management by displaying estimated time for each step.',
+    'features.section3.item4.title': 'Free Placement on Canvas',
+    'features.section3.item4.desc': 'Drag and place memories anywhere on the infinite canvas.',
+    'features.section3.item5.title': 'Various Widget Support',
+    'features.section3.item5.desc': 'Add necessary widgets like calendar, viewer, minimap, DB, recorder, and Blob.',
+
+    'features.cta.title': 'Start Now',
+    'features.cta.desc1': 'Record thoughts, AI discovers context,',
+    'features.cta.desc2': 'A workspace that takes responsibility for your actions',
+    'features.cta.button': 'Start WORKLESS',
+
+    // Demo Content
+    'features.demo.card1.title': 'New Brand Launch Campaign',
+    'features.demo.card1.content': 'Target: MZ generation professionals. Instagram & TikTok-centric content. 3 influencers recruited. Launch D-14. Budget 15M KRW. 2 types of banners for A/B testing in production.',
+    'features.demo.card2.content': 'Linked to <span class="mention">@New Brand Launch Campaign</span>. Content calendar completed. Posting 3 times a week (Mon/Wed/Fri). Hashtag strategy: #WorkLifeBalance #SelfImprovement. Shared influencer collaboration guide.',
+    'features.demo.tag.campaign': 'Campaign',
+    'features.demo.tag.content': 'Content',
+    'features.demo.tag.planning': 'Planning',
+    'features.demo.time.2h': '2h ago',
+    'features.demo.time.1h': '1h ago',
+    'features.demo.summary.title': 'AI Summary',
+    'features.demo.summary.content': 'Readjusted backlog priorities for Q2 new feature launch and established a 3-week sprint plan in collaboration with the development team. User feedback analysis shows search improvement is most urgent, and MVP scope was finalized in the stakeholder meeting.',
+    'features.demo.next.title': 'Next Steps',
+    'features.demo.next.item1': 'Schedule sprint kickoff meeting with dev team (this Friday)',
+    'features.demo.next.item2': 'Write user stories and define AC for search improvement',
+    'features.demo.next.item3': 'Request wireframe review from designer and reflect feedback',
+    'features.demo.related.title': 'Related Materials',
+    'features.demo.related.item1.title': 'Q1 User Feedback Analysis Report',
+    'features.demo.related.item1.desc': 'Analyzed 500+ feedback data and derived insights',
+    'features.demo.calendar.title': 'Calendar',
+    'features.demo.project.title': 'SNS Content Marketing Strategy',
+    'features.demo.project.summary': '"Establish Instagram & TikTok content strategy for MZ target brand launch and execute viral marketing through influencer collaboration."',
+    'features.demo.project.step1': '[Step 1: Content Planning]',
+    'features.demo.project.action1': 'Define target audience personas',
+    'features.demo.project.action2': 'Create content calendar (Mon/Wed/Fri posting)',
+    'features.demo.project.action3': 'Recruit 3 influencers',
+    'features.demo.project.action4': 'Final review of A/B test banners',
+    'features.demo.widget.minimap': 'Minimap',
+    'features.demo.widget.viewer': 'Viewer',
+    'features.demo.widget.recorder': 'Recorder',
+    'features.demo.widget.db': 'DB',
+    'features.demo.widget.actionPlan': 'Action Plan',
+    'features.demo.widget.blob': 'Blob',
+    'features.demo.whiteboard': 'Whiteboard',
+    'features.demo.arrange': 'Auto Arrange',
+    'features.demo.selecting': 'Selecting...',
+    'features.demo.widgets': 'Widgets',
+    'features.demo.group': 'Group',
+    'features.demo.flag': 'Flag',
+    'features.demo.expected': 'Est',
+
     'query.result.summary': 'Summary',
     'query.result.related': 'Related Memories ({count})',
     'query.result.suggestions': 'Suggestions',
@@ -811,6 +1020,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'memory.card.attachment.download': 'Download',
     'memory.card.attachment.open': 'Open',
     'memory.card.attachment.viewInViewer': 'View in Viewer',
+    'memory.card.audio.summarize': '🎤 Summarize Audio',
+    'memory.card.audio.transcribing': 'Transcribing...',
+    'memory.card.audio.completed': '✅ Done',
+    'memory.card.audio.error': 'Audio transcription failed.',
     'memory.card.related.title': 'Linked Records',
     'memory.card.related.add': '+ Add',
     'memory.card.related.none': 'No linked records yet',
@@ -823,7 +1036,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'memory.card.source.openLink': 'Open Link',
     'memory.card.edit.failed': 'Failed to edit',
     'memory.card.action.card': 'Card',
-    
+
     // Persona
     'persona.selector.title': 'Select Persona',
     'persona.selector.desc': 'AI analyzes according to your role',
@@ -844,6 +1057,7 @@ export const translations: Record<Language, Record<string, string>> = {
     // Common
     'common.backToHome': 'Back to Home',
     'common.cancel': 'Cancel',
+    'common.close': 'Close',
     'common.delete': 'Delete',
     'common.add': 'Add',
     'common.note': 'Note',

@@ -31,6 +31,10 @@ export async function saveFile(file: File): Promise<Attachment> {
     ? `/data/uploads/${filename}`  // 볼륨 경로
     : `/uploads/${filename}`;      // 로컬 public 경로
 
+  console.log('📂 [fileUpload] RAILWAY_VOLUME_MOUNT_PATH:', process.env.RAILWAY_VOLUME_MOUNT_PATH || '(없음)');
+  console.log('📂 [fileUpload] 실제 저장 경로:', filepath);
+  console.log('📂 [fileUpload] DB 저장 경로:', storedPath);
+
   // 파일 저장
   const buffer = Buffer.from(await file.arrayBuffer());
   await writeFile(filepath, buffer);
@@ -54,11 +58,15 @@ export function isPDF(mimetype: string): boolean {
   return mimetype === 'application/pdf';
 }
 
+export function isAudio(mimetype: string): boolean {
+  return mimetype.startsWith('audio/');
+}
+
 export function getFileIcon(mimetype: string): string {
   if (isImage(mimetype)) return '🖼️';
   if (isPDF(mimetype)) return '📄';
+  if (isAudio(mimetype)) return '🎵';
   if (mimetype.includes('video')) return '🎥';
-  if (mimetype.includes('audio')) return '🎵';
   if (mimetype.includes('zip') || mimetype.includes('rar')) return '📦';
   if (mimetype.includes('word')) return '📝';
   if (mimetype.includes('excel') || mimetype.includes('spreadsheet')) return '📊';

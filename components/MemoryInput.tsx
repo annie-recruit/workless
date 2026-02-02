@@ -586,8 +586,8 @@ ${summary}`;
         </div>
       </div>
 
-      {/* 중앙 입력 폼 영역 - 토스트 디자인으로 변경 */}
-      <div className="fixed bottom-2 md:bottom-4 left-1/2 -translate-x-1/2 z-[100] w-[92%] max-w-md animate-slide-up font-galmuri11">
+      {/* 중앙 입력 폼 영역 - 토스트 디자인으로 변경 -> 왼쪽 하단으로 이동 */}
+      <div className="fixed bottom-2 md:bottom-4 left-4 md:left-8 z-[100] w-[92%] max-w-md animate-slide-up font-galmuri11">
         <div className="bg-white border-4 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative p-1 overflow-visible">
           {/* 픽셀 코너 장식 */}
           <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
@@ -736,7 +736,7 @@ ${summary}`;
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    accept="image/*,.pdf,.txt,.md,.doc,.docx"
+                    accept="image/*,.pdf,.txt,.md,.doc,.docx,audio/*"
                     onChange={handleFileSelect}
                     className="hidden"
                   />
@@ -815,7 +815,7 @@ ${summary}`;
                 key={index}
                 className="flex items-center gap-1.5 px-2 py-1 bg-gray-900 text-white rounded text-[10px] shadow-sm"
               >
-                <PixelIcon name={file.type.startsWith('image/') ? 'image' : 'attachment'} size={10} />
+                <PixelIcon name={file.type.startsWith('image/') ? 'image' : file.type.startsWith('audio/') ? 'mic' : 'attachment'} size={10} />
                 <span className="truncate max-w-[100px]">{file.name}</span>
                 <button
                   type="button"

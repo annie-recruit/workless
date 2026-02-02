@@ -128,6 +128,14 @@ const MemoryCard = memo(
       prevIsEditingRef.current = isEditing;
     }, [isEditing, editContent]);
 
+    // 페르소나가 변경되면 요약과 제안 초기화 (새로운 페르소나 관점에서 다시 생성되도록)
+    useEffect(() => {
+      setSummary(null);
+      setSuggestions(null);
+      setShowSummary(false);
+      setShowSuggestions(false);
+    }, [personaId]);
+
     const handleToggleSummary = async () => {
       if (!showSummary && !summary) {
         // 요약이 없으면 API 호출
@@ -138,7 +146,7 @@ const MemoryCard = memo(
             ? `/api/memories/${localMemory.id}/summarize?personaId=${personaId}`
             : `/api/memories/${localMemory.id}/summarize`;
           console.log('📝 요약 API URL:', url);
-          
+
           // 로컬 우선: 메모리가 서버에 없을 수 있으므로 POST로 내용을 함께 보냄
           const res = await fetch(url, {
             method: 'POST',
@@ -187,7 +195,7 @@ const MemoryCard = memo(
             ? `/api/memories/${localMemory.id}/suggestions?personaId=${personaId}`
             : `/api/memories/${localMemory.id}/suggestions`;
           console.log('💡 제안 API URL:', url);
-          
+
           // 로컬 우선: 메모리가 서버에 없을 수 있으므로 POST로 내용을 함께 보냄
           const res = await fetch(url, {
             method: 'POST',
@@ -299,7 +307,7 @@ const MemoryCard = memo(
         const res = await fetch(`/api/memories/${localMemory.id}/convert-to-goal`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             suggestions,
             memory: {
               content: localMemory.content,
@@ -507,6 +515,10 @@ const MemoryCard = memo(
               ref={contentRef}
               className={`text-[10px] md:text-[11px] text-gray-800 leading-relaxed whitespace-pre-wrap ${!isExpanded && isLong ? 'line-clamp-3' : ''}`}
               dangerouslySetInnerHTML={{ __html: safeHtml }}
+              onPointerDown={(e) => {
+                // 텍스트 선택을 위해 버블링 막기 (드래그 시작 방지)
+                e.stopPropagation();
+              }}
             />
             {isLong && !isExpanded && (
               <button
@@ -684,6 +696,7 @@ const MemoryCard = memo(
             {localMemory.attachments.map((attachment) => {
               const isImage = attachment.mimetype.startsWith('image/');
               const isPdf = attachment.mimetype === 'application/pdf';
+              const isAudio = attachment.mimetype.startsWith('audio/');
               const isDocx =
                 attachment.mimetype ===
                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
@@ -713,7 +726,7 @@ const MemoryCard = memo(
                 if (isSupported) {
                   e.preventDefault();
                   e.stopPropagation();
-                  
+
                   const success = openInViewer({
                     kind: 'file',
                     url: attachment.filepath,
@@ -754,6 +767,80 @@ const MemoryCard = memo(
                     </div>
                   </div>
                 );
+              } else if (isAudio) {
+                return (
+                  <div key={attachment.id} className="flex flex-col gap-2 p-2 bg-orange-50 rounded-lg border border-orange-200">
+                    <div className="flex items-center gap-1.5">
+                      <PixelIcon name="mic" size={16} className="text-orange-600" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] text-gray-700 truncate">{attachment.filename}</p>
+                        <p className="text-[9px] text-gray-500">{(attachment.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                      <a
+                        href={attachment.filepath}
+                        download={attachment.filename}
+                        onClick={(e) => e.stopPropagation()}
+                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                        title={t('memory.card.attachment.download')}
+                      >
+                        <PixelIcon name="download" size={12} />
+                      </a>
+                    </div>
+                    <audio controls className="w-full h-8" style={{ maxHeight: '32px' }}>
+                      <source src={attachment.filepath} type={attachment.mimetype} />
+                    </audio>
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const btn = e.currentTarget;
+                        const originalText = btn.textContent;
+                        btn.disabled = true;
+                        btn.textContent = t('memory.card.audio.transcribing');
+                        
+                        try {
+                          // 파일 다운로드
+                          const response = await fetch(attachment.filepath);
+                          const blob = await response.blob();
+                          const file = new File([blob], attachment.filename, { type: attachment.mimetype });
+                          
+                          // FormData 생성
+                          const formData = new FormData();
+                          formData.append('audio', file);
+                          
+                          // Whisper API 호출
+                          const transcribeResponse = await fetch('/api/transcribe', {
+                            method: 'POST',
+                            body: formData,
+                          });
+                          
+                          if (!transcribeResponse.ok) {
+                            throw new Error('음성 변환 실패');
+                          }
+                          
+                          const result = await transcribeResponse.json();
+                          
+                          // 메모리 내용 업데이트
+                          if (result.summary) {
+                            const newContent = `${localMemory.content}\n\n## 🎤 음성 요약\n\n${result.summary}`;
+                            onUpdate?.(localMemory.id, { content: newContent });
+                            btn.textContent = t('memory.card.audio.completed');
+                            setTimeout(() => {
+                              btn.textContent = originalText || '';
+                            }, 2000);
+                          }
+                        } catch (error) {
+                          console.error('음성 변환 실패:', error);
+                          alert(t('memory.card.audio.error'));
+                          btn.textContent = originalText || '';
+                          btn.disabled = false;
+                        }
+                      }}
+                      className="px-2 py-1 text-[10px] font-bold text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 rounded transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {t('memory.card.audio.summarize')}
+                    </button>
+                  </div>
+                );
               } else {
                 return (
                   <div key={attachment.id} className="flex items-center gap-1.5 min-w-0">
@@ -767,12 +854,12 @@ const MemoryCard = memo(
                     >
                       <PixelIcon
                         name={
-                          attachment.mimetype.includes('pdf') ? 'pdf' : 
-                          isDocx ? 'docx' : 
-                          isPptx ? 'pptx' : 
-                          isXlsx ? 'xlsx' : 
-                          isText ? 'text' : 
-                          'attachment'
+                          attachment.mimetype.includes('pdf') ? 'pdf' :
+                            isDocx ? 'docx' :
+                              isPptx ? 'pptx' :
+                                isXlsx ? 'xlsx' :
+                                  isText ? 'text' :
+                                    'attachment'
                         }
                         size={16}
                       />
