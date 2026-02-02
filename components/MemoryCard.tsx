@@ -822,11 +822,27 @@ const MemoryCard = memo(
                           // 메모리 내용 업데이트
                           if (result.summary) {
                             const newContent = `${localMemory.content}\n\n## 🎤 음성 요약\n\n${result.summary}`;
-                            onUpdate?.(localMemory.id, { content: newContent });
-                            btn.textContent = t('memory.card.audio.completed');
-                            setTimeout(() => {
-                              btn.textContent = originalText || '';
-                            }, 2000);
+                            
+                            // 서버에 업데이트
+                            const updateRes = await fetch(`/api/memories/${localMemory.id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ content: newContent }),
+                            });
+                            
+                            if (updateRes.ok) {
+                              // 로컬 상태 업데이트
+                              setLocalMemory((prev) => ({
+                                ...prev,
+                                content: newContent,
+                              }));
+                              btn.textContent = t('memory.card.audio.completed');
+                              setTimeout(() => {
+                                btn.textContent = originalText || '';
+                              }, 2000);
+                            } else {
+                              throw new Error('메모리 업데이트 실패');
+                            }
                           }
                         } catch (error) {
                           console.error('음성 변환 실패:', error);
