@@ -16,10 +16,12 @@ import { useLanguage } from '@/components/LanguageContext';
 import { signOut } from 'next-auth/react';
 
 export default function LocalFirstSettings() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const userId = (session?.user as any)?.id || session?.user?.email || '';
   const { t, language } = useLanguage();
   const router = useRouter();
+
+  const [mounted, setMounted] = useState(false);
 
   const {
     syncMode,
@@ -38,10 +40,17 @@ export default function LocalFirstSettings() {
   const [stats, setStats] = useState<any>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
 
+  // 마운트 확인
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // 통계 로드
   useEffect(() => {
-    getStats().then(setStats);
-  }, [getStats]);
+    if (userId) {
+      getStats().then(setStats);
+    }
+  }, [getStats, userId]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -73,12 +82,22 @@ export default function LocalFirstSettings() {
     }
   };
 
+  // 하이드레이션 오류 방지를 위해 마운트 전에는 안정적인 배경만 렌더링
+  if (!mounted || status === 'loading') {
+    return <div className="min-h-screen bg-[#4338ca] font-galmuri11" />;
+  }
+
   if (!session) {
     return (
-      <div className="min-h-screen bg-[#4338ca] flex items-center justify-center font-galmuri11">
-        <div className="bg-white border-4 border-black p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-          <p className="text-black mb-4">{t('settings.auth.required')}</p>
-          <Link href="/auth/signin" className="text-indigo-600 underline">{t('settings.auth.button')}</Link>
+      <div className="min-h-screen bg-[#4338ca] flex items-center justify-center font-galmuri11 p-4">
+        <div className="bg-white border-4 border-black p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] max-w-md w-full text-center">
+          <p className="text-black mb-6 font-bold">{t('settings.auth.required')}</p>
+          <Link 
+            href="/auth/signin" 
+            className="inline-block bg-indigo-600 text-white px-6 py-3 font-bold border-b-4 border-r-4 border-indigo-900 active:translate-x-1 active:translate-y-1 active:border-0 transition-all"
+          >
+            {t('settings.auth.button')}
+          </Link>
         </div>
       </div>
     );

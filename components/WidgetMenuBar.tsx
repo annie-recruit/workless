@@ -31,7 +31,7 @@ export default function WidgetMenuBar({
   const { t } = useLanguage();
 
   return (
-    <div className="shrink-0 sticky top-[44px] md:top-[41px] z-20 flex items-center gap-2 px-3 py-2.5 text-xs text-gray-500 bg-indigo-50/30 backdrop-blur-xl border-b border-indigo-100/30 shadow-none overflow-x-auto no-scrollbar flex-nowrap flex-row">
+    <div className="shrink-0 sticky top-0 z-20 flex items-center gap-2 px-3 py-2.5 text-xs text-gray-500 bg-indigo-50/30 backdrop-blur-xl border-b border-indigo-100/30 shadow-none overflow-x-auto no-scrollbar flex-nowrap flex-row">
       <div className="flex items-center gap-2 min-w-max">
         <button
           onClick={onCreateCalendar}

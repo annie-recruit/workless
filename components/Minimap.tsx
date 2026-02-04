@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { Memory, CanvasBlock } from '@/types';
+import { Memory, CanvasBlock, ActionProject } from '@/types';
 import { CARD_DIMENSIONS } from '@/board/boardUtils';
 
 interface MinimapProps {
   positions: Record<string, { x: number; y: number }>;
   blocks: CanvasBlock[];
   memories: Memory[];
+  projects?: ActionProject[];
   connectionPairs?: { from: string; to: string; color: string; offsetIndex: number }[];
   viewportBounds: { left: number; top: number; width: number; height: number };
   zoom: number;
@@ -42,6 +43,7 @@ export default function Minimap({
   positions,
   blocks,
   memories,
+  projects = [],
   connectionPairs,
   viewportBounds,
   zoom,
@@ -103,7 +105,7 @@ export default function Minimap({
       const deltaY = dragStartRef.current.y - e.clientY; // 아래쪽 기준이므로 반대
 
       const newRight = Math.max(0, Math.min(window.innerWidth - minimapWidth, dragStartRef.current.startRight + deltaX));
-      const newBottom = Math.max(0, Math.min(window.innerHeight - (bounds.h || 200), dragStartRef.current.startBottom + deltaY));
+      const newBottom = Math.max(0, Math.min(window.innerHeight - 300, dragStartRef.current.startBottom + deltaY));
 
       setPosition({ right: newRight, bottom: newBottom });
     };
@@ -112,12 +114,15 @@ export default function Minimap({
       setIsDragging(false);
       dragStartRef.current = null;
 
-      // localStorage에 위치 저장
-      try {
-        localStorage.setItem(MINIMAP_POSITION_KEY, JSON.stringify(position));
-      } catch (e) {
-        console.error('Failed to save minimap position:', e);
-      }
+      // localStorage에 위치 저장 (최신 position 사용)
+      setPosition(currentPos => {
+        try {
+          localStorage.setItem(MINIMAP_POSITION_KEY, JSON.stringify(currentPos));
+        } catch (e) {
+          console.error('Failed to save minimap position:', e);
+        }
+        return currentPos;
+      });
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -127,7 +132,7 @@ export default function Minimap({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, position, minimapWidth, isWidgetMode]);
+  }, [isDragging, minimapWidth, isWidgetMode]);
 
   // 카드 크기 정보
   const cardDims = CARD_DIMENSIONS[cardSize];
@@ -222,14 +227,16 @@ export default function Minimap({
     // 실제로 화면에 보이는 요소들만 대상으로 범위 계산
     const visibleIds = new Set([
       ...memories.map(m => m.id),
-      ...blocks.map(b => b.id)
+      ...blocks.map(b => b.id),
+      ...projects.map(p => p.id)
     ]);
 
-    Object.entries(positions).forEach(([id, pos]) => {
+      Object.entries(positions).forEach(([id, pos]) => {
       if (!visibleIds.has(id)) return;
       hasContent = true;
 
       const block = blocks.find(b => b.id === id);
+      const project = projects.find(p => p.id === id);
       let width: number = cardDims.width;
       let height: number = cardDims.height;
 
@@ -244,6 +251,9 @@ export default function Minimap({
           width = block.width || 350;
           height = block.height || 300;
         }
+      } else if (project) {
+        width = 360;  // 액션 플랜 기본 너비
+        height = 120; // 액션 플랜 기본 높이 (대략적)
       }
 
       minX = Math.min(minX, pos.x);
@@ -260,12 +270,19 @@ export default function Minimap({
       maxY = boardSize.height;
     }
 
-    // 여유 패딩 (충분히 주어서 시야 박스가 움직여도 지도가 너무 자주 변하지 않게 함)
-    const padding = 200;
-    minX -= padding;
-    minY -= padding;
-    maxX += padding;
-    maxY += padding;
+    // 여유 패딩 (상하좌우 다르게 적용)
+    // 상단: 최소한으로 (콘텐츠를 위로 올림)
+    // 좌우: 넉넉하게 (viewport 이동 대응)
+    // 하단: 적당하게
+    const paddingTop = 100;
+    const paddingRight = 800;
+    const paddingBottom = 400;
+    const paddingLeft = 800;
+    
+    minX -= paddingLeft;
+    minY -= paddingTop;
+    maxX += paddingRight;
+    maxY += paddingBottom;
 
     const contentW = maxX - minX;
     const contentH = maxY - minY;
@@ -282,7 +299,18 @@ export default function Minimap({
       contentW,
       contentH
     };
-  }, [positions, blocks, memories, cardDims, boardSize, containerWidth, containerHeight, minimapWidth, isWidgetMode]);
+  }, [
+    positions, 
+    blocks, 
+    memories, 
+    projects.map(p => p.id).join(','),
+    cardDims, 
+    boardSize, 
+    containerWidth, 
+    containerHeight, 
+    minimapWidth, 
+    isWidgetMode
+  ]);
 
   // 4. 캔버스 렌더링 (배경, 블롭, 연결선)
   useEffect(() => {
@@ -349,6 +377,8 @@ export default function Minimap({
             if (!pos) return null;
 
             const block = blocks.find(b => b.id === id);
+            const project = projects.find(p => p.id === id);
+            
             if (block) {
               let blockWidth = block.width || 350;
               let blockHeight = block.height || 300;
@@ -366,6 +396,13 @@ export default function Minimap({
                 minY: pos.y,
                 maxX: pos.x + blockWidth,
                 maxY: pos.y + blockHeight,
+              };
+            } else if (project) {
+              return {
+                minX: pos.x,
+                minY: pos.y,
+                maxX: pos.x + 360,
+                maxY: pos.y + 120,
               };
             } else {
               return {
@@ -425,6 +462,8 @@ export default function Minimap({
       // 노드 중심점 계산 헬퍼 함수
       const getNodeCenter = (id: string, pos: { x: number; y: number }) => {
         const block = blocks.find(b => b.id === id);
+        const project = projects.find(p => p.id === id);
+        
         if (block) {
           let blockWidth = block.width || 350;
           let blockHeight = block.height || 300;
@@ -441,6 +480,13 @@ export default function Minimap({
             x: (pos.x + blockWidth / 2 - bounds.minX) * bounds.scale,
             y: (pos.y + blockHeight / 2 - bounds.minY) * bounds.scale,
           };
+        } else if (project) {
+          const projectWidth = 360;
+          const projectHeight = 120;
+          return {
+            x: (pos.x + projectWidth / 2 - bounds.minX) * bounds.scale,
+            y: (pos.y + projectHeight / 2 - bounds.minY) * bounds.scale,
+          };
         } else {
           return {
             x: (pos.x + cardDims.width / 2 - bounds.minX) * bounds.scale,
@@ -449,30 +495,17 @@ export default function Minimap({
         }
       };
 
-      // 픽셀 계단식 선 그리기 함수
+      // 픽셀 직선 그리기 함수
       const drawPixelLine = (x1: number, y1: number, x2: number, y2: number, color: string, lineWidth: number) => {
         ctx.strokeStyle = color;
         ctx.lineWidth = lineWidth;
         ctx.lineCap = 'square';
         ctx.lineJoin = 'miter';
 
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-
-        // 픽셀 계단 효과: 수평 우선 → 수직 → 수평 (3단계)
+        // 단순한 직선
         ctx.beginPath();
         ctx.moveTo(Math.round(x1), Math.round(y1));
-
-        // 1단계: 수평으로 1/3 이동
-        const midX1 = Math.round(x1 + dx / 3);
-        ctx.lineTo(midX1, Math.round(y1));
-
-        // 2단계: 수직으로 전체 이동
-        ctx.lineTo(midX1, Math.round(y2));
-
-        // 3단계: 수평으로 나머지 이동
         ctx.lineTo(Math.round(x2), Math.round(y2));
-
         ctx.stroke();
       };
 
@@ -515,23 +548,15 @@ export default function Minimap({
       const lineWidth = Math.max(2, 3 * bounds.scale); // 최소 2px 보장
 
       const drawPixelLine = (x1: number, y1: number, x2: number, y2: number) => {
-        ctx.strokeStyle = '#94A3B8'; // 더 진한 회색으로 변경
+        ctx.strokeStyle = '#94A3B8'; // 더 진한 회색
         ctx.lineWidth = lineWidth;
         ctx.lineCap = 'square';
         ctx.lineJoin = 'miter';
 
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-
+        // 단순한 직선
         ctx.beginPath();
         ctx.moveTo(Math.round(x1), Math.round(y1));
-
-        // 픽셀 계단 효과: 수평 → 수직 → 수평
-        const midX1 = Math.round(x1 + dx / 3);
-        ctx.lineTo(midX1, Math.round(y1));
-        ctx.lineTo(midX1, Math.round(y2));
         ctx.lineTo(Math.round(x2), Math.round(y2));
-
         ctx.stroke();
       };
 
@@ -542,23 +567,50 @@ export default function Minimap({
 
         const block1 = blocks.find(b => b.id === from);
         const block2 = blocks.find(b => b.id === to);
-        const fromX = block1
-          ? (p1.x + (block1.width || 350) / 2 - bounds.minX) * bounds.scale
-          : (p1.x + cardDims.width / 2 - bounds.minX) * bounds.scale;
-        const fromY = block1
-          ? (p1.y + (block1.height || 300) / 2 - bounds.minY) * bounds.scale
-          : (p1.y + cardDims.height / 2 - bounds.minY) * bounds.scale;
-        const toX = block2
-          ? (p2.x + (block2.width || 350) / 2 - bounds.minX) * bounds.scale
-          : (p2.x + cardDims.width / 2 - bounds.minX) * bounds.scale;
-        const toY = block2
-          ? (p2.y + (block2.height || 300) / 2 - bounds.minY) * bounds.scale
-          : (p2.y + cardDims.height / 2 - bounds.minY) * bounds.scale;
+        const project1 = projects.find(p => p.id === from);
+        const project2 = projects.find(p => p.id === to);
+
+        let fromX, fromY, toX, toY;
+
+        // from 노드 중심 계산
+        if (block1) {
+          fromX = (p1.x + (block1.width || 350) / 2 - bounds.minX) * bounds.scale;
+          fromY = (p1.y + (block1.height || 300) / 2 - bounds.minY) * bounds.scale;
+        } else if (project1) {
+          fromX = (p1.x + 180 - bounds.minX) * bounds.scale; // 360 / 2
+          fromY = (p1.y + 60 - bounds.minY) * bounds.scale;  // 120 / 2
+        } else {
+          fromX = (p1.x + cardDims.width / 2 - bounds.minX) * bounds.scale;
+          fromY = (p1.y + cardDims.height / 2 - bounds.minY) * bounds.scale;
+        }
+
+        // to 노드 중심 계산
+        if (block2) {
+          toX = (p2.x + (block2.width || 350) / 2 - bounds.minX) * bounds.scale;
+          toY = (p2.y + (block2.height || 300) / 2 - bounds.minY) * bounds.scale;
+        } else if (project2) {
+          toX = (p2.x + 180 - bounds.minX) * bounds.scale; // 360 / 2
+          toY = (p2.y + 60 - bounds.minY) * bounds.scale;  // 120 / 2
+        } else {
+          toX = (p2.x + cardDims.width / 2 - bounds.minX) * bounds.scale;
+          toY = (p2.y + cardDims.height / 2 - bounds.minY) * bounds.scale;
+        }
 
         drawPixelLine(fromX, fromY, toX, toY);
       });
     }
-  }, [connectedGroups, bounds, positions, realConnections, cardColorMap, connectionPairs, cardDims, blocks, blobAreas]);
+  }, [
+    connectedGroups, 
+    bounds, 
+    positions, 
+    realConnections, 
+    cardColorMap, 
+    connectionPairs, 
+    cardDims, 
+    blocks, 
+    blobAreas, 
+    projects.map(p => p.id).join(',')
+  ]);
 
   return (
     <div
@@ -582,17 +634,20 @@ export default function Minimap({
         className="absolute inset-0"
       />
 
-      {/* 노드 점 (원본 색상과 크기 반영) - 실제 렌더링되는 메모리/블록만 표시 */}
+      {/* 노드 점 (원본 색상과 크기 반영) - 실제 렌더링되는 메모리/블록/액션플랜만 표시 */}
       {Object.entries(positions)
         .filter(([id]) => {
-          // blocks에 있거나 memories에 있는 항목만 표시
+          // blocks, memories, projects에 있는 항목만 표시
           const block = blocks.find(b => b.id === id);
           const memory = memories.find(m => m.id === id);
-          return block || memory;
+          const project = projects.find(p => p.id === id);
+          return block || memory || project;
         })
         .map(([id, pos]) => {
           const block = blocks.find(b => b.id === id);
+          const project = projects.find(p => p.id === id);
           const isBlock = !!block;
+          const isProject = !!project;
 
           let colors;
           let centerX, centerY;
@@ -635,6 +690,43 @@ export default function Minimap({
                   width: `${drawWidth}px`,
                   height: `${drawHeight}px`,
                   backgroundColor: `${colors.dot}15`, // 훨씬 더 연하게 변경
+                  border: `${Math.max(1, 1.5 * bounds.scale)}px solid ${colors.border}`,
+                  borderRadius: '1px',
+                }}
+              >
+                {/* 중심점 표시 */}
+                <div
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                  style={{
+                    width: `${Math.max(3, 5 * bounds.scale)}px`,
+                    height: `${Math.max(3, 5 * bounds.scale)}px`,
+                    backgroundColor: colors.dot,
+                  }}
+                />
+              </div>
+            );
+          } else if (isProject && project) {
+            // 액션 플랜의 경우 - 작은 사각형으로 표시
+            const projectColors = { dot: '#FB923C', border: '#FDBA74', bg: '#FED7AA' }; // 주황색
+            colors = projectColors;
+
+            const projectWidth = 360;
+            const projectHeight = 120;
+            const drawWidth = projectWidth * bounds.scale;
+            const drawHeight = projectHeight * bounds.scale;
+            const left = (pos.x - bounds.minX) * bounds.scale;
+            const top = (pos.y - bounds.minY) * bounds.scale;
+
+            return (
+              <div
+                key={id}
+                className="absolute select-none pointer-events-none"
+                style={{
+                  left: `${left}px`,
+                  top: `${top}px`,
+                  width: `${drawWidth}px`,
+                  height: `${drawHeight}px`,
+                  backgroundColor: `${colors.dot}20`,
                   border: `${Math.max(1, 1.5 * bounds.scale)}px solid ${colors.border}`,
                   borderRadius: '1px',
                 }}

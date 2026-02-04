@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { nextAuthOptions } from '@/lib/nextAuthOptions';
 import { memoryDb } from '@/lib/db';
+import { getUserId } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(nextAuthOptions);
-    if (!session?.user?.email) {
+    const userId = await getUserId(req);
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = session.user.email;
     const { memoryId, invalidRelatedId } = await req.json();
 
     if (!memoryId || !invalidRelatedId) {

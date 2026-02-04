@@ -1,5 +1,6 @@
 import NextAuth, { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
+import CredentialsProvider from 'next-auth/providers/credentials';
 import { userDb } from '@/lib/db';
 
 const getBaseUrl = () => {
@@ -29,6 +30,30 @@ export const nextAuthOptions: NextAuthOptions & { trustHost?: boolean } = {
           prompt: 'consent',
         },
       },
+    }),
+    CredentialsProvider({
+      id: 'guest',
+      name: 'Guest Login',
+      credentials: {},
+      async authorize() {
+        if (process.env.NODE_ENV === 'production') return null;
+
+        const guestUser = {
+          id: 'guest-user',
+          name: 'Guest User',
+          email: 'guest@workless.me',
+          image: '/images/pixel-avatar.png',
+        };
+
+        userDb.upsert(
+          guestUser.id,
+          guestUser.email,
+          guestUser.name,
+          guestUser.image
+        );
+
+        return guestUser;
+      }
     }),
   ],
   callbacks: {

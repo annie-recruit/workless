@@ -736,7 +736,7 @@ ${summary}`;
                     ref={fileInputRef}
                     type="file"
                     multiple
-                    accept="image/*,.pdf,.txt,.md,.doc,.docx,audio/*"
+                    accept="image/*,.pdf,.txt,.md,.doc,.docx"
                     onChange={handleFileSelect}
                     className="hidden"
                   />
@@ -815,7 +815,7 @@ ${summary}`;
                 key={index}
                 className="flex items-center gap-1.5 px-2 py-1 bg-gray-900 text-white rounded text-[10px] shadow-sm"
               >
-                <PixelIcon name={file.type.startsWith('image/') ? 'image' : file.type.startsWith('audio/') ? 'mic' : 'attachment'} size={10} />
+                <PixelIcon name={file.type.startsWith('image/') ? 'image' : 'attachment'} size={10} />
                 <span className="truncate max-w-[100px]">{file.name}</span>
                 <button
                   type="button"

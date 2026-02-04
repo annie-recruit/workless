@@ -13,8 +13,8 @@ const IV_LENGTH = 16;
 function encrypt(text: string): string {
   try {
     const iv = crypto.randomBytes(IV_LENGTH);
-    // Key must be 32 bytes for aes-256-cbc
-    const key = crypto.createHash('sha256').update(String(ENCRYPTION_KEY)).digest();
+    const keyString = String(process.env.NEXTAUTH_SECRET || 'fallback-secret-for-development-only');
+    const key = crypto.createHash('sha256').update(keyString).digest();
     const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
     let encrypted = cipher.update(text);
     encrypted = Buffer.concat([encrypted, cipher.final()]);
@@ -28,16 +28,34 @@ function encrypt(text: string): string {
 function decrypt(text: string): string {
   try {
     const textParts = text.split(':');
+    if (textParts.length < 2) return text;
+
+    // 1. 시도: 환경변수 키
+    const result = attemptDecrypt(text, String(process.env.NEXTAUTH_SECRET || ''));
+    if (result) return result;
+
+    // 2. 시도: 폴백 키
+    const fallbackResult = attemptDecrypt(text, 'fallback-secret-for-development-only');
+    if (fallbackResult) return fallbackResult;
+
+    return text;
+  } catch (error) {
+    return text;
+  }
+}
+
+function attemptDecrypt(text: string, keyString: string): string | null {
+  try {
+    const textParts = text.split(':');
     const iv = Buffer.from(textParts.shift()!, 'hex');
     const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-    const key = crypto.createHash('sha256').update(String(ENCRYPTION_KEY)).digest();
+    const key = crypto.createHash('sha256').update(keyString).digest();
     const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
     let decrypted = decipher.update(encryptedText);
     decrypted = Buffer.concat([decrypted, decipher.final()]);
     return decrypted.toString();
-  } catch (error) {
-    // 암호화되지 않은 기존 데이터 호환성을 위해 에러 시 원본 반환
-    return text;
+  } catch (e) {
+    return null;
   }
 }
 
@@ -482,8 +500,8 @@ export const memoryDb = {
     const values = [
       memory.id,
       userId,
-      memory.title || null,
-      memory.content,
+      memory.title ? encrypt(memory.title) : null,
+      encrypt(memory.content),
       memory.createdAt,
       memory.derivedFromCardId || null,
       ...(memoryTableHasIngestId ? [memory.ingestId || null] : []),
@@ -516,6 +534,18 @@ export const memoryDb = {
     const row = userId ? stmt.get(id, userId) : stmt.get(id) as any;
     if (!row) return null;
     return this.parseRow(row);
+  },
+
+  // ID 리스트로 조회
+  getAllByIds(ids: string[], userId?: string): Memory[] {
+    if (ids.length === 0) return [];
+    const placeholders = ids.map(() => '?').join(', ');
+    const sql = userId
+      ? `SELECT * FROM memories WHERE id IN (${placeholders}) AND userId = ?`
+      : `SELECT * FROM memories WHERE id IN (${placeholders})`;
+    const stmt = db.prepare(sql);
+    const rows = userId ? stmt.all(...ids, userId) : stmt.all(...ids) as any[];
+    return rows.map(row => this.parseRow(row));
   },
 
   // 전체 조회
@@ -557,6 +587,8 @@ export const memoryDb = {
         values.push(JSON.stringify(value));
       } else if (key === 'attachments' && Array.isArray(value)) {
         values.push(JSON.stringify(value));
+      } else if ((key === 'content' || key === 'title') && typeof value === 'string') {
+        values.push(encrypt(value));
       } else {
         values.push(value);
       }
@@ -600,7 +632,7 @@ export const memoryDb = {
       'repeatCount', 'lastMentionedAt', 'attachments', 'source',
       'sourceId', 'sourceLink', 'sourceSender', 'sourceSubject', 'dedupeKey'
     ];
-    
+
     const placeholders = columns.map(() => '?').join(', ');
     const updateSet = columns
       .filter(c => c !== 'id' && c !== 'userId' && c !== 'createdAt')
@@ -618,8 +650,8 @@ export const memoryDb = {
         stmt.run(
           m.id,
           userId,
-          m.title || null,
-          m.content,
+          m.title ? encrypt(m.title) : null,
+          encrypt(m.content),
           m.createdAt || now,
           m.derivedFromCardId || null,
           m.topic || null,
@@ -662,11 +694,14 @@ export const memoryDb = {
 
   // 헬퍼: row 파싱
   parseRow(row: any): Memory {
-    return {
+    const memory = {
       ...row,
+      title: row.title ? decrypt(row.title) : undefined,
+      content: decrypt(row.content),
       relatedMemoryIds: row.relatedMemoryIds ? JSON.parse(row.relatedMemoryIds) : undefined,
       attachments: row.attachments ? JSON.parse(row.attachments) : undefined,
     };
+    return memory;
   },
 };
 
@@ -1165,17 +1200,24 @@ export const boardCardColorDb = {
 };
 
 export const memoryLinkDb = {
-  upsert(memoryId1: string, memoryId2: string, note?: string, isAIGenerated?: boolean): void {
+  upsert(memoryId1: string, memoryId2: string, note?: string, isAIGenerated?: boolean, userId?: string): void {
     const [a, b] = memoryId1 < memoryId2 ? [memoryId1, memoryId2] : [memoryId2, memoryId1];
+
+    // userId가 없는 경우, memoryId1으로부터 userId를 추출
+    if (!userId) {
+      const memory = memoryDb.getAllByIds([memoryId1])[0];
+      userId = memory?.userId || '';
+    }
+
     const stmt = db.prepare(`
-      INSERT INTO memory_links (memoryId1, memoryId2, note, isAIGenerated, updatedAt)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(memoryId1, memoryId2) DO UPDATE SET
+      INSERT INTO memory_links (userId, memoryId1, memoryId2, note, isAIGenerated, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(userId, memoryId1, memoryId2) DO UPDATE SET
         note = excluded.note,
         isAIGenerated = excluded.isAIGenerated,
         updatedAt = excluded.updatedAt
     `);
-    stmt.run(a, b, note || null, isAIGenerated ? 1 : 0, Date.now());
+    stmt.run(userId, a, b, note || null, isAIGenerated ? 1 : 0, Date.now());
   },
 
   delete(memoryId1: string, memoryId2: string): void {

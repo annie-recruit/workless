@@ -23,7 +23,7 @@ export default function PrivacyPage() {
             <>
               <section>
                 <p className="text-slate-400 mb-6">
-                  <strong>최종 업데이트:</strong> 2026년 1월 27일
+                  <strong>최종 업데이트:</strong> 2026년 2월 2일
                 </p>
                 <p className="text-slate-300">
                   Workless("서비스", "우리", "저희")는 사용자의 개인정보 보호를 매우 중요하게 생각합니다. 
@@ -203,6 +203,70 @@ export default function PrivacyPage() {
                   이러한 서비스 제공자들은 자체 개인정보처리방침을 가지고 있으며, 
                   해당 정책에 따라 정보를 처리합니다.
                 </p>
+
+                <h3 className="text-xl font-medium mt-6 mb-3">7.1 Google API Services User Data Policy 준수</h3>
+                <p className="text-slate-300 mb-4">
+                  Workless의 Gmail 데이터 사용은{" "}
+                  <a 
+                    href="https://developers.google.com/terms/api-services-user-data-policy" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-blue-400 hover:text-blue-300 underline"
+                  >
+                    Google API Services User Data Policy
+                  </a>
+                  (제한된 사용 요구사항 포함)를 준수합니다.
+                </p>
+                <p className="text-slate-300 mb-4">
+                  <strong>Gmail 데이터 사용 제한 사항:</strong>
+                </p>
+                <ul className="list-disc list-inside text-slate-300 space-y-2 ml-4">
+                  <li>Gmail 데이터는 <strong>오직 서비스 기능 제공 목적으로만</strong> 사용됩니다 (이메일을 AI로 분석하여 메모로 변환)</li>
+                  <li>Gmail 데이터를 AI 모델 학습이나 개선 목적으로 사용하지 않습니다</li>
+                  <li>Gmail 데이터를 제3자에게 판매, 제공, 공유하지 않습니다</li>
+                  <li>Gmail 데이터를 광고 목적으로 사용하지 않습니다</li>
+                  <li>사용자가 명시적으로 승인한 범위 내에서만 데이터에 접근합니다</li>
+                </ul>
+
+                <h3 className="text-xl font-medium mt-6 mb-3">7.2 OpenAI 데이터 사용 정책</h3>
+                <p className="text-slate-300 mb-4">
+                  Workless는 OpenAI API를 통해 사용자의 콘텐츠를 분석합니다. 
+                  OpenAI는 API를 통해 제출된 데이터를 모델 학습에 사용하지 않습니다. 
+                  자세한 내용은{" "}
+                  <a 
+                    href="https://openai.com/policies/api-data-usage-policies" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-blue-400 hover:text-blue-300 underline"
+                  >
+                    OpenAI API Data Usage Policies
+                  </a>
+                  를 참조하세요.
+                </p>
+
+                <h3 className="text-xl font-medium mt-6 mb-3">7.3 Gmail 연동 해제 및 권한 취소</h3>
+                <p className="text-slate-300 mb-4">
+                  사용자는 언제든지 다음 방법으로 Workless의 Gmail 접근 권한을 취소할 수 있습니다:
+                </p>
+                <ul className="list-disc list-inside text-slate-300 space-y-2 ml-4">
+                  <li>
+                    Google 계정 페이지에서 직접 권한 취소:{" "}
+                    <a 
+                      href="https://myaccount.google.com/permissions" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-blue-400 hover:text-blue-300 underline"
+                    >
+                      https://myaccount.google.com/permissions
+                    </a>
+                  </li>
+                  <li>Workless 서비스 내 설정에서 Gmail 연동 해제</li>
+                  <li>이메일 문의를 통한 권한 해제 요청: rkdhs326@gmail.com</li>
+                </ul>
+                <p className="text-slate-300 mt-4">
+                  <strong>권한 취소 시:</strong> Workless는 즉시 사용자의 Gmail 데이터 접근을 중단하며, 
+                  기존에 저장된 Gmail 데이터는 사용자 요청 시 즉시 삭제됩니다.
+                </p>
               </section>
 
               <section>
@@ -241,7 +305,7 @@ export default function PrivacyPage() {
 
               <section className="mt-12 pt-8 border-t border-slate-800">
                 <p className="text-slate-400 text-sm">
-                  본 개인정보처리방침은 2026년 1월 27일부터 적용됩니다.
+                  본 개인정보처리방침은 2026년 2월 2일부터 적용됩니다.
                 </p>
               </section>
             </>
@@ -249,7 +313,7 @@ export default function PrivacyPage() {
             <>
               <section>
                 <p className="text-slate-400 mb-6">
-                  <strong>Last Updated:</strong> January 27, 2026
+                  <strong>Last Updated:</strong> February 2, 2026
                 </p>
                 <p className="text-slate-300">
                   Workless ("Service", "we", "us") takes user privacy very seriously. This Privacy Policy explains what information we collect, how we use it, and how we protect it.
@@ -424,6 +488,70 @@ export default function PrivacyPage() {
                 <p className="text-slate-300 mt-4">
                   These providers have their own privacy policies and process information accordingly.
                 </p>
+
+                <h3 className="text-xl font-medium mt-6 mb-3">7.1 Google API Services User Data Policy Compliance</h3>
+                <p className="text-slate-300 mb-4">
+                  Workless's use of Gmail data complies with the{" "}
+                  <a 
+                    href="https://developers.google.com/terms/api-services-user-data-policy" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-blue-400 hover:text-blue-300 underline"
+                  >
+                    Google API Services User Data Policy
+                  </a>
+                  , including the Limited Use requirements.
+                </p>
+                <p className="text-slate-300 mb-4">
+                  <strong>Gmail Data Use Restrictions:</strong>
+                </p>
+                <ul className="list-disc list-inside text-slate-300 space-y-2 ml-4">
+                  <li>Gmail data is used <strong>only for providing service features</strong> (analyzing emails with AI to convert them into memos)</li>
+                  <li>We do not use Gmail data for AI model training or improvement purposes</li>
+                  <li>We do not sell, provide, or share Gmail data with third parties</li>
+                  <li>We do not use Gmail data for advertising purposes</li>
+                  <li>We only access data within the scope explicitly authorized by the user</li>
+                </ul>
+
+                <h3 className="text-xl font-medium mt-6 mb-3">7.2 OpenAI Data Usage Policy</h3>
+                <p className="text-slate-300 mb-4">
+                  Workless analyzes user content via the OpenAI API. 
+                  OpenAI does not use data submitted through the API for model training. 
+                  For details, see{" "}
+                  <a 
+                    href="https://openai.com/policies/api-data-usage-policies" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-blue-400 hover:text-blue-300 underline"
+                  >
+                    OpenAI API Data Usage Policies
+                  </a>
+                  .
+                </p>
+
+                <h3 className="text-xl font-medium mt-6 mb-3">7.3 Gmail Disconnection and Permission Revocation</h3>
+                <p className="text-slate-300 mb-4">
+                  You can revoke Workless's Gmail access at any time by:
+                </p>
+                <ul className="list-disc list-inside text-slate-300 space-y-2 ml-4">
+                  <li>
+                    Revoking access directly from your Google Account page:{" "}
+                    <a 
+                      href="https://myaccount.google.com/permissions" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-blue-400 hover:text-blue-300 underline"
+                    >
+                      https://myaccount.google.com/permissions
+                    </a>
+                  </li>
+                  <li>Disconnecting Gmail integration from Workless service settings</li>
+                  <li>Requesting permission revocation via email: rkdhs326@gmail.com</li>
+                </ul>
+                <p className="text-slate-300 mt-4">
+                  <strong>Upon permission revocation:</strong> Workless immediately stops accessing your Gmail data, 
+                  and any stored Gmail data will be deleted promptly upon your request.
+                </p>
               </section>
 
               <section>
@@ -460,7 +588,7 @@ export default function PrivacyPage() {
 
               <section className="mt-12 pt-8 border-t border-slate-800">
                 <p className="text-slate-400 text-sm">
-                  This Privacy Policy is effective as of January 27, 2026.
+                  This Privacy Policy is effective as of February 2, 2026.
                 </p>
               </section>
             </>

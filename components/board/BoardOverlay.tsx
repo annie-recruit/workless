@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Memory, ActionProject } from '@/types';
 import LinkManager from '../LinkManager';
+import ActionProjectLinkManager from '../ActionProjectLinkManager';
 import GroupToasts from '../groups/GroupToasts';
 import PixelIcon from '../PixelIcon';
 import type { BoardToastState, MemorySummary } from '@/hooks/groups/useGroupsPanel';
@@ -12,6 +13,8 @@ import { ko } from 'date-fns/locale';
 interface BoardOverlayProps {
     linkManagerMemory: Memory | null;
     setLinkManagerMemory: (memory: Memory | null) => void;
+    linkManagerProject: ActionProject | null;
+    setLinkManagerProject: (project: ActionProject | null) => void;
     localMemories: Memory[];
     setLocalMemories: React.Dispatch<React.SetStateAction<Memory[]>>;
     toast: BoardToastState;
@@ -25,6 +28,7 @@ interface BoardOverlayProps {
     handleConfirmGroup: () => void;
     handleDeleteLink: () => void;
     handleDeleteMemory: () => void;
+    handleDeleteProject: () => void;
     selectedMemoryIds: Set<string>;
     setSelectedMemoryIds: (ids: Set<string>) => void;
     projectPrompt: string;
@@ -36,11 +40,14 @@ interface BoardOverlayProps {
     sanitizeHtml: (val: string) => string;
     stripHtmlClient: (val: string) => string;
     boardSize: { width: number; height: number };
+    personaId?: string | null;
 }
 
 export default function BoardOverlay({
     linkManagerMemory,
     setLinkManagerMemory,
+    linkManagerProject,
+    setLinkManagerProject,
     localMemories,
     setLocalMemories,
     toast,
@@ -54,6 +61,7 @@ export default function BoardOverlay({
     handleConfirmGroup,
     handleDeleteLink,
     handleDeleteMemory,
+    handleDeleteProject,
     selectedMemoryIds,
     setSelectedMemoryIds,
     projectPrompt,
@@ -65,7 +73,17 @@ export default function BoardOverlay({
     sanitizeHtml,
     stripHtmlClient,
     boardSize,
+    personaId,
 }: BoardOverlayProps) {
+    useEffect(() => {
+        if (toast.type === 'success') {
+            const timer = setTimeout(() => {
+                setToast({ type: null });
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [toast.type, setToast]);
+
     return (
         <>
             {/* 링크 관리 모달 */}
@@ -95,6 +113,28 @@ export default function BoardOverlay({
                 </div>
             )}
 
+            {/* 프로젝트 링크 관리 모달 */}
+            {linkManagerProject && (
+                <ActionProjectLinkManager
+                    project={linkManagerProject}
+                    allMemories={localMemories}
+                    onClose={() => setLinkManagerProject(null)}
+                    onLinked={(projectId, memoryId, note) => {
+                        // 로컬 프로젝트 상태 업데이트는 MemoryView의 onUpdate가 처리할 수도 있지만
+                        // 즉시 반영을 위해 여기서 프로젝트 목록을 업데이트합니다.
+                        setLocalProjects(prev => prev.map(p => {
+                            if (p.id === projectId) {
+                                const sourceIds = p.sourceMemoryIds || [];
+                                if (!sourceIds.includes(memoryId)) {
+                                    return { ...p, sourceMemoryIds: [...sourceIds, memoryId] };
+                                }
+                            }
+                            return p;
+                        }));
+                    }}
+                />
+            )}
+
             {/* AI 자동 묶기 토스트 팝업 */}
             <GroupToasts
                 toast={toast}
@@ -117,9 +157,12 @@ export default function BoardOverlay({
                         <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
                         <div className="flex items-center gap-3">
                             <PixelIcon name="success" size={24} />
-                            <div>
+                            <div className="flex-1">
                                 <p className="text-sm font-black uppercase tracking-tight">{toast.data?.message || '완료되었습니다!'}</p>
                             </div>
+                            <button onClick={() => setToast({ type: null })} className="p-1 hover:bg-green-600 border-2 border-transparent hover:border-white/30 transition-all">
+                                <PixelIcon name="close" size={16} className="text-white" />
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -175,6 +218,31 @@ export default function BoardOverlay({
                 </div>
             )}
 
+            {toast.type === 'delete-project' && (
+                <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
+                    <div className="bg-white border-4 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+                        <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+                        <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+                        <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+                        <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+                        <div className="flex items-start gap-3 mb-4">
+                            <PixelIcon name="delete" size={24} />
+                            <div className="flex-1">
+                                <h3 className="text-base font-black text-gray-900 mb-1 uppercase tracking-tight">프로젝트를 삭제하시겠습니까?</h3>
+                                <p className="text-sm text-gray-600">이 프로젝트를 삭제하면 복구할 수 없습니다.</p>
+                            </div>
+                            <button onClick={() => setToast({ type: null })} className="p-1 hover:bg-gray-100 border-2 border-transparent hover:border-gray-300 transition-all">
+                                <PixelIcon name="close" size={16} className="text-gray-600" />
+                            </button>
+                        </div>
+                        <div className="flex gap-3">
+                            <button onClick={() => setToast({ type: null })} className="flex-1 px-4 py-2 text-xs font-bold border-2 border-gray-900 text-gray-700 bg-white hover:bg-gray-100 transition-all uppercase tracking-tight shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]">취소</button>
+                            <button onClick={handleDeleteProject} className="flex-1 px-4 py-2 text-xs font-black bg-red-500 text-white border-2 border-gray-900 hover:bg-red-600 transition-all uppercase tracking-tight shadow-[4px_4px_0px_0px_rgba(0,0,0,0.3)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] active:shadow-none active:translate-x-[2px] active:translate-y-[2px]">삭제</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
 
             {toast.type === 'confirm' && toast.data?.type === 'create-project' && (
                 <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
@@ -216,7 +284,8 @@ export default function BoardOverlay({
                                                 userPrompt: projectPrompt,
                                                 x: 100,
                                                 y: 100,
-                                                color: 'indigo'
+                                                color: 'bg-indigo-50',
+                                                personaId: personaId
                                             }),
                                         });
                                         if (res.ok) {

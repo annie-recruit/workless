@@ -231,7 +231,7 @@ Viewer 위젯은 다양한 파일과 웹 페이지를 미리볼 수 있는 기�
       sourceMemoryIds: [memory1.id, memory2.id, memory3.id],
       x: 200,
       y: 700,
-      color: 'indigo',
+      color: 'bg-indigo-50',
     });
 
     return NextResponse.json({

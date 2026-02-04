@@ -29,7 +29,7 @@ export default function FlagMenuBar({
     const { t } = useLanguage();
 
     return (
-        <div className="shrink-0 sticky top-[44px] md:top-[41px] z-20 border-b border-white/20 bg-white/30 backdrop-blur-xl px-3 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar flex-nowrap flex-row">
+        <div className="shrink-0 sticky top-0 z-20 border-b border-white/20 bg-white/30 backdrop-blur-xl px-3 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar flex-nowrap flex-row">
             <button
                 type="button"
                 onClick={onAddFlag}
@@ -60,10 +60,10 @@ export default function FlagMenuBar({
                             onMouseEnter={() => onHoverFlag(flag.id)}
                             onMouseLeave={() => onHoverFlag(null)}
                             className={`shrink-0 px-2 py-1 flex items-center gap-1.5 rounded border transition-colors text-xs whitespace-nowrap ${isSelected
-                                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
-                                    : isActive
-                                        ? 'bg-indigo-50 border-indigo-300 text-indigo-600'
-                                        : 'bg-white/40 border-white/30 hover:bg-white/60 text-gray-700 backdrop-blur-sm'
+                                ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
+                                : isActive
+                                    ? 'bg-indigo-50 border-indigo-300 text-indigo-600'
+                                    : 'bg-white/40 border-white/30 hover:bg-white/60 text-gray-700 backdrop-blur-sm'
                                 }`}
                             title={flag.name}
                         >

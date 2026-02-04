@@ -113,11 +113,27 @@ export class WorklessDB extends Dexie {
 
   /**
    * 데이터 가져오기 (복원용)
+   * currentUserId가 제공되면 가져오는 모든 데이터의 userId를 현재 사용자로 변경합니다.
    */
-  async importAll(data: any, merge: boolean = false) {
+  async importAll(data: any, merge: boolean = false, currentUserId?: string) {
     if (data.version !== 1) {
       throw new Error('지원하지 않는 백업 파일 버전입니다');
     }
+
+    // 데이터 전처리: userId 맵핑
+    const prepareData = (items: any[]) => {
+      if (!items || !currentUserId) return items;
+      return items.map(item => ({
+        ...item,
+        userId: currentUserId // 현재 로그인한 사용자 ID로 덮어쓰기
+      }));
+    };
+
+    const memories = prepareData(data.memories);
+    const groups = prepareData(data.groups);
+    const goals = prepareData(data.goals);
+    const boardBlocks = prepareData(data.boardBlocks);
+    const boardPositions = prepareData(data.boardPositions);
 
     // 병합하지 않으면 기존 데이터 삭제
     if (!merge) {
@@ -128,6 +144,7 @@ export class WorklessDB extends Dexie {
         this.boardBlocks,
         this.boardPositions,
       ], async () => {
+        // 현재 사용자의 데이터만 지울지, 전체를 지울지 결정 (보통 복원은 전체 초기화)
         await this.memories.clear();
         await this.groups.clear();
         await this.goals.clear();
@@ -144,12 +161,17 @@ export class WorklessDB extends Dexie {
       this.boardBlocks,
       this.boardPositions,
     ], async () => {
-      if (data.memories?.length) await this.memories.bulkPut(data.memories);
-      if (data.groups?.length) await this.groups.bulkPut(data.groups);
-      if (data.goals?.length) await this.goals.bulkPut(data.goals);
-      if (data.boardBlocks?.length) await this.boardBlocks.bulkPut(data.boardBlocks);
-      if (data.boardPositions?.length) await this.boardPositions.bulkPut(data.boardPositions);
+      if (memories?.length) await this.memories.bulkPut(memories);
+      if (groups?.length) await this.groups.bulkPut(groups);
+      if (goals?.length) await this.goals.bulkPut(goals);
+      if (boardBlocks?.length) await this.boardBlocks.bulkPut(boardBlocks);
+      if (boardPositions?.length) await this.boardPositions.bulkPut(boardPositions);
     });
+
+    // 메타데이터 dirty 설정 (가져온 데이터를 서버로 동기화하도록 유도)
+    if (currentUserId) {
+      await this.markDirty(currentUserId);
+    }
   }
 
   /**

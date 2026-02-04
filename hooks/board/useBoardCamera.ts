@@ -51,7 +51,14 @@ export function useBoardCamera({ storageKey, initialBoardSize = { width: 1600, h
   const viewportBounds: ViewportBounds = useMemo(() => {
     const scrollLeft = -pan.x;
     const scrollTop = -pan.y;
-    const { width: containerWidth, height: containerHeight } = containerSize;
+    let { width: containerWidth, height: containerHeight } = containerSize;
+
+    // 실제 화면 영역을 초과하지 않도록 제한
+    if (boardContainerRef.current) {
+      const rect = boardContainerRef.current.getBoundingClientRect();
+      containerWidth = Math.min(containerWidth, rect.width);
+      containerHeight = Math.min(containerHeight, rect.height);
+    }
 
     const left = scrollLeft / zoom;
     const top = scrollTop / zoom;

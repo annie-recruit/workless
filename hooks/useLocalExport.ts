@@ -30,6 +30,7 @@ export function useLocalExport(userId: string) {
   // 데이터 가져오기 (JSON)
   const importData = useCallback(async (file: File, merge: boolean = false) => {
     try {
+      console.log('📂 [Import] Starting import...', { fileName: file.name, merge, currentUserId: userId });
       const text = await file.text();
       const data = JSON.parse(text);
 
@@ -40,18 +41,20 @@ export function useLocalExport(userId: string) {
         );
         if (!confirmed) {
           merge = true;
+          console.log('📂 [Import] User chose to merge instead of overwrite.');
         }
       }
 
-      await localDB.importAll(data, merge);
+      await localDB.importAll(data, merge, userId);
       
+      console.log('✅ [Import] Successfully imported all data.');
       alert('데이터가 복원되었습니다!');
       window.location.reload(); // 페이지 새로고침
     } catch (error) {
-      console.error('Import failed:', error);
+      console.error('❌ [Import] Failed:', error);
       alert('가져오기 실패: ' + (error instanceof Error ? error.message : '알 수 없는 오류'));
     }
-  }, []);
+  }, [userId]);
 
   // 통계 조회
   const getStats = useCallback(async () => {

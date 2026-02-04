@@ -88,6 +88,19 @@ export default function SignInClient() {
                                 {t('auth.signin.button')}
                             </span>
                         </button>
+
+                        {/* 개발 환경 전용 게스트 로그인 */}
+                        {process.env.NODE_ENV === 'development' && (
+                            <button
+                                onClick={() => signIn('guest', { callbackUrl: '/dashboard' })}
+                                className="group relative w-full max-w-sm flex items-center justify-center gap-4 px-8 py-3 bg-indigo-500/20 hover:bg-indigo-500/40 border border-indigo-400/50 transition-all duration-300 backdrop-blur-sm"
+                            >
+                                <div className="absolute inset-0 border border-indigo-400/0 group-hover:border-indigo-400/40 transition-all duration-300"></div>
+                                <span className="text-white text-sm font-bold tracking-widest uppercase">
+                                    Guest Login (Dev Mode)
+                                </span>
+                            </button>
+                        )}
                     </div>
 
                     {/* 하단 데코레이션 */}

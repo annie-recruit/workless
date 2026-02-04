@@ -9,9 +9,10 @@ export type BoardToastState = {
   | 'loading'
   | 'confirm'
   | 'success'
-  | 'delete-link'
-  | 'delete-memory'
-  | 'error'
+    | 'delete-link'
+    | 'delete-memory'
+    | 'delete-project'
+    | 'error'
   | null;
   data?: any;
 };

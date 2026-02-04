@@ -7,6 +7,7 @@ import { Memory, Group, CanvasBlock, CalendarBlockConfig, ViewerBlockConfig, Mee
 import { formatDistanceToNow } from 'date-fns';
 import { ko, enUS } from 'date-fns/locale';
 import LinkManager from './LinkManager';
+import ActionProjectLinkManager from './ActionProjectLinkManager';
 import dynamic from 'next/dynamic';
 import { useViewer } from './ViewerContext';
 import PixelIcon from './PixelIcon';
@@ -78,10 +79,11 @@ const DatabaseBlock = dynamic(() => import('./DatabaseBlock'), {
 interface MemoryViewProps {
   memories: Memory[];
   onMemoryDeleted?: () => void;
+  onMemoryCreated?: (newMemory: Memory) => void;
   personaId?: string | null;
 }
 
-export default function MemoryView({ memories, onMemoryDeleted, personaId }: MemoryViewProps) {
+export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated, personaId }: MemoryViewProps) {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id || session?.user?.email || '';
   const { t, language } = useLanguage();
@@ -92,6 +94,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [dropTargetGroupId, setDropTargetGroupId] = useState<string | null>(null);
   const [isBoardDragging, setIsBoardDragging] = useState(false);
   const [linkManagerMemory, setLinkManagerMemory] = useState<Memory | null>(null);
+  const [linkManagerProject, setLinkManagerProject] = useState<ActionProject | null>(null);
   // 로컬 메모리 상태 (연결 추가 시 즉시 반영)
   const [localMemories, setLocalMemories] = useState<Memory[]>(memories);
   // 메모리 순서 관리 (클릭 시 최상단으로 이동)
@@ -146,17 +149,19 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
   // props로부터 localMemories 동기화
   useEffect(() => {
-    // 새로운 메모리가 추가되었는지 확인 (개수 증가로 간단히 판단)
-    if (memories.length > localMemories.length) {
-      // 새로 추가된 메모리 ID 찾기
-      const prevIds = new Set(localMemories.map(m => m.id));
-      const added = memories.find(m => !prevIds.has(m.id));
-      if (added) {
-        setPendingFocusId(added.id);
+    setLocalMemories(prev => {
+      // 새로운 메모리가 추가되었는지 확인 (개수 증가로 간단히 판단)
+      if (memories.length > prev.length) {
+        // 새로 추가된 메모리 ID 찾기
+        const prevIds = new Set(prev.map(m => m.id));
+        const added = memories.find(m => !prevIds.has(m.id));
+        if (added) {
+          setPendingFocusId(added.id);
+        }
       }
-    }
-    setLocalMemories(memories);
-  }, [memories, localMemories]);
+      return memories;
+    });
+  }, [memories]);
 
   // 새로운 메모리 위치가 확보되면 해당 위치로 포커스
   useEffect(() => {
@@ -204,6 +209,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [isBlobEnabled, setIsBlobEnabled] = useState(true);
   const [isWidgetMenuOpen, setIsWidgetMenuOpen] = useState(false);
   const [isFlagMenuOpen, setIsFlagMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSynergyModalOpen, setIsSynergyModalOpen] = useState(false);
 
   // 롱프레스 드래그를 위한 타이머
@@ -385,13 +391,30 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     try {
       // DataLayer를 사용하여 로컬과 서버 모두에서 삭제
       await dataLayer.deleteMemory(memoryIdToDelete, userId);
-      
+
       // 로컬 상태 즉시 업데이트 (UI에서 바로 삭제)
       setLocalMemories(prev => prev.filter(m => m.id !== memoryIdToDelete));
       setToast({ type: null });
       onMemoryDeleted?.();
     } catch (error) {
       console.error('Delete error:', error);
+      setToast({ type: null });
+      alert(t('common.deleteError'));
+    }
+  };
+
+  // 프로젝트 삭제 핸들러
+  const handleDeleteProject = async () => {
+    if (!toast.data?.projectId) return;
+
+    const projectIdToDelete = toast.data.projectId;
+
+    try {
+      await dataLayer.deleteProject(projectIdToDelete, userId);
+      setLocalProjects(prev => prev.filter(p => p.id !== projectIdToDelete));
+      setToast({ type: null });
+    } catch (error) {
+      console.error('Delete project error:', error);
       setToast({ type: null });
       alert(t('common.deleteError'));
     }
@@ -869,6 +892,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     selectedMemoryIdsRef,
     selectedBlockIdsRef,
     localMemories,
+    localProjects,
     blocks,
     cardSize,
     setSelectionBox,
@@ -1258,6 +1282,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     getLinkKey,
     positions,
     cardSize,
+    projects: localProjects,
   });
 
   const connectionPairsArray = connectionPairsWithColor.pairsWithColor;
@@ -1307,8 +1332,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   // filteredMemories 기반 connectionPairs for Minimap (실제 보드와 동일한 데이터 사용)
   const minimapConnectionPairs = useMemo(() => {
     // connectionPairsWithColor의 pairsWithColor를 직접 사용 (실제 보드와 동일)
-    // filteredMemories에 있는 메모리들만 필터링
-    const visibleIds = new Set(filteredMemories.map(m => m.id));
+    // filteredMemories와 localProjects의 ID를 모두 포함
+    const visibleIds = new Set([
+      ...filteredMemories.map(m => m.id),
+      ...localProjects.map(p => p.id)
+    ]);
 
     return connectionPairsWithColor.pairsWithColor
       .filter((pair: any) => visibleIds.has(pair.from) && visibleIds.has(pair.to))
@@ -1319,9 +1347,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         offsetIndex: pair.offsetIndex || 0,
         totalConnections: pair.totalConnections || 1,
       }));
-  }, [filteredMemories, connectionPairsWithColor]);
+  }, [filteredMemories, connectionPairsWithColor, localProjects]);
 
-  // Minimap용 positions: 메모리 positions + blocks 위치 병합
+  // Minimap용 positions: 메모리 positions + blocks 위치 + 액션 플랜 위치 병합
   const minimapPositions = useMemo(() => {
     const merged: Record<string, { x: number; y: number }> = { ...positions };
 
@@ -1332,8 +1360,15 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       }
     });
 
+    // 액션 플랜의 위치를 positions에 추가
+    localProjects.forEach(project => {
+      if (project.x !== undefined && project.y !== undefined) {
+        merged[project.id] = { x: project.x, y: project.y };
+      }
+    });
+
     return merged;
-  }, [positions, blocks]);
+  }, [positions, blocks, localProjects]);
 
   // Select/Delete Keyboard Handler
   useEffect(() => {
@@ -1444,120 +1479,216 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
       {/* 화이트보드 뷰 */}
       <div data-tutorial-target="board-view" className="h-[calc(300vh-280px)] min-h-[1500px]">
-        <div className="w-full h-full bg-white border-y border-gray-300 font-galmuri11 flex overflow-hidden">
-          <div className="flex-1 relative flex flex-col min-w-0 overflow-hidden">
-            {/* 컨트롤 바 - (좌측 깃발 사이드바처럼) 스크롤과 무관하게 상단 고정 */}
-            <div className="shrink-0 sticky top-0 z-30 flex items-center justify-between py-2 text-xs text-gray-500 bg-white/40 backdrop-blur-xl border-b border-white/10 shadow-none overflow-x-auto no-scrollbar">
-              <div className="flex items-center gap-2 px-3 min-w-max">
-                <span className="font-semibold text-gray-700 whitespace-nowrap">{t('memory.view.board.title')}</span>
-                <span className="text-[11px] text-gray-400 whitespace-nowrap">
-                  {Math.round(boardSize.width)}×{Math.round(boardSize.height)}
-                </span>
-                {previousPositions && (
-                  <button
-                    onClick={handleRestoreLayout}
-                    className="px-2 py-1 text-xs rounded border border-white/30 bg-white/40 backdrop-blur-sm hover:bg-white/60 text-gray-700 whitespace-nowrap transition-all"
-                    title={t('memory.view.board.restore.title')}
-                  >
-                    {t('memory.view.board.restore')}
-                  </button>
-                )}
-                <button
-                  onClick={handleAutoArrange}
-                  disabled={isAutoArranging}
-                  className="px-2 py-1 text-xs rounded border border-white/30 bg-white/40 backdrop-blur-sm hover:bg-white/60 disabled:opacity-50 disabled:cursor-not-allowed text-gray-700 whitespace-nowrap transition-all"
-                  title={t('memory.view.board.arrange.title')}
-                >
-                  {isAutoArranging ? t('memory.view.board.arranging') : t('memory.view.board.arrange')}
-                </button>
+        <div className="w-full h-full bg-white border-y border-gray-300 font-galmuri11 flex overflow-hidden relative">
+          {/* Vertical Side Bar (Minimal) */}
+          <div className="shrink-0 z-[60] bg-white border-r border-gray-100 flex flex-col items-center py-4 px-2.5 gap-6 w-14 shadow-sm h-full overflow-hidden transition-all duration-300">
+            {/* Hamburger Menu Toggle */}
+            <button
+              onClick={() => {
+                setIsMenuOpen(!isMenuOpen);
+                if (!isMenuOpen) {
+                  setIsWidgetMenuOpen(false);
+                  setIsGroupMenuOpen(false);
+                  setIsFlagMenuOpen(false);
+                }
+              }}
+              className={`p-2 transition-all active:scale-90 hover:bg-indigo-50 rounded-lg ${isMenuOpen ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500'}`}
+              title={isMenuOpen ? t('common.close') : t('dashboard.menu.settings')}
+            >
+              <PixelIcon name={isMenuOpen ? "close" : "menu"} size={22} />
+            </button>
 
-                <GmailImportButton
-                  onImportComplete={(count) => {
-                    console.log(t('memory.view.board.import.gmail.success').replace('{count}', count.toString()));
-                    // 메모리 새로고침은 부모에서 처리
-                    if (onMemoryDeleted) {
-                      onMemoryDeleted();
-                    }
-                  }}
-                />
-
-                <WidgetCreateButton
-                  isOpen={isWidgetMenuOpen}
-                  onClick={() => {
-                    setIsWidgetMenuOpen((prev) => !prev);
-                    setIsGroupMenuOpen(false);
-                    setIsFlagMenuOpen(false);
-                  }}
-                />
-
-                <button
-                  onClick={() => {
-                    setIsGroupMenuOpen((prev) => !prev);
-                    setIsWidgetMenuOpen(false);
-                    setIsFlagMenuOpen(false);
-                  }}
-                  className={`px-2 py-1 text-xs rounded border border-white/30 bg-white/40 backdrop-blur-sm hover:bg-white/60 flex items-center gap-1 whitespace-nowrap transition-all ${isGroupMenuOpen ? 'bg-indigo-50/80 text-indigo-700 border-indigo-300' : 'text-gray-700'}`}
-                  title={t('memory.view.board.group')}
-                >
-                  <PixelIcon name="folder" size={16} />
-                  <span>{t('memory.view.board.group')}</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setIsFlagMenuOpen((prev) => !prev);
-                    setIsWidgetMenuOpen(false);
-                    setIsGroupMenuOpen(false);
-                  }}
-                  className={`px-2 py-1 text-xs rounded border border-white/30 bg-white/40 backdrop-blur-sm hover:bg-white/60 flex items-center gap-1 whitespace-nowrap transition-all ${isFlagMenuOpen ? 'bg-indigo-50/80 text-indigo-700 border-indigo-300' : 'text-gray-700'}`}
-                  title={t('memory.view.board.flag')}
-                >
-                  <PixelIcon name="flag" size={16} />
-                  <span>{t('memory.view.board.flag')}</span>
-                </button>
-                {/* 위젯 시너지 버튼 - 2개 이상 선택 시 활성화 */}
-                {(selectedMemoryIds.size + selectedBlockIds.size) >= 2 && (
-                  <button
-                    onClick={() => {
-                      setIsSynergyModalOpen(true);
-                      setIsWidgetMenuOpen(false);
-                      setIsGroupMenuOpen(false);
-                      setIsFlagMenuOpen(false);
-                    }}
-                    className="px-2 py-1 text-xs rounded border-2 border-purple-500 bg-purple-50/80 backdrop-blur-sm hover:bg-purple-100 text-purple-700 font-semibold flex items-center gap-1 whitespace-nowrap transition-all"
-                    title={t('memory.view.board.widget.synergy')}
-                  >
-                    <PixelIcon name="link" size={16} />
-                    <span>{t('memory.view.board.widget.synergy')}</span>
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center gap-1 px-3 shrink-0 bg-transparent sticky right-0">
-                <button
-                  onClick={() => changeZoom(-0.1)}
-                  className="px-2 py-1 rounded border border-white/30 bg-white/40 backdrop-blur-sm hover:bg-white/60 disabled:opacity-50 transition-all"
-                  disabled={zoom <= 0.5}
-                >
-                  -
-                </button>
-                <span className="text-xs font-semibold min-w-[35px] text-center text-gray-700">{Math.round(zoom * 100)}%</span>
-                <button
-                  onClick={() => changeZoom(0.1)}
-                  className="px-2 py-1 rounded border border-white/30 bg-white/40 backdrop-blur-sm hover:bg-white/60 disabled:opacity-50 transition-all"
-                  disabled={zoom >= 1.6}
-                >
-                  +
-                </button>
-                {!isMobile && (
-                  <button
-                    onClick={resetZoom}
-                    className="px-2 py-1 rounded border border-white/30 bg-white/40 backdrop-blur-sm hover:bg-white/60 whitespace-nowrap ml-1 transition-all text-gray-700"
-                  >
-                    {t('memory.view.board.zoom.reset')}
-                  </button>
-                )}
-              </div>
+            {/* Icons representing active states or shortcuts */}
+            <div className="flex flex-col gap-4 items-center">
+              <button
+                onClick={() => {
+                  setIsWidgetMenuOpen(!isWidgetMenuOpen);
+                  setIsGroupMenuOpen(false);
+                  setIsFlagMenuOpen(false);
+                  setIsMenuOpen(false);
+                }}
+                className={`p-1.5 rounded-md transition-all active:scale-90 ${isWidgetMenuOpen ? 'bg-indigo-100 text-indigo-600' : 'text-gray-300 hover:bg-gray-50 hover:text-gray-400'}`}
+                title={t('onboarding.widget')}
+              >
+                <PixelIcon name="apps" size={18} />
+              </button>
+              <button
+                onClick={() => {
+                  setIsGroupMenuOpen(!isGroupMenuOpen);
+                  setIsWidgetMenuOpen(false);
+                  setIsFlagMenuOpen(false);
+                  setIsMenuOpen(false);
+                }}
+                className={`p-1.5 rounded-md transition-all active:scale-90 ${isGroupMenuOpen ? 'bg-indigo-100 text-indigo-600' : 'text-gray-300 hover:bg-gray-50 hover:text-gray-400'}`}
+                title={t('dashboard.menu.groups')}
+              >
+                <PixelIcon name="folder" size={18} />
+              </button>
+              <button
+                onClick={() => {
+                  setIsFlagMenuOpen(!isFlagMenuOpen);
+                  setIsWidgetMenuOpen(false);
+                  setIsGroupMenuOpen(false);
+                  setIsMenuOpen(false);
+                }}
+                className={`p-1.5 rounded-md transition-all active:scale-90 ${isFlagMenuOpen ? 'bg-indigo-100 text-indigo-600' : 'text-gray-300 hover:bg-gray-50 hover:text-gray-400'}`}
+                title={t('flag.manage.title')}
+              >
+                <PixelIcon name="flag" size={18} />
+              </button>
             </div>
+
+            {/* Zoom controls at the bottom */}
+            <div className="mt-auto flex flex-col gap-3 items-center pb-2">
+              <button
+                onClick={() => changeZoom(0.1)}
+                disabled={zoom >= 1.6}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-100 bg-white shadow-sm hover:bg-gray-50 text-gray-600 disabled:opacity-30 transition-all font-bold"
+              >
+                +
+              </button>
+              <div className="bg-gray-100/50 px-1.5 py-0.5 rounded text-[9px] font-black text-gray-500 border border-gray-100">
+                {Math.round(zoom * 100)}%
+              </div>
+              <button
+                onClick={() => changeZoom(-0.1)}
+                disabled={zoom <= 0.5}
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-100 bg-white shadow-sm hover:bg-gray-50 text-gray-600 disabled:opacity-30 transition-all font-bold"
+              >
+                -
+              </button>
+              {!isMobile && (
+                <button
+                  onClick={resetZoom}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-100 bg-white shadow-sm hover:bg-gray-50 text-gray-400 transition-all"
+                  title={t('memory.view.board.zoom.reset')}
+                >
+                  <PixelIcon name="refresh" size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="flex-1 relative flex flex-col min-w-0 overflow-hidden">
+            {/* Overlay Menu Panel */}
+            {isMenuOpen && (
+              <>
+                <div className="absolute left-0 top-0 bottom-0 z-[52] w-72 bg-white/95 backdrop-blur-2xl border-r border-indigo-50 shadow-2xl flex flex-col p-6 overflow-y-auto no-scrollbar animate-slide-in-left">
+                  <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-sm font-black text-indigo-900 tracking-tight flex items-center gap-2">
+                      <PixelIcon name="sparkles" size={18} className="text-indigo-500" />
+                      {t('memory.view.board.title')}
+                    </h2>
+                    <span className="text-[10px] font-bold text-gray-300 bg-gray-50 px-2 py-0.5 rounded">
+                      {Math.round(boardSize.width)}×{Math.round(boardSize.height)}
+                    </span>
+                  </div>
+
+                  <div className="space-y-8 flex-1">
+                    {/* View Controls Section */}
+                    <div className="space-y-4">
+                      <p className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">{t('dashboard.menu.settings')}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={handleAutoArrange}
+                          disabled={isAutoArranging}
+                          className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 border-indigo-50 bg-white hover:border-indigo-200 text-indigo-700 transition-all disabled:opacity-50 group"
+                        >
+                          <PixelIcon name="magic" size={24} className="group-hover:rotate-12 transition-transform" />
+                          <span className="text-[10px] font-bold text-center leading-tight">
+                            {isAutoArranging ? t('memory.view.board.arranging') : t('memory.view.board.arrange')}
+                          </span>
+                        </button>
+                        {previousPositions && (
+                          <button
+                            onClick={handleRestoreLayout}
+                            className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 border-orange-50 bg-white hover:border-orange-200 text-orange-700 transition-all group"
+                          >
+                            <PixelIcon name="refresh" size={24} className="group-hover:-rotate-45 transition-transform" />
+                            <span className="text-[10px] font-bold text-center leading-tight">
+                              {t('memory.view.board.restore')}
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Tools & Layers Section */}
+                    <div className="space-y-4">
+                      <p className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">Tools & Layers</p>
+                      <div className="space-y-1.5">
+                        <button
+                          onClick={() => {
+                            setIsWidgetMenuOpen(!isWidgetMenuOpen);
+                            setIsMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${isWidgetMenuOpen ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-gray-50 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <PixelIcon name="apps" size={18} />
+                            <span className="text-xs font-bold">{t('memory.view.board.widget')}</span>
+                          </div>
+                          <PixelIcon name="arrow" size={14} className={isWidgetMenuOpen ? 'rotate-90' : ''} />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setIsGroupMenuOpen(!isGroupMenuOpen);
+                            setIsMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${isGroupMenuOpen ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-gray-50 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <PixelIcon name="folder" size={18} />
+                            <span className="text-xs font-bold">{t('memory.view.board.group')}</span>
+                          </div>
+                          <PixelIcon name="arrow" size={14} className={isGroupMenuOpen ? 'rotate-90' : ''} />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setIsFlagMenuOpen(!isFlagMenuOpen);
+                            setIsMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${isFlagMenuOpen ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-gray-50 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <PixelIcon name="flag" size={18} />
+                            <span className="text-xs font-bold">{t('memory.view.board.flag')}</span>
+                          </div>
+                          <PixelIcon name="arrow" size={14} className={isFlagMenuOpen ? 'rotate-90' : ''} />
+                        </button>
+
+                        <div className="pt-2 flex flex-col gap-1.5">
+                          <GmailImportButton
+                            variant="minimal"
+                            onImportComplete={(count) => {
+                              if (onMemoryDeleted) onMemoryDeleted();
+                            }}
+                          />
+                          {(selectedMemoryIds.size + selectedBlockIds.size) >= 2 && (
+                            <button
+                              onClick={() => {
+                                setIsSynergyModalOpen(true);
+                                setIsMenuOpen(false);
+                              }}
+                              className="w-full flex items-center gap-3 p-3 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 transition-all font-bold border-2 border-purple-100"
+                            >
+                              <PixelIcon name="link" size={18} />
+                              <span className="text-xs">{t('memory.view.board.widget.synergy')}</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-gray-100 mt-auto">
+                    <p className="text-[9px] text-gray-400 text-center font-bold">WORKLESS Whiteboard v2.0</p>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* 깃발 메뉴 바 */}
             {isFlagMenuOpen && (
@@ -1745,181 +1876,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                   draft={isPlacingFlag ? placingFlagDraft : null}
                 />
 
-                {/* 미니맵 블록은 boardRef 내부에 렌더링 */}
-                {blocks.find(b => b.type === 'minimap') && (() => {
-                  const minimapBlock = blocks.find(b => b.type === 'minimap')!;
-                  // 기존 블록이 크면 메모리 카드 크기로 강제 축소
-                  const minimapWidth = minimapBlock.width && minimapBlock.width > 250 ? 240 : (minimapBlock.width || 240);
-                  const minimapHeight = minimapBlock.height && minimapBlock.height > 190 ? 180 : (minimapBlock.height || 180);
+                {/* 미니맵 블록은 boardRef 외부에 별도로 틀고정 방식으로 렌더링하도록 변경됨 */}
 
-                  // 보드 좌표계로 위치 설정
-                  const left = minimapBlock.x;
-                  const top = minimapBlock.y;
-                  const minimapZIndex =
-                    draggingBlockId === minimapBlock.id
-                      ? 10000
-                      : lastClickedItem?.type === 'block' && lastClickedItem.id === minimapBlock.id
-                        ? 5000
-                        : clickedBlockId === minimapBlock.id
-                          ? 100
-                          : 30;
-
-                  contentLayoutRef.current[`block:${minimapBlock.id}`] = {
-                    x: left,
-                    y: top,
-                    width: minimapWidth,
-                    height: minimapHeight,
-                    zIndex: minimapZIndex,
-                  };
-
-                  return (
-                    <div
-                      key={minimapBlock.id}
-                      data-block-id={minimapBlock.id}
-                      data-minimap-block={minimapBlock.id}
-                      className={`absolute bg-white border-[3px] border-black rounded-lg shadow-xl ${isHighlightMode && highlightedContentIdSet.has(`block:${minimapBlock.id}`)
-                        ? 'outline outline-2 outline-indigo-500/35'
-                        : ''
-                        }`}
-                      style={{
-                        transform: `translate3d(${left}px, ${top}px, 0)`,
-                        width: `${minimapWidth}px`,
-                        height: `${minimapHeight}px`,
-                        zIndex: minimapZIndex,
-                        opacity: draggingBlockId === minimapBlock.id ? 0.85 : 1,
-                        transition: 'none',
-                        willChange: draggingBlockId === minimapBlock.id ? 'transform' : 'auto',
-                        pointerEvents: draggingBlockId === minimapBlock.id ? 'none' : 'auto',
-                        contain: 'layout style paint',
-                      }}
-                      onPointerDown={(e) => {
-                        const target = e.target as HTMLElement;
-                        // 버튼만 제외하고, 캔버스 포함 모든 영역에서 드래그 가능
-                        const isInteractiveElement = target.closest('button');
-
-                        if (!isInteractiveElement) {
-                          bringToFrontBlock(minimapBlock.id);
-                          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-                        }
-
-                        if (isInteractiveElement) {
-                          return;
-                        }
-
-                        e.preventDefault();
-                        e.stopPropagation();
-
-                        // 보드 좌표계로 드래그 시작
-                        const rect = boardRef.current!.getBoundingClientRect();
-                        const scale = zoomRef.current;
-                        const mouseX = (e.clientX - rect.left) / scale;
-                        const mouseY = (e.clientY - rect.top) / scale;
-
-                        handlePointerDownWithDelay(e, () => {
-                          setDraggingEntity({ type: 'block', id: minimapBlock.id });
-                          setDragOffset({
-                            x: mouseX - minimapBlock.x,
-                            y: mouseY - minimapBlock.y,
-                          });
-                        });
-                      }}
-                    >
-                      {/* 헤더 */}
-                      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-300 bg-white rounded-t-lg">
-                        <div className="flex items-center gap-1.5">
-                          <PixelIcon name="minimap" size={16} />
-                          <span className="text-xs font-semibold text-gray-700">Minimap</span>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleBlockDelete(minimapBlock.id);
-                          }}
-                          className="text-gray-400 hover:text-gray-600 text-xs"
-                          title="삭제"
-                        >
-                          ×
-                        </button>
-                      </div>
-                      {/* 크기 조정 핸들 */}
-                      <div
-                        className="absolute bottom-0 right-0 w-4 h-4 bg-blue-500 cursor-se-resize opacity-0 hover:opacity-100 transition-opacity rounded-tl-lg"
-                        style={{ zIndex: 1000 }}
-                        onPointerDown={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          const startX = e.clientX;
-                          const startY = e.clientY;
-                          const startWidth = minimapBlock.width || 240;
-                          const startHeight = minimapBlock.height || 180;
-
-                          const handleMove = (moveEvent: PointerEvent) => {
-                            const deltaX = moveEvent.clientX - startX;
-                            const deltaY = moveEvent.clientY - startY;
-                            // 메모리 카드 크기 정도로 제한 (최대 280x200, 최소 200x150)
-                            const newWidth = Math.max(200, Math.min(280, startWidth + deltaX));
-                            const newHeight = Math.max(150, Math.min(200, startHeight + deltaY));
-
-                            setBlocks(prev => {
-                              const updated = [...prev];
-                              const index = updated.findIndex(b => b.id === minimapBlock.id);
-                              if (index !== -1) {
-                                const currentBlock = updated[index];
-                                updated[index] = { ...currentBlock, width: newWidth, height: newHeight };
-                              }
-                              return updated;
-                            });
-                          };
-
-                          const handleUp = () => {
-                            window.removeEventListener('pointermove', handleMove);
-                            window.removeEventListener('pointerup', handleUp);
-
-                            // 최신 상태에서 크기 가져와서 저장
-                            setBlocks(prev => {
-                              const currentBlock = prev.find(b => b.id === minimapBlock.id);
-                              if (currentBlock && (currentBlock.width !== startWidth || currentBlock.height !== startHeight)) {
-                                handleBlockUpdate(minimapBlock.id, {
-                                  width: currentBlock.width,
-                                  height: currentBlock.height
-                                });
-                              }
-                              return prev;
-                            });
-                          };
-
-                          window.addEventListener('pointermove', handleMove);
-                          window.addEventListener('pointerup', handleUp);
-                        }}
-                      />
-                      {/* 미니맵 캔버스 */}
-                      {boardSize.width > 0 && boardSize.height > 0 && (
-                        <div
-                          className="overflow-hidden rounded-b-lg"
-                          style={{
-                            height: `${(minimapBlock.height || 180) - 40}px`,
-                            width: '100%'
-                          }}
-                        >
-                          <Minimap
-                            positions={minimapPositions}
-                            blocks={blocks.filter(b => b.type !== 'minimap')}
-                            memories={filteredMemories}
-                            connectionPairs={minimapConnectionPairs}
-                            viewportBounds={viewportBounds}
-                            zoom={zoom}
-                            cardColorMap={cardColorMap}
-                            boardSize={boardSize}
-                            containerWidth={minimapBlock.width || 240}
-                            containerHeight={(minimapBlock.height || 180) - 40}
-                            cardSize={cardSize}
-                            blobAreas={blobAreas}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
                 {/* 드래그 선택 박스 */}
                 {selectionBox && (() => {
                   const left = Math.min(selectionBox.startX, selectionBox.endX);
@@ -1946,13 +1904,16 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 })()}
 
                 {/* 다중 선택 안내 */}
-                {selectedMemoryIds.size > 0 && (
+                {(selectedMemoryIds.size > 0 || selectedBlockIds.size > 0) && (
                   <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-indigo-500 text-white px-4 py-2 border border-indigo-600 flex items-center gap-2 z-30">
                     <span className="text-sm font-medium">
-                      {selectedMemoryIds.size}개 카드 선택됨 (드래그 또는 Ctrl/Cmd + 클릭으로 선택)
+                      {(selectedMemoryIds.size + selectedBlockIds.size)}개 항목 선택됨 (드래그 또는 Ctrl/Cmd + 클릭으로 선택)
                     </span>
                     <button
-                      onClick={() => setSelectedMemoryIds(new Set())}
+                      onClick={() => {
+                        setSelectedMemoryIds(new Set());
+                        setSelectedBlockIds(new Set());
+                      }}
                       className="text-white hover:text-gray-200"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1976,7 +1937,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       zIndex: blockZIndex,
                     };
                     return (
-                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-indigo-400 ring-offset-2 rounded-lg' : ''}>
                         <CalendarBlock
                           blockId={block.id}
                           x={block.x}
@@ -2092,7 +2053,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       zIndex: blockZIndex,
                     };
                     return (
-                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-purple-400 rounded-lg' : ''}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-indigo-400 ring-offset-2 rounded-lg' : ''}>
                         <ViewerBlock
                           blockId={block.id}
                           x={block.x}
@@ -2176,7 +2137,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       zIndex: blockZIndex,
                     };
                     return (
-                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-indigo-400 ring-offset-2 rounded-lg' : ''}>
                         <MeetingRecorderBlock
                           blockId={block.id}
                           x={block.x}
@@ -2242,7 +2203,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     };
 
                     return (
-                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-purple-400 rounded-lg' : ''}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-indigo-400 ring-offset-2 rounded-lg' : ''}>
                         <DatabaseBlock
                           blockId={block.id}
                           x={block.x}
@@ -2470,7 +2431,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         overflow: 'visible',
                       }}
                       className={`absolute select-none touch-none cursor-grab active:cursor-grabbing ${isDragging ? 'cursor-grabbing border border-indigo-500' : ''
-                        } ${isSelected ? 'ring-2 ring-blue-300/50 ring-offset-1' : ''} ${isBlobHovered ? 'ring-2 ring-blue-200/60 ring-offset-1' : ''
+                        } ${isSelected ? 'ring-4 ring-indigo-400 ring-offset-2 rounded-lg' : ''} ${isBlobHovered ? 'ring-2 ring-blue-200/60 ring-offset-1' : ''
                         }`}
                     >
                       <MemoryCard
@@ -2517,6 +2478,13 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         onActivityEditStart={(memoryId) => startEdit(`memory:${memoryId}`)}
                         onActivityEditCommit={(memoryId) => endEdit(`memory:${memoryId}`, true)}
                         onActivityEditEnd={() => { }}
+                        projects={localProjects}
+                        onProjectClick={(projectId) => {
+                          const project = localProjects.find(p => p.id === projectId);
+                          if (project) {
+                            handleMentionClick(memory.id, projectId);
+                          }
+                        }}
                       />
                     </div>
                   );
@@ -2537,7 +2505,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         transition: isDragging ? 'none' : 'transform 0.2s ease-out',
                         transformOrigin: 'center center',
                       }}
-                      className={`absolute cursor-grab active:cursor-grabbing ${isSelected ? 'ring-2 ring-blue-300/50 ring-offset-1' : ''}`}
+                      className={`absolute cursor-grab active:cursor-grabbing ${isSelected ? 'ring-4 ring-indigo-400 ring-offset-2 rounded-lg' : ''}`}
                       onPointerDown={(e) => {
                         const target = e.target as HTMLElement;
                         if (
@@ -2581,7 +2549,10 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     >
                       <ActionProjectCard
                         project={project}
+                        allMemories={localMemories}
                         isDragging={isDragging}
+                        isSelected={isSelected}
+                        isHighlighted={isHighlightMode && highlightedContentIdSet.has(`project:${project.id}`)}
                         onUpdate={(id: string, updates: Partial<ActionProject>) => {
                           setLocalProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
                           fetch('/api/projects', {
@@ -2591,16 +2562,24 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                           }).catch(err => console.error(err));
                         }}
                         onDelete={async (id: string) => {
-                          if (confirm('프로젝트를 삭제하시겠습니까?')) {
-                            try {
-                              await dataLayer.deleteProject(id, userId);
-                              setLocalProjects(prev => prev.filter(p => p.id !== id));
-                            } catch (error) {
-                              console.error('Failed to delete project:', error);
-                              alert('프로젝트 삭제에 실패했습니다');
-                            }
-                          }
+                          setToast({ type: 'delete-project', data: { projectId: id } });
                         }}
+                        onAddMemory={(newMemory) => {
+                          setLocalMemories(prev => [newMemory, ...prev]);
+                          if (onMemoryCreated) onMemoryCreated(newMemory);
+                        }}
+                        onOpenLinkManager={setLinkManagerProject}
+                        onMentionClick={(mentionedMemoryId) =>
+                          handleMentionClick(project.id, mentionedMemoryId)
+                        }
+                        linkNotes={linkNotes}
+                        onRequestDeleteLink={(projectId, memoryId) =>
+                          setToast({ type: 'delete-link', data: { memoryId1: projectId, memoryId2: memoryId } })
+                        }
+                        onActivityPointerOutCapture={handleActivityPointerOutCapture}
+                        onActivityFocusCapture={handleActivityFocusCapture}
+                        onActivityBlurCapture={handleActivityBlurCapture}
+                        personaId={personaId}
                       />
                     </div>
                   );
@@ -2627,6 +2606,189 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 </div>
               )}
             </div>
+            
+            {/* Viewport Overlay Layer - 틀고정 요소들 (미니맵 등) */}
+            <div className="absolute inset-0 pointer-events-none z-[100]">
+              {blocks.find(b => b.type === 'minimap') && (() => {
+                const minimapBlock = blocks.find(b => b.type === 'minimap')!;
+                const minimapWidth = minimapBlock.width && minimapBlock.width > 250 ? 240 : (minimapBlock.width || 240);
+                const minimapHeight = minimapBlock.height && minimapBlock.height > 190 ? 180 : (minimapBlock.height || 180);
+
+                // 틀고정(Sticky)을 위해 뷰포트 좌표계로 위치 설정
+                const left = minimapBlock.x;
+                const top = minimapBlock.y;
+                const minimapZIndex =
+                  draggingBlockId === minimapBlock.id
+                    ? 10000
+                    : lastClickedItem?.type === 'block' && lastClickedItem.id === minimapBlock.id
+                      ? 5000
+                      : clickedBlockId === minimapBlock.id
+                        ? 100
+                        : 30;
+
+                return (
+                  <div
+                    key={minimapBlock.id}
+                    data-block-id={minimapBlock.id}
+                    data-minimap-block={minimapBlock.id}
+                    className={`absolute bg-white border-[3px] border-black rounded-lg shadow-xl pointer-events-auto ${
+                      selectedBlockIds.has(minimapBlock.id) ? 'ring-4 ring-indigo-400 ring-offset-2' : ''
+                    } ${isHighlightMode && highlightedContentIdSet.has(`block:${minimapBlock.id}`)
+                      ? 'outline outline-2 outline-indigo-500/35'
+                      : ''
+                      }`}
+                    style={{
+                      transform: `translate3d(${left}px, ${top}px, 0)`,
+                      width: `${minimapWidth}px`,
+                      height: `${minimapHeight}px`,
+                      zIndex: minimapZIndex,
+                      opacity: draggingBlockId === minimapBlock.id ? 0.85 : 1,
+                      transition: 'none',
+                      willChange: draggingBlockId === minimapBlock.id ? 'transform' : 'auto',
+                      contain: 'layout style paint',
+                    }}
+                    onPointerDown={(e) => {
+                      const target = e.target as HTMLElement;
+                      const isInteractiveElement = target.closest('button');
+
+                      // Ctrl/Cmd 키로 다중 선택 모드
+                      const isMultiSelect = e.ctrlKey || e.metaKey;
+
+                      if (isMultiSelect) {
+                        setSelectedBlockIds(prev => {
+                          const next = new Set(prev);
+                          if (next.has(minimapBlock.id)) {
+                            next.delete(minimapBlock.id);
+                          } else {
+                            next.add(minimapBlock.id);
+                          }
+                          return next;
+                        });
+                        return;
+                      }
+
+                      if (!isInteractiveElement) {
+                        bringToFrontBlock(minimapBlock.id);
+                        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                      }
+
+                      if (isInteractiveElement) {
+                        return;
+                      }
+
+                      e.preventDefault();
+                      e.stopPropagation();
+
+                      // 틀고정 레이어에 있으므로 보드 좌표계(zoom 스케일)를 무시하고 뷰포트 좌표로 드래그
+                      const rect = boardContainerRef.current!.getBoundingClientRect();
+                      const mouseX = e.clientX - rect.left;
+                      const mouseY = e.clientY - rect.top;
+
+                      handlePointerDownWithDelay(e, () => {
+                        setDraggingEntity({ type: 'block', id: minimapBlock.id });
+                        setDragOffset({
+                          x: mouseX - minimapBlock.x,
+                          y: mouseY - minimapBlock.y,
+                        });
+                      });
+                    }}
+                  >
+                    {/* 헤더 */}
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-300 bg-white rounded-t-lg">
+                      <div className="flex items-center gap-1.5">
+                        <PixelIcon name="minimap" size={16} />
+                        <span className="text-xs font-semibold text-gray-700">Minimap</span>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBlockDelete(minimapBlock.id);
+                        }}
+                        className="text-gray-400 hover:text-gray-600 text-xs"
+                        title="삭제"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    {/* 크기 조정 핸들 */}
+                    <div
+                      className="absolute bottom-0 right-0 w-4 h-4 bg-blue-500 cursor-se-resize opacity-0 hover:opacity-100 transition-opacity rounded-tl-lg"
+                      style={{ zIndex: 1000 }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        const startX = e.clientX;
+                        const startY = e.clientY;
+                        const startWidth = minimapBlock.width || 240;
+                        const startHeight = minimapBlock.height || 180;
+
+                        const handleMove = (moveEvent: PointerEvent) => {
+                          const deltaX = moveEvent.clientX - startX;
+                          const deltaY = moveEvent.clientY - startY;
+                          const newWidth = Math.max(200, Math.min(280, startWidth + deltaX));
+                          const newHeight = Math.max(150, Math.min(200, startHeight + deltaY));
+
+                          setBlocks(prev => {
+                            const updated = [...prev];
+                            const index = updated.findIndex(b => b.id === minimapBlock.id);
+                            if (index !== -1) {
+                              const currentBlock = updated[index];
+                              updated[index] = { ...currentBlock, width: newWidth, height: newHeight };
+                            }
+                            return updated;
+                          });
+                        };
+
+                        const handleUp = () => {
+                          window.removeEventListener('pointermove', handleMove);
+                          window.removeEventListener('pointerup', handleUp);
+
+                          setBlocks(prev => {
+                            const currentBlock = prev.find(b => b.id === minimapBlock.id);
+                            if (currentBlock && (currentBlock.width !== startWidth || currentBlock.height !== startHeight)) {
+                              handleBlockUpdate(minimapBlock.id, {
+                                width: currentBlock.width,
+                                height: currentBlock.height
+                              });
+                            }
+                            return prev;
+                          });
+                        };
+
+                        window.addEventListener('pointermove', handleMove);
+                        window.addEventListener('pointerup', handleUp);
+                      }}
+                    />
+                    {/* 미니맵 캔버스 */}
+                    {boardSize.width > 0 && boardSize.height > 0 && (
+                      <div
+                        className="overflow-hidden rounded-b-lg"
+                        style={{
+                          height: `${(minimapBlock.height || 180) - 40}px`,
+                          width: '100%'
+                        }}
+                      >
+                        <Minimap
+                          positions={minimapPositions}
+                          blocks={blocks.filter(b => b.type !== 'minimap')}
+                          memories={filteredMemories}
+                          projects={localProjects}
+                          connectionPairs={minimapConnectionPairs}
+                          viewportBounds={viewportBounds}
+                          zoom={zoom}
+                          cardColorMap={cardColorMap}
+                          boardSize={boardSize}
+                          containerWidth={minimapBlock.width || 240}
+                          containerHeight={(minimapBlock.height || 180) - 40}
+                          cardSize={cardSize}
+                          blobAreas={blobAreas}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </div>
       </div>
@@ -2634,6 +2796,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       <BoardOverlay
         linkManagerMemory={linkManagerMemory}
         setLinkManagerMemory={setLinkManagerMemory}
+        linkManagerProject={linkManagerProject}
+        setLinkManagerProject={setLinkManagerProject}
         localMemories={localMemories}
         setLocalMemories={setLocalMemories}
         toast={toast}
@@ -2645,9 +2809,10 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         groupModalMemory={groupModalMemory}
         handleCancelGroup={handleCancelGroup}
         handleConfirmGroup={handleConfirmGroup}
-        handleDeleteLink={handleDeleteLink}
-        handleDeleteMemory={handleDeleteMemory}
-        selectedMemoryIds={selectedMemoryIds}
+            handleDeleteLink={handleDeleteLink}
+            handleDeleteMemory={handleDeleteMemory}
+            handleDeleteProject={handleDeleteProject}
+            selectedMemoryIds={selectedMemoryIds}
         setSelectedMemoryIds={setSelectedMemoryIds}
         projectPrompt={projectPrompt}
         setProjectPrompt={setProjectPrompt}
@@ -2658,6 +2823,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         sanitizeHtml={sanitizeHtml}
         stripHtmlClient={stripHtmlClient}
         boardSize={boardSize}
+        personaId={personaId}
       />
 
       <WidgetSynergyToast
@@ -2668,6 +2834,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         memories={localMemories}
         blocks={blocks}
         projects={localProjects}
+        personaId={personaId}
         onSynergyComplete={async () => {
           // 시너지 완료 후 블록 데이터 다시 불러오기
           await fetchBlocks();

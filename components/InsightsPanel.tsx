@@ -123,15 +123,8 @@ export default function InsightsPanel({ personaId, onPersonaChange }: InsightsPa
 
       {/* 콘텐츠 영역 */}
       <div className="space-y-6 p-6">
-        {/* 페르소나 선택 및 새로고침 버튼 */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex-shrink-0">
-            <PersonaSelector
-              selectedPersonaId={personaId}
-              onPersonaChange={onPersonaChange || (() => {})}
-              data-tutorial-target="persona-selector"
-            />
-          </div>
+        {/* 새로고침 버튼 */}
+        <div className="flex items-center justify-end">
           <button
             onClick={fetchInsights}
             className="text-sm text-indigo-500 hover:text-indigo-600 flex items-center gap-1 flex-shrink-0"

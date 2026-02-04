@@ -219,7 +219,13 @@ export class DataLayer {
     const res = await fetch(`/api/projects?id=${id}`, {
       method: 'DELETE',
     });
-    if (!res.ok) throw new Error('Delete project failed');
+    if (!res.ok) {
+      if (res.status === 404) {
+        console.log(`[DataLayer] Project ${id} already deleted on server (404)`);
+        return;
+      }
+      throw new Error('Delete project failed');
+    }
   }
 
   private async syncGoalDeleteToServer(id: string): Promise<void> {
@@ -424,6 +430,11 @@ export class DataLayer {
       method: 'DELETE',
     });
     if (!res.ok) {
+      // 404는 이미 서버에서 삭제된 것이므로 성공으로 간주
+      if (res.status === 404) {
+        console.log(`[Sync] Memory ${id} already deleted on server (404)`);
+        return;
+      }
       console.error(`[Sync] Background delete failed for memory ${id}`);
       throw new Error('Delete failed');
     }
@@ -450,6 +461,11 @@ export class DataLayer {
       method: 'DELETE',
     });
     if (!res.ok) {
+      // 404는 이미 서버에서 삭제된 것이므로 성공으로 간주
+      if (res.status === 404) {
+        console.log(`[Sync] Group ${id} already deleted on server (404)`);
+        return;
+      }
       console.error(`[Sync] Background delete failed for group ${id}`);
       throw new Error('Delete failed');
     }

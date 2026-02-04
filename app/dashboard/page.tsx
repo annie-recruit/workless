@@ -176,27 +176,14 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-indigo-50 flex relative">
-      {/* 토글 버튼 */}
-      <button
-        onClick={() => setShowInsights(!showInsights)}
-        className={`hidden md:block fixed top-1/2 -translate-y-1/2 bg-white border border-gray-200 hover:bg-gray-50 transition-all duration-300 shadow-lg z-50 ${showInsights ? 'right-[360px]' : 'right-0'
-          }`}
-        style={{
-          padding: '12px 6px',
-          borderRadius: showInsights ? '8px 0 0 8px' : '8px'
-        }}
-        title={showInsights ? t('dashboard.insights.hide') : t('dashboard.insights.show')}
-      >
-        <svg
-          className={`w-4 h-4 text-gray-600 transition-transform duration-300 ${showInsights ? 'rotate-0' : 'rotate-180'
-            }`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
+      {/* 페르소나 플로팅 버튼 */}
+      <div className="fixed bottom-6 right-6 z-[100]">
+        <PersonaSelector
+          selectedPersonaId={selectedPersonaId}
+          onPersonaChange={setSelectedPersonaId}
+          isFloating={true}
+        />
+      </div>
 
       {/* 메인 콘텐츠 영역 */}
       <div className="flex-1 overflow-y-auto">
@@ -235,6 +222,14 @@ export default function Home() {
               >
                 <PixelIcon name="list" size={14} />
                 <span className="whitespace-nowrap">{t('dashboard.menu.memories')}</span>
+              </button>
+              <button
+                onClick={() => setShowInsights(!showInsights)}
+                className={`px-2 md:px-4 py-2 transition-colors text-[10px] md:text-sm font-medium flex items-center gap-1 whitespace-nowrap ${showInsights ? 'text-indigo-600 bg-indigo-50 font-bold' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+              >
+                <PixelIcon name="lightbulb" size={14} />
+                <span className="whitespace-nowrap">{t('dashboard.menu.insights')}</span>
               </button>
               <Link
                 href="/settings/local-first"
@@ -305,6 +300,7 @@ export default function Home() {
                 onMemoryDeleted={() => {
                   fetchDashboardData(true);
                 }}
+                onMemoryCreated={handleMemoryCreated}
                 personaId={selectedPersonaId}
               />
             )}

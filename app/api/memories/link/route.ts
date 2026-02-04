@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { memoryDb, memoryLinkDb } from '@/lib/db';
+import { memoryDb, memoryLinkDb, projectDb } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
 
 // POST: 두 기록 간 링크 추가 (양방향)
@@ -29,45 +29,71 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 두 기록 가져오기
-    const memory1 = memoryDb.getById(memoryId1, userId);
-    const memory2 = memoryDb.getById(memoryId2, userId);
+    // 두 기록 가져오기 (메모리 또는 프로젝트)
+    let memory1 = memoryDb.getById(memoryId1, userId) as any;
+    let memory2 = memoryDb.getById(memoryId2, userId) as any;
+
+    const isProject1 = !memory1;
+    if (isProject1) {
+      memory1 = projectDb.getById(memoryId1, userId);
+    }
+
+    const isProject2 = !memory2;
+    if (isProject2) {
+      memory2 = projectDb.getById(memoryId2, userId);
+    }
 
     if (!memory1 || !memory2) {
       return NextResponse.json(
-        { error: '기록을 찾을 수 없습니다.' },
+        { error: '기록 또는 프로젝트를 찾을 수 없습니다.' },
         { status: 404 }
       );
     }
 
     // 양방향 링크 추가
-    const links1 = memory1.relatedMemoryIds || [];
-    const links2 = memory2.relatedMemoryIds || [];
-
-    // 중복 방지
-    if (!links1.includes(memoryId2)) {
-      memoryDb.update(memoryId1, {
-        relatedMemoryIds: [...links1, memoryId2]
-      });
+    if (isProject1) {
+      const sourceIds = memory1.sourceMemoryIds || [];
+      if (!sourceIds.includes(memoryId2)) {
+        projectDb.update(memoryId1, userId, {
+          sourceMemoryIds: [...sourceIds, memoryId2]
+        });
+      }
+    } else {
+      const links = memory1.relatedMemoryIds || [];
+      if (!links.includes(memoryId2)) {
+        memoryDb.update(memoryId1, {
+          relatedMemoryIds: [...links, memoryId2]
+        });
+      }
     }
 
-    if (!links2.includes(memoryId1)) {
-      memoryDb.update(memoryId2, {
-        relatedMemoryIds: [...links2, memoryId1]
-      });
+    if (isProject2) {
+      const sourceIds = memory2.sourceMemoryIds || [];
+      if (!sourceIds.includes(memoryId1)) {
+        projectDb.update(memoryId2, userId, {
+          sourceMemoryIds: [...sourceIds, memoryId1]
+        });
+      }
+    } else {
+      const links = memory2.relatedMemoryIds || [];
+      if (!links.includes(memoryId1)) {
+        memoryDb.update(memoryId2, {
+          relatedMemoryIds: [...links, memoryId1]
+        });
+      }
     }
 
     // 링크 메모 저장 (쌍으로 1개)
     if (typeof note === 'string') {
-      memoryLinkDb.upsert(memoryId1, memoryId2, note.trim(), isAIGenerated === true);
+      memoryLinkDb.upsert(memoryId1, memoryId2, note.trim(), isAIGenerated === true, userId);
     } else {
-      memoryLinkDb.upsert(memoryId1, memoryId2, undefined, isAIGenerated === true);
+      memoryLinkDb.upsert(memoryId1, memoryId2, undefined, isAIGenerated === true, userId);
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: '링크 추가 완료',
-      memory1: memoryDb.getById(memoryId1, userId),
-      memory2: memoryDb.getById(memoryId2, userId)
+      memory1: isProject1 ? projectDb.getById(memoryId1, userId) : memoryDb.getById(memoryId1, userId),
+      memory2: isProject2 ? projectDb.getById(memoryId2, userId) : memoryDb.getById(memoryId2, userId)
     });
   } catch (error) {
     console.error('Failed to link memories:', error);
@@ -100,36 +126,59 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // 두 기록 가져오기
-    const memory1 = memoryDb.getById(memoryId1, userId);
-    const memory2 = memoryDb.getById(memoryId2, userId);
+    // 두 기록 가져오기 (메모리 또는 프로젝트)
+    let memory1 = memoryDb.getById(memoryId1, userId) as any;
+    let memory2 = memoryDb.getById(memoryId2, userId) as any;
+
+    const isProject1 = !memory1;
+    if (isProject1) {
+      memory1 = projectDb.getById(memoryId1, userId);
+    }
+
+    const isProject2 = !memory2;
+    if (isProject2) {
+      memory2 = projectDb.getById(memoryId2, userId);
+    }
 
     if (!memory1 || !memory2) {
       return NextResponse.json(
-        { error: '기록을 찾을 수 없습니다.' },
+        { error: '기록 또는 프로젝트를 찾을 수 없습니다.' },
         { status: 404 }
       );
     }
 
     // 양방향 링크 제거
-    const links1 = memory1.relatedMemoryIds || [];
-    const links2 = memory2.relatedMemoryIds || [];
+    if (isProject1) {
+      const sourceIds = memory1.sourceMemoryIds || [];
+      projectDb.update(memoryId1, userId, {
+        sourceMemoryIds: sourceIds.filter((id: string) => id !== memoryId2)
+      });
+    } else {
+      const links = memory1.relatedMemoryIds || [];
+      memoryDb.update(memoryId1, {
+        relatedMemoryIds: links.filter((id: string) => id !== memoryId2)
+      });
+    }
 
-    memoryDb.update(memoryId1, {
-      relatedMemoryIds: links1.filter(id => id !== memoryId2)
-    });
-
-    memoryDb.update(memoryId2, {
-      relatedMemoryIds: links2.filter(id => id !== memoryId1)
-    });
+    if (isProject2) {
+      const sourceIds = memory2.sourceMemoryIds || [];
+      projectDb.update(memoryId2, userId, {
+        sourceMemoryIds: sourceIds.filter((id: string) => id !== memoryId1)
+      });
+    } else {
+      const links = memory2.relatedMemoryIds || [];
+      memoryDb.update(memoryId2, {
+        relatedMemoryIds: links.filter((id: string) => id !== memoryId1)
+      });
+    }
 
     // 링크 메모 삭제
     memoryLinkDb.delete(memoryId1, memoryId2);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: '링크 삭제 완료',
-      memory1: memoryDb.getById(memoryId1, userId),
-      memory2: memoryDb.getById(memoryId2, userId)
+      memory1: isProject1 ? projectDb.getById(memoryId1, userId) : memoryDb.getById(memoryId1, userId),
+      memory2: isProject2 ? projectDb.getById(memoryId2, userId) : memoryDb.getById(memoryId2, userId)
     });
   } catch (error) {
     console.error('Failed to unlink memories:', error);

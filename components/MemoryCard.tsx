@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useEffect, useRef, useState } from 'react';
-import type { Memory } from '@/types';
+import type { Memory, ActionProject } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ko, enUS } from 'date-fns/locale';
 import { useViewer } from './ViewerContext';
@@ -70,6 +70,8 @@ type MemoryCardProps = {
   onActivityEditStart?: (memoryId: string) => void;
   onActivityEditCommit?: (memoryId: string) => void;
   onActivityEditEnd?: (memoryId: string) => void;
+  projects?: ActionProject[];
+  onProjectClick?: (projectId: string) => void;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -97,6 +99,8 @@ const MemoryCard = memo(
       onActivityEditStart,
       onActivityEditCommit,
       onActivityEditEnd,
+      projects = [],
+      onProjectClick,
     } = props;
     const { t, language } = useLanguage();
     const { viewerExists, openInViewer } = useViewer();
@@ -696,7 +700,6 @@ const MemoryCard = memo(
             {localMemory.attachments.map((attachment) => {
               const isImage = attachment.mimetype.startsWith('image/');
               const isPdf = attachment.mimetype === 'application/pdf';
-              const isAudio = attachment.mimetype.startsWith('audio/');
               const isDocx =
                 attachment.mimetype ===
                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
@@ -765,96 +768,6 @@ const MemoryCard = memo(
                         </a>
                       )}
                     </div>
-                  </div>
-                );
-              } else if (isAudio) {
-                return (
-                  <div key={attachment.id} className="flex flex-col gap-2 p-2 bg-orange-50 rounded-lg border border-orange-200">
-                    <div className="flex items-center gap-1.5">
-                      <PixelIcon name="mic" size={16} className="text-orange-600" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] text-gray-700 truncate">{attachment.filename}</p>
-                        <p className="text-[9px] text-gray-500">{(attachment.size / 1024).toFixed(1)} KB</p>
-                      </div>
-                      <a
-                        href={attachment.filepath}
-                        download={attachment.filename}
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-                        title={t('memory.card.attachment.download')}
-                      >
-                        <PixelIcon name="download" size={12} />
-                      </a>
-                    </div>
-                    <audio controls className="w-full h-8" style={{ maxHeight: '32px' }}>
-                      <source src={attachment.filepath} type={attachment.mimetype} />
-                    </audio>
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        const btn = e.currentTarget;
-                        const originalText = btn.textContent;
-                        btn.disabled = true;
-                        btn.textContent = t('memory.card.audio.transcribing');
-                        
-                        try {
-                          // 파일 다운로드
-                          const response = await fetch(attachment.filepath);
-                          const blob = await response.blob();
-                          const file = new File([blob], attachment.filename, { type: attachment.mimetype });
-                          
-                          // FormData 생성
-                          const formData = new FormData();
-                          formData.append('audio', file);
-                          
-                          // Whisper API 호출
-                          const transcribeResponse = await fetch('/api/transcribe', {
-                            method: 'POST',
-                            body: formData,
-                          });
-                          
-                          if (!transcribeResponse.ok) {
-                            throw new Error('음성 변환 실패');
-                          }
-                          
-                          const result = await transcribeResponse.json();
-                          
-                          // 메모리 내용 업데이트
-                          if (result.summary) {
-                            const newContent = `${localMemory.content}\n\n## 🎤 음성 요약\n\n${result.summary}`;
-                            
-                            // 서버에 업데이트
-                            const updateRes = await fetch(`/api/memories/${localMemory.id}`, {
-                              method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ content: newContent }),
-                            });
-                            
-                            if (updateRes.ok) {
-                              // 로컬 상태 업데이트
-                              setLocalMemory((prev) => ({
-                                ...prev,
-                                content: newContent,
-                              }));
-                              btn.textContent = t('memory.card.audio.completed');
-                              setTimeout(() => {
-                                btn.textContent = originalText || '';
-                              }, 2000);
-                            } else {
-                              throw new Error('메모리 업데이트 실패');
-                            }
-                          }
-                        } catch (error) {
-                          console.error('음성 변환 실패:', error);
-                          alert(t('memory.card.audio.error'));
-                          btn.textContent = originalText || '';
-                          btn.disabled = false;
-                        }
-                      }}
-                      className="px-2 py-1 text-[10px] font-bold text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 rounded transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {t('memory.card.audio.summarize')}
-                    </button>
                   </div>
                 );
               } else {
@@ -948,61 +861,90 @@ const MemoryCard = memo(
                   {t('memory.card.related.add')}
                 </button>
               </div>
-              {localMemory.relatedMemoryIds && localMemory.relatedMemoryIds.length > 0 ? (
-                <div className="flex flex-wrap gap-1">
-                  {localMemory.relatedMemoryIds.slice(0, 3).map((relatedId) => {
-                    const relatedMemory = allMemories.find((m) => m.id === relatedId);
-                    if (!relatedMemory) return null;
-                    const noteKey =
-                      relatedMemory.id < localMemory.id
-                        ? `${relatedMemory.id}:${localMemory.id}`
-                        : `${localMemory.id}:${relatedMemory.id}`;
-                    const note = linkNotes?.[noteKey];
+              {(() => {
+                const relatedMemories = localMemory.relatedMemoryIds || [];
+                const relatedProjects = projects.filter(p => 
+                  p.sourceMemoryIds?.includes(localMemory.id)
+                );
+                const hasRelated = relatedMemories.length > 0 || relatedProjects.length > 0;
 
-                    return (
-                      <div key={relatedId} className="relative group">
+                if (!hasRelated) {
+                  return <p className="text-[10px] text-gray-400">{t('memory.card.related.none')}</p>;
+                }
+
+                return (
+                  <div className="flex flex-wrap gap-1">
+                    {/* 연결된 메모리 카드 */}
+                    {relatedMemories.slice(0, 3).map((relatedId) => {
+                      const relatedMemory = allMemories.find((m) => m.id === relatedId);
+                      if (!relatedMemory) return null;
+                      const noteKey =
+                        relatedMemory.id < localMemory.id
+                          ? `${relatedMemory.id}:${localMemory.id}`
+                          : `${localMemory.id}:${relatedMemory.id}`;
+                      const note = linkNotes?.[noteKey];
+
+                      return (
+                        <div key={relatedId} className="relative group">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onMentionClick) {
+                                onMentionClick(relatedId);
+                              }
+                            }}
+                            className="text-[10px] px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors border border-indigo-200 hover:border-indigo-300 line-clamp-1 max-w-[150px] text-left"
+                            title={relatedMemory.title || stripHtmlClient(relatedMemory.content)}
+                          >
+                            {relatedMemory.title || stripHtmlClient(relatedMemory.content).substring(0, 20)}...
+                          </button>
+                          {note && (
+                            <div className="mt-0.5 text-[9px] text-gray-500 line-clamp-1">{t('common.note')}: {note}</div>
+                          )}
+                          {isEditing && (
+                            <button
+                              onClick={() => {
+                                if (onRequestDeleteLink) {
+                                  onRequestDeleteLink(localMemory.id, relatedId);
+                                }
+                              }}
+                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-red-600 transition-all"
+                              title={t('memory.card.related.unlink')}
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                    
+                    {/* 연결된 액션 플랜 */}
+                    {relatedProjects.slice(0, 2).map((project) => (
+                      <div key={project.id} className="relative group">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            // 연결된 기록 클릭 시 토스트 표시
-                            if (onMentionClick) {
-                              onMentionClick(relatedId);
+                            if (onProjectClick) {
+                              onProjectClick(project.id);
                             }
                           }}
-                          className="text-[10px] px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors border border-indigo-200 hover:border-indigo-300 line-clamp-1 max-w-[150px] text-left"
-                          title={relatedMemory.title || stripHtmlClient(relatedMemory.content)}
+                          className="text-[10px] px-1.5 py-0.5 bg-orange-50 hover:bg-orange-100 text-orange-700 transition-colors border border-orange-200 hover:border-orange-300 line-clamp-1 max-w-[150px] text-left flex items-center gap-1"
+                          title={project.title}
                         >
-                          {relatedMemory.title || stripHtmlClient(relatedMemory.content).substring(0, 20)}...
+                          <PixelIcon name="flag" size={10} />
+                          {project.title.substring(0, 15)}...
                         </button>
-                        {note && (
-                          <div className="mt-0.5 text-[9px] text-gray-500 line-clamp-1">{t('common.note')}: {note}</div>
-                        )}
-                        {/* 링크 삭제 버튼 */}
-                        {isEditing && (
-                          <button
-                            onClick={() => {
-                              if (onRequestDeleteLink) {
-                                onRequestDeleteLink(localMemory.id, relatedId);
-                              }
-                            }}
-                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-red-600 transition-all"
-                            title={t('memory.card.related.unlink')}
-                          >
-                            ×
-                          </button>
-                        )}
                       </div>
-                    );
-                  })}
-                  {localMemory.relatedMemoryIds.length > 3 && (
-                    <span className="text-[10px] text-gray-400 self-center">
-                      {t('memory.card.related.more').replace('{count}', (localMemory.relatedMemoryIds.length - 3).toString())}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <p className="text-[10px] text-gray-400">{t('memory.card.related.none')}</p>
-              )}
+                    ))}
+
+                    {(relatedMemories.length + relatedProjects.length) > 5 && (
+                      <span className="text-[10px] text-gray-400 self-center">
+                        +{relatedMemories.length + relatedProjects.length - 5}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 

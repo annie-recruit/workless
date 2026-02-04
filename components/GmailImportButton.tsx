@@ -17,9 +17,10 @@ interface GmailEmail {
 
 interface GmailImportButtonProps {
     onImportComplete?: (count: number) => void;
+    variant?: 'default' | 'minimal';
 }
 
-export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportComplete }) => {
+export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportComplete, variant = 'default' }) => {
     const { t, language } = useLanguage();
     const [status, setStatus] = useState<'idle' | 'loading' | 'selecting' | 'importing' | 'success' | 'error'>('idle');
     const [emails, setEmails] = useState<GmailEmail[]>([]);
@@ -34,9 +35,9 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
 
             if (response.status === 403 || data.code === 'INSUFFICIENT_SCOPES') {
                 // 권한이 없는 경우 동의 화면을 강제로 띄우기 위해 재로그인 시도
-                signIn('google', { 
-                    callbackUrl: window.location.href, 
-                    prompt: 'consent' 
+                signIn('google', {
+                    callbackUrl: window.location.href,
+                    prompt: 'consent'
                 });
                 return;
             }
@@ -101,32 +102,36 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                 onClick={fetchEmails}
                 disabled={status === 'loading' || status === 'importing' || status === 'selecting'}
                 title={t('memory.view.board.import.gmail')}
-                className={`
-                    px-2 py-1 text-xs rounded border flex items-center gap-1 transition-all duration-200 font-galmuri11
+                className={variant === 'minimal'
+                    ? `w-full flex items-center justify-between p-3 rounded-xl transition-all ${status === 'idle' ? 'bg-gray-50 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600' : 'bg-indigo-50 text-indigo-700'}`
+                    : `px-2 py-1 text-xs rounded border flex items-center gap-1 transition-all duration-200 font-galmuri11
                     ${status === 'idle' ? 'border-gray-200 bg-white/40 backdrop-blur-sm hover:bg-white/60 text-gray-700' : ''}
                     ${(status === 'loading' || status === 'importing' || status === 'selecting') ? 'border-gray-200 bg-gray-50/30 text-gray-400 cursor-not-allowed' : ''}
                     ${status === 'success' ? 'border-green-200 bg-green-50/50 text-green-700' : ''}
-                    ${status === 'error' ? 'border-red-200 bg-red-50/50 text-red-700' : ''}
-                `}
+                    ${status === 'error' ? 'border-red-200 bg-red-50/50 text-red-700' : ''}`
+                }
             >
-                {status === 'loading' || status === 'importing' ? (
-                    <PixelIcon name="refresh" size={16} className="animate-spin" />
-                ) : status === 'success' ? (
-                    <PixelIcon name="success" size={16} />
-                ) : status === 'error' ? (
-                    <PixelIcon name="error" size={16} />
-                ) : (
-                    <PixelIcon name="mail" size={16} />
-                )}
+                <div className="flex items-center gap-3">
+                    {status === 'loading' || status === 'importing' ? (
+                        <PixelIcon name="refresh" size={variant === 'minimal' ? 18 : 16} className="animate-spin" />
+                    ) : status === 'success' ? (
+                        <PixelIcon name="success" size={variant === 'minimal' ? 18 : 16} />
+                    ) : status === 'error' ? (
+                        <PixelIcon name="error" size={variant === 'minimal' ? 18 : 16} />
+                    ) : (
+                        <PixelIcon name="mail" size={variant === 'minimal' ? 18 : 16} />
+                    )}
 
-                <span className="font-medium whitespace-nowrap">
-                    {status === 'loading' ? t('gmail.import.checking') :
-                        status === 'importing' ? t('gmail.import.importing') :
-                            status === 'selecting' ? t('gmail.import.selecting') :
-                                status === 'success' ? (importCount > 0 ? t('memory.view.board.import.gmail.success').replace('{count}', importCount.toString()) : t('gmail.import.noNewMail')) :
-                                    status === 'error' ? t('gmail.import.failed') :
-                                        t('memory.view.board.import.gmail')}
-                </span>
+                    <span className={variant === 'minimal' ? "text-xs font-bold" : "font-medium whitespace-nowrap"}>
+                        {status === 'loading' ? t('gmail.import.checking') :
+                            status === 'importing' ? t('gmail.import.importing') :
+                                status === 'selecting' ? t('gmail.import.selecting') :
+                                    status === 'success' ? (importCount > 0 ? t('memory.view.board.import.gmail.success').replace('{count}', importCount.toString()) : t('gmail.import.noNewMail')) :
+                                        status === 'error' ? t('gmail.import.failed') :
+                                            t('memory.view.board.import.gmail')}
+                    </span>
+                </div>
+                {variant === 'minimal' && <PixelIcon name="arrow" size={14} />}
             </button>
 
             {/* 메일 선택 토스트 UI */}
@@ -145,7 +150,7 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                                     <p className="text-sm font-black text-gray-800 uppercase tracking-tight">{t('gmail.import.title')}</p>
                                     <p className="text-xs text-gray-500">{t('gmail.import.desc')}</p>
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => setStatus('idle')}
                                     className="text-gray-400 hover:text-gray-600 transition-colors"
                                 >
@@ -158,15 +163,15 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                                     <p className="text-center py-8 text-xs text-gray-400">{t('gmail.import.empty')}</p>
                                 ) : (
                                     emails.map((email) => (
-                                        <div 
+                                        <div
                                             key={email.messageId}
                                             onClick={() => toggleSelect(email.messageId)}
                                             className={`
                                                 p-3 border-2 transition-all cursor-pointer relative group
                                                 ${selectedIds.has(email.messageId)
                                                     ? 'border-indigo-500 bg-indigo-50'
-                                                    : email.isImported 
-                                                        ? 'border-gray-200 bg-gray-50/50 opacity-80' 
+                                                    : email.isImported
+                                                        ? 'border-gray-200 bg-gray-50/50 opacity-80'
                                                         : 'border-gray-200 bg-white hover:border-gray-400'
                                                 }
                                             `}
@@ -213,8 +218,8 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                                     disabled={selectedIds.size === 0}
                                     className={`
                                         flex-2 px-6 py-2 text-xs font-bold transition-all shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]
-                                        ${selectedIds.size > 0 
-                                            ? 'bg-indigo-600 text-white hover:bg-indigo-700 active:translate-y-[2px] active:shadow-none' 
+                                        ${selectedIds.size > 0
+                                            ? 'bg-indigo-600 text-white hover:bg-indigo-700 active:translate-y-[2px] active:shadow-none'
                                             : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
                                     `}
                                 >
@@ -234,7 +239,7 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                         <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
-                        
+
                         <div className="flex items-center gap-3">
                             <ProcessingLoader size={20} variant="inline" tone="indigo" />
                             <div>

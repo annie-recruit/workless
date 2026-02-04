@@ -45,8 +45,8 @@ export default function OnboardingMiniBoard({
         if (!initialPositions) {
             const randomize = () => {
                 const margin = 30;
-                const boardW = 800; // 가상 보드 너비
-                const boardH = 600; // 가상 보드 높이
+                const boardW = 650; // 가상 보드 너비 (더 작게 조정)
+                const boardH = 500; // 가상 보드 높이 (더 작게 조정)
 
                 const getRandom = (min: number, max: number) => Math.floor(Math.random() * (max - min) + min);
 
@@ -96,9 +96,9 @@ export default function OnboardingMiniBoard({
                 const height = containerRef.current.offsetHeight;
                 setSize({ width, height });
 
-                // 모바일 대응: 컨테이너 너비가 좁으면 스케일 조정 (기준 너비 800px로 조정)
-                if (width < 800) {
-                    setScale(Math.max(0.4, width / 800));
+                // 모바일 대응: 컨테이너 너비가 좁으면 스케일 조정 (기준 너비 650px로 조정)
+                if (width < 650) {
+                    setScale(Math.max(0.5, width / 650));
                 } else {
                     setScale(1);
                 }

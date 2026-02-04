@@ -154,8 +154,9 @@ const PixelConnectionLayer = forwardRef<PixelConnectionLayerHandle, PixelConnect
             const alpha = isInBlobGroup ? (isLineHovered ? 0.7 : 0.4) : 1.0;
 
             // 최적화: 모바일이거나 드래그 중(isPaused=true)인 경우 계산량 대폭 감소
+            // 드래그 중에도 선이 끊어져 보이지 않도록 최소 density 확보
             const steps = (isPaused || isMobile)
-                ? Math.max(3, Math.floor(len / 32)) 
+                ? Math.max(8, Math.floor(len / 10)) 
                 : Math.max(15, Math.floor(len / 6));
 
             let lx = aFromX;
@@ -165,22 +166,15 @@ const PixelConnectionLayer = forwardRef<PixelConnectionLayerHandle, PixelConnect
                 const currX = (1 - t) * (1 - t) * aFromX + 2 * (1 - t) * t * cx + t * t * aToX;
                 const currY = (1 - t) * (1 - t) * aFromY + 2 * (1 - t) * t * cy + t * t * aToY;
                 
-                if (isPaused || isMobile) {
-                    // 드래그 중이거나 모바일인 경우 선을 아주 단순하게(점) 그림
-                    ctx.globalAlpha = alpha;
-                    ctx.fillStyle = pair.color;
-                    const px = (currX / LINE_PIXEL_SIZE) | 0;
-                    const py = (currY / LINE_PIXEL_SIZE) | 0;
-                    ctx.fillRect(px * LINE_PIXEL_SIZE, py * LINE_PIXEL_SIZE, LINE_PIXEL_SIZE, LINE_PIXEL_SIZE);
-                } else {
-                    drawPixelLine(lx, ly, currX, currY, pair.color, alpha);
-                }
+                // 드래그 중이거나 모바일인 경우에도 drawPixelLine을 사용하여 선이 이어지게 함
+                // 대신 steps를 조절하여 전체 연산량을 제어합니다.
+                drawPixelLine(lx, ly, currX, currY, pair.color, alpha);
                 
                 lx = currX;
                 ly = currY;
             }
 
-            if (!isInBlobGroup && !isPaused && !isMobile) {
+            if (!isInBlobGroup) {
                 const angle = Math.atan2(aToY - cy, aToX - cx);
                 drawArrowhead(aToX, aToY, angle, pair.color, alpha);
             }

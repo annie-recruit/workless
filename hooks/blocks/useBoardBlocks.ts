@@ -101,16 +101,17 @@ export function useBoardBlocks({ boardSize, viewportBounds }: UseBoardBlocksArgs
         if (type === 'minimap') {
           const minimapWidth = 240;
           const minimapHeight = 180;
-          const x = boardSize.width - minimapWidth - 20;
-          const y = 20;
+          // 틀고정(Sticky) 레이어로 이동했으므로 뷰포트 기준 초기 위치 설정 (우측 상단)
+          const initialX = typeof window !== 'undefined' ? window.innerWidth - minimapWidth - 80 : 800;
+          const initialY = 20;
 
           const res = await fetch('/api/board/blocks', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               type: 'minimap',
-              x,
-              y,
+              x: initialX,
+              y: initialY,
               width: minimapWidth,
               height: minimapHeight,
               config: {},

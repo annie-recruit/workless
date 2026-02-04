@@ -107,12 +107,23 @@ export interface Goal {
   completedAt?: number;
 }
 
+// 프로젝트 액션 초안 (Phase 1)
+export type ActionDraftType = 'research' | 'writing';
+
+export interface ActionDraft {
+  type: ActionDraftType;
+  content: string; // Writing: 본문, Research: JSON stringified links
+  links?: { title: string; url: string; domain?: string }[]; // Research용
+  createdAt: number;
+}
+
 // 프로젝트 액션 단위
 export interface ProjectAction {
   id: string;
   text: string;
   duration?: string;      // 예상 소요 시간 (예: "1h", "30m")
   completed: boolean;
+  draft?: ActionDraft;    // 생성된 초안 (옵션)
 }
 
 // 프로젝트 마일스톤 (단계별 묶음)

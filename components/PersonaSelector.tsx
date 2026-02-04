@@ -8,6 +8,7 @@ import { useLanguage } from './LanguageContext';
 interface PersonaSelectorProps {
   selectedPersonaId: string | null;
   onPersonaChange: (personaId: string | null) => void;
+  isFloating?: boolean;
 }
 
 // 이모지 → PixelIcon name 매핑
@@ -36,11 +37,12 @@ function getIconName(icon: string): string | null {
   return EMOJI_TO_ICON[icon] || null;
 }
 
-export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ...props }: PersonaSelectorProps & React.HTMLAttributes<HTMLDivElement>) {
+export default function PersonaSelector({ selectedPersonaId, onPersonaChange, isFloating = false, ...props }: PersonaSelectorProps & React.HTMLAttributes<HTMLDivElement>) {
   const { t } = useLanguage();
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [newPersona, setNewPersona] = useState({ name: '', icon: 'persona_default', description: '', context: '' });
 
   useEffect(() => {
@@ -77,6 +79,37 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
     }
   };
 
+  const generateContext = async () => {
+    if (!newPersona.description) {
+      alert(t('persona.selector.generate.noDesc') || '설명을 먼저 입력해주세요.');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const res = await fetch('/api/personas/generate-context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newPersona.name,
+          description: newPersona.description,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setNewPersona(prev => ({ ...prev, context: data.context }));
+      } else {
+        alert('AI 컨텍스트 생성에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('Failed to generate context:', error);
+      alert('AI 컨텍스트 생성 중 오류가 발생했습니다.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const deletePersona = async (id: string) => {
     if (!confirm(t('persona.selector.delete.confirm'))) return;
 
@@ -100,15 +133,20 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
       {/* 선택된 페르소나 또는 기본 아이콘 */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+        className={`flex items-center gap-2 transition-all ${
+          isFloating 
+            ? 'w-14 h-14 rounded-full bg-white border-4 border-gray-900 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-0.5 hover:translate-y-0.5 justify-center'
+            : 'px-3 py-2 rounded-lg hover:bg-gray-100'
+        }`}
         title={selectedPersona ? `${selectedPersona.name}` : t('persona.selector.title')}
         data-tutorial-target="persona-selector"
       >
-        {/* 페르소나 왼쪽 아이콘을 "기본 모드"와 동일하게 통일 */}
-        <PixelIcon name="persona_default" size={24} className="flex-shrink-0" />
-        <span className="text-sm font-medium text-gray-700">
-          {selectedPersona?.name || t('persona.selector.default')}
-        </span>
+        <PixelIcon name={selectedPersona?.icon || 'persona_default'} size={isFloating ? 28 : 24} className="flex-shrink-0" />
+        {!isFloating && (
+          <span className="text-sm font-medium text-gray-700">
+            {selectedPersona?.name || t('persona.selector.default')}
+          </span>
+        )}
       </button>
 
       {/* 드롭다운 메뉴 */}
@@ -116,16 +154,26 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
         <>
           {/* 배경 오버레이 */}
           <div
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 z-[105]"
             onClick={() => setIsOpen(false)}
           />
 
           {/* 드롭다운 */}
-          <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-[500px] overflow-y-auto">
+          <div className={`absolute z-[110] bg-white border-4 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)] w-80 max-h-[300px] overflow-y-auto ${
+            isFloating ? 'bottom-full right-0 mb-4' : 'top-full left-0 mt-2'
+          }`}>
             {/* 헤더 */}
-            <div className="p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">{t('persona.selector.title')}</h3>
-              <p className="text-xs text-gray-500 mt-1">{t('persona.selector.desc')}</p>
+            <div className="p-4 border-b-2 border-gray-900 flex items-center justify-between bg-gray-50">
+              <div>
+                <h3 className="text-sm font-black text-gray-900 uppercase tracking-tight flex items-center gap-1.5">
+                  <PixelIcon name="users" size={18} />
+                  {t('persona.selector.title')}
+                </h3>
+                <p className="text-[10px] font-bold text-gray-500 mt-1 uppercase tracking-wider">{t('persona.selector.desc')}</p>
+              </div>
+              <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-gray-900">
+                <PixelIcon name="close" size={18} />
+              </button>
             </div>
 
             {/* 기본 모드 (페르소나 없음) */}
@@ -138,9 +186,10 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                 !selectedPersonaId ? 'bg-blue-50' : ''
               }`}
             >
+              {/* 페르소나 아이콘 표시 */}
               <PixelIcon name="persona_default" size={24} className="flex-shrink-0" />
               <div className="flex-1">
-                <div className="font-medium text-gray-800">{t('persona.selector.default')}</div>
+                <div className="text-sm font-medium text-gray-800">{t('persona.selector.default')}</div>
                 <div className="text-xs text-gray-500">{t('persona.selector.default.desc')}</div>
               </div>
               {!selectedPersonaId && (
@@ -163,10 +212,10 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                   }}
                   className="flex-1 text-left flex items-center gap-3"
                 >
-                  {/* 페르소나 왼쪽 아이콘을 "기본 모드"와 동일하게 통일 */}
-                  <PixelIcon name="persona_default" size={24} className="flex-shrink-0" />
+                  {/* 페르소나 아이콘 표시 */}
+                  <PixelIcon name={persona.icon || "persona_default"} size={24} className="flex-shrink-0" />
                   <div className="flex-1">
-                    <div className="font-medium text-gray-800">{persona.name}</div>
+                    <div className="text-sm font-medium text-gray-800">{persona.name}</div>
                     {persona.description && (
                       <div className="text-xs text-gray-500">{persona.description}</div>
                     )}
@@ -224,7 +273,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                         type="text"
                         value={newPersona.icon}
                         onChange={(e) => setNewPersona({ ...newPersona, icon: e.target.value })}
-                        className="w-20 text-center p-2 border border-gray-200 rounded-lg text-xs"
+                        className="w-20 text-center p-2 border border-gray-200 rounded-lg text-xs text-gray-900 placeholder-gray-400"
                         placeholder="icon name"
                         maxLength={50}
                       />
@@ -239,7 +288,7 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                       value={newPersona.name}
                       onChange={(e) => setNewPersona({ ...newPersona, name: e.target.value })}
                       placeholder={t('persona.selector.modal.name.placeholder')}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 placeholder-gray-400"
                     />
                   </div>
 
@@ -251,18 +300,32 @@ export default function PersonaSelector({ selectedPersonaId, onPersonaChange, ..
                       value={newPersona.description}
                       onChange={(e) => setNewPersona({ ...newPersona, description: e.target.value })}
                       placeholder={t('persona.selector.modal.desc.placeholder')}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 placeholder-gray-400"
                     />
                   </div>
 
                   {/* AI 컨텍스트 */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">{t('persona.selector.modal.context')}</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-medium text-gray-700">{t('persona.selector.modal.context')}</label>
+                      <button
+                        onClick={generateContext}
+                        disabled={isGenerating || !newPersona.description}
+                        className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 disabled:text-gray-400 flex items-center gap-1"
+                      >
+                        {isGenerating ? (
+                          <span className="animate-spin">⌛</span>
+                        ) : (
+                          <PixelIcon name="sparkles" size={10} />
+                        )}
+                        {isGenerating ? '생성 중...' : 'AI 생성'}
+                      </button>
+                    </div>
                     <textarea
                       value={newPersona.context}
                       onChange={(e) => setNewPersona({ ...newPersona, context: e.target.value })}
                       placeholder={t('persona.selector.modal.context.placeholder')}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm resize-none text-gray-900 placeholder-gray-400"
                       rows={3}
                     />
                   </div>

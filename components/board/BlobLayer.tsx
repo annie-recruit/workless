@@ -18,6 +18,7 @@ interface BlobLayerProps {
     isPaused?: boolean;
     isEnabled?: boolean;
     isHighlightMode?: boolean;
+    boardSize?: { width: number; height: number };
 }
 
 export default function BlobLayer({
@@ -27,6 +28,7 @@ export default function BlobLayer({
     isPaused = false,
     isEnabled = true,
     isHighlightMode = false,
+    boardSize,
 }: BlobLayerProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const requestRef = useRef<number | undefined>(undefined);
@@ -46,10 +48,15 @@ export default function BlobLayer({
         }
 
         // 부모 컨테이너(보드) 크기에 맞춤
-        const parent = canvas.parentElement;
-        if (parent) {
-            canvas.width = parent.clientWidth;
-            canvas.height = parent.clientHeight;
+        if (boardSize) {
+            canvas.width = boardSize.width;
+            canvas.height = boardSize.height;
+        } else {
+            const parent = canvas.parentElement;
+            if (parent) {
+                canvas.width = parent.clientWidth;
+                canvas.height = parent.clientHeight;
+            }
         }
 
         if (isPaused) {
@@ -160,7 +167,7 @@ export default function BlobLayer({
         return () => {
             if (requestRef.current) cancelAnimationFrame(requestRef.current);
         };
-    }, [blobAreas, hoveredBlobId, hoveredMemoryId, isPaused, isEnabled, isHighlightMode]);
+    }, [blobAreas, hoveredBlobId, hoveredMemoryId, isPaused, isEnabled, isHighlightMode, boardSize]);
 
     return (
         <canvas

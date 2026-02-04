@@ -12,13 +12,25 @@ const openai = new OpenAI({
 
 // 파일 실제 경로 구성 (Railway 볼륨 또는 로컬 public)
 function getActualFilePath(filepath: string): string {
-  // Railway 환경: /data/uploads/... → /app/data/uploads/...
-  if (filepath.startsWith('/data/uploads/')) {
-    const filename = filepath.replace('/data/uploads/', '');
-    return join(process.env.RAILWAY_VOLUME_MOUNT_PATH || '/app/data', 'uploads', filename);
+  // Railway 환경 체크
+  const isRailway = !!process.env.RAILWAY_VOLUME_MOUNT_PATH;
+  
+  if (isRailway) {
+    // Railway 환경: /data/uploads/... → {RAILWAY_VOLUME_MOUNT_PATH}/uploads/...
+    if (filepath.startsWith('/data/uploads/')) {
+      const filename = filepath.replace('/data/uploads/', '');
+      return join(process.env.RAILWAY_VOLUME_MOUNT_PATH!, 'uploads', filename);
+    }
+  } else {
+    // 로컬 환경
+    if (filepath.startsWith('/data/uploads/')) {
+      // 혹시 /data/uploads로 저장된 경우 (이전 버전 데이터)
+      const filename = filepath.replace('/data/uploads/', '');
+      return join(process.cwd(), 'public', 'uploads', filename);
+    }
   }
 
-  // 로컬 환경: /uploads/... → /app/public/uploads/...
+  // 일반 경로: /uploads/... → public/uploads/...
   const relativePath = filepath.replace(/^\//, '');
   return join(process.cwd(), 'public', relativePath);
 }

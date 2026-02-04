@@ -31,15 +31,14 @@ export default function GroupMenuBar({
   };
 
   return (
-    <div className="shrink-0 sticky top-[41px] z-20 flex items-center gap-2 px-3 py-2 text-xs text-gray-500 bg-gray-50/30 backdrop-blur-xl border-b border-gray-200/30 shadow-none overflow-x-auto no-scrollbar flex-nowrap">
+    <div className="shrink-0 sticky top-0 z-20 flex items-center gap-2 px-3 py-2 text-xs text-gray-500 bg-gray-50/30 backdrop-blur-xl border-b border-gray-200/30 shadow-none overflow-x-auto no-scrollbar flex-nowrap">
       {/* 전체 버튼 */}
       <button
         onClick={() => onSelectGroup(null)}
-        className={`px-3 py-1 text-xs rounded border flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
-          selectedGroupId === null
+        className={`px-3 py-1 text-xs rounded border flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${selectedGroupId === null
             ? 'bg-gray-900 text-white border-transparent'
             : 'bg-white/40 text-gray-700 border-white/30 hover:bg-white/60 backdrop-blur-sm'
-        }`}
+          }`}
       >
         <div className="relative flex items-center">
           <PixelIcon
@@ -47,9 +46,8 @@ export default function GroupMenuBar({
             size={16}
             style={{ color: selectedGroupId === null ? '#FFFFFF' : '#6B7280' }}
           />
-          <span className={`ml-1 px-1 rounded-full text-[9px] font-bold ${
-            selectedGroupId === null ? 'bg-white text-gray-900' : 'bg-gray-100 text-gray-500'
-          }`}>
+          <span className={`ml-1 px-1 rounded-full text-[9px] font-bold ${selectedGroupId === null ? 'bg-white text-gray-900' : 'bg-gray-100 text-gray-500'
+            }`}>
             {totalMemoriesCount}
           </span>
         </div>
@@ -71,13 +69,12 @@ export default function GroupMenuBar({
             onDragOver={(e) => onDragOver(e, group.id)}
             onDragLeave={onDragLeave}
             onDrop={(e) => onDrop(e, group.id)}
-            className={`px-3 py-1 text-xs rounded border flex items-center gap-1.5 transition-all whitespace-nowrap relative shrink-0 ${
-              isSelected
+            className={`px-3 py-1 text-xs rounded border flex items-center gap-1.5 transition-all whitespace-nowrap relative shrink-0 ${isSelected
                 ? 'bg-gray-900 text-white border-transparent'
                 : isDropTarget
-                ? 'bg-indigo-50 border-indigo-300 text-indigo-700 scale-105'
-                : 'bg-white/40 text-gray-700 border-white/30 hover:bg-white/60 backdrop-blur-sm'
-            }`}
+                  ? 'bg-indigo-50 border-indigo-300 text-indigo-700 scale-105'
+                  : 'bg-white/40 text-gray-700 border-white/30 hover:bg-white/60 backdrop-blur-sm'
+              }`}
           >
             <div className="relative flex items-center">
               <PixelIcon
@@ -85,16 +82,15 @@ export default function GroupMenuBar({
                 size={16}
                 style={{ color: isSelected ? '#FFFFFF' : folderColor }}
               />
-              <span className={`ml-1 px-1 rounded-full text-[9px] font-bold ${
-                isSelected ? 'bg-white text-gray-900' : 'bg-gray-100 text-gray-500'
-              }`}>
+              <span className={`ml-1 px-1 rounded-full text-[9px] font-bold ${isSelected ? 'bg-white text-gray-900' : 'bg-gray-100 text-gray-500'
+                }`}>
                 {group.memoryIds.length}
               </span>
             </div>
             <span className="font-medium max-w-[120px] truncate">
               {group.name}
             </span>
-            
+
             {isDropTarget && (
               <div className="absolute -top-1 -right-1">
                 <PixelIcon name="download" size={12} className="text-indigo-500" />

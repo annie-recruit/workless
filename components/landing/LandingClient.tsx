@@ -84,12 +84,12 @@ export default function LandingClient() {
                                 <OnboardingMiniBoard
                                     showLines={false}
                                     initialPositions={{
-                                        card1: { x: 30, y: 30 },
-                                        card2: { x: 250, y: 30 },
-                                        action: { x: 30, y: 330 },
-                                        card3: { x: 250, y: 380 },
-                                        viewer: { x: 700, y: 80 },
-                                        calendar: { x: 750, y: 300 },
+                                        card1: { x: 20, y: 20 },
+                                        card2: { x: 200, y: 20 },
+                                        action: { x: 20, y: 250 },
+                                        card3: { x: 200, y: 290 },
+                                        viewer: { x: 420, y: 60 },
+                                        calendar: { x: 450, y: 240 },
                                     }}
                                 />
                             </div>

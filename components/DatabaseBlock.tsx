@@ -43,9 +43,22 @@ export default function DatabaseBlock({
   const [isEditingName, setIsEditingName] = useState(false);
   const [databaseName, setDatabaseName] = useState(config.name || '데이터베이스');
   const [properties, setProperties] = useState<DatabaseProperty[]>(
-    config.properties.length > 0 ? config.properties : DEFAULT_PROPERTIES
+    config.properties && config.properties.length > 0 ? config.properties : DEFAULT_PROPERTIES
   );
   const [rows, setRows] = useState<DatabaseRow[]>(config.rows || []);
+
+  // 외부(시너지 등)에서 데이터가 업데이트되었을 때 로컬 상태 동기화
+  useEffect(() => {
+    if (config.properties && config.properties.length > 0) {
+      setProperties(config.properties);
+    }
+    if (config.rows) {
+      setRows(config.rows);
+    }
+    if (config.name) {
+      setDatabaseName(config.name);
+    }
+  }, [config.rows, config.properties, config.name]);
   const [editingCell, setEditingCell] = useState<{ rowId: string; propertyId: string } | null>(null);
   const [editingValue, setEditingValue] = useState('');
   const [sortBy, setSortBy] = useState<string | undefined>(config.sortBy);
@@ -59,6 +72,7 @@ export default function DatabaseBlock({
   useEffect(() => {
     onUpdate(blockId, {
       config: {
+        ...config, // 기존 config 유지 (linkedMemoryIds 등)
         name: databaseName,
         properties,
         rows,
@@ -66,7 +80,7 @@ export default function DatabaseBlock({
         sortOrder,
       },
     });
-  }, [blockId, databaseName, properties, rows, sortBy, sortOrder, onUpdate]);
+  }, [blockId, databaseName, properties, rows, sortBy, sortOrder, onUpdate]); // config 제외하여 무한 루프 방지
 
   // 정렬된 행
   const sortedRows = [...rows].sort((a, b) => {

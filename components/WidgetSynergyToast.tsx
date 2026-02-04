@@ -14,6 +14,7 @@ interface WidgetSynergyToastProps {
   blocks: CanvasBlock[];
   projects: ActionProject[];
   onSynergyComplete?: () => void;
+  personaId?: string | null;
 }
 
 type SynergyType =
@@ -40,6 +41,7 @@ export default function WidgetSynergyToast({
   blocks,
   projects,
   onSynergyComplete,
+  personaId,
 }: WidgetSynergyToastProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedSynergy, setSelectedSynergy] = useState<SynergyType | null>(null);
@@ -58,12 +60,19 @@ export default function WidgetSynergyToast({
   const meetingRecorderBlock = selectedBlocks.find(b => b.type === 'meeting-recorder');
   const calendarBlock = selectedBlocks.find(b => b.type === 'calendar');
   if (meetingRecorderBlock && calendarBlock) {
-    availableSynergies.push({
-      type: 'meeting-recorder-calendar',
-      label: '미팅녹음 → 캘린더',
-      description: '회의록을 분석하여 캘린더에 투두 생성',
-      icon: 'calendar',
-    });
+    // 미팅녹음 위젯에 실제 녹음 내용이 있는지 확인
+    const meetingConfig = meetingRecorderBlock.config as MeetingRecorderBlockConfig;
+    const hasContent = (meetingConfig.script && meetingConfig.script.trim()) || 
+                      (meetingConfig.summary && meetingConfig.summary.trim());
+    
+    if (hasContent) {
+      availableSynergies.push({
+        type: 'meeting-recorder-calendar',
+        label: '미팅녹음 → 캘린더',
+        description: '회의록을 분석하여 캘린더에 투두 생성',
+        icon: 'calendar',
+      });
+    }
   }
 
   // 2. 데이터베이스 - 카드
@@ -99,12 +108,19 @@ export default function WidgetSynergyToast({
 
   // 5. 미팅녹음 - 액션플랜
   if (meetingRecorderBlock && selectedProjects.length > 0) {
-    availableSynergies.push({
-      type: 'meeting-recorder-action-plan',
-      label: '미팅녹음 → 액션플랜',
-      description: '회의록을 AI가 액션플랜으로 생성',
-      icon: 'success',
-    });
+    // 미팅녹음 위젯에 실제 녹음 내용이 있는지 확인
+    const meetingConfig = meetingRecorderBlock.config as MeetingRecorderBlockConfig;
+    const hasContent = (meetingConfig.script && meetingConfig.script.trim()) || 
+                      (meetingConfig.summary && meetingConfig.summary.trim());
+    
+    if (hasContent) {
+      availableSynergies.push({
+        type: 'meeting-recorder-action-plan',
+        label: '미팅녹음 → 액션플랜',
+        description: '회의록을 AI가 액션플랜으로 생성',
+        icon: 'success',
+      });
+    }
   }
 
   // 6. 액션플랜 - 데이터베이스
@@ -130,6 +146,7 @@ export default function WidgetSynergyToast({
           memoryIds: Array.from(selectedMemoryIds),
           blockIds: Array.from(selectedBlockIds),
           projectIds: selectedProjects.map(p => p.id),
+          personaId,
         }),
       });
 
