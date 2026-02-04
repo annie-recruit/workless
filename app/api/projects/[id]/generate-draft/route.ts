@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { memoryDb, projectDb, personaDb } from '@/lib/db';
+import { memoryDb, projectDb } from '@/lib/db';
 import { getUserId } from '@/lib/auth';
 import { summarizeAttachments } from '@/lib/ai';
 import OpenAI from 'openai';
@@ -19,21 +19,10 @@ export async function POST(
         }
 
         const { id: projectId } = await params;
-        const { milestoneId, actionId, actionText, personaId } = await req.json();
+        const { milestoneId, actionId, actionText } = await req.json();
 
         if (!projectId || !milestoneId || !actionId || !actionText) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-        }
-
-        // 페르소나 정보 가져오기
-        let personaContext = '';
-        let personaName = '';
-        if (personaId) {
-            const persona = personaDb.getById(personaId, userId);
-            if (persona) {
-                personaName = persona.name;
-                personaContext = persona.context || persona.description || '';
-            }
         }
 
         // 1. 프로젝트 조회
@@ -51,7 +40,7 @@ export async function POST(
             const attachmentSummary = await summarizeAttachments(m.attachments || [], m.content);
             let fullText = m.content || '';
             if (attachmentSummary) {
-                fullText += `\n\n[첨부파일/링크 중요 내용]\n${attachmentSummary}`;
+                fullText += `\n\n[첨부파일/링크 내용]\n${attachmentSummary}`;
             }
             return `- ${m.title ? `[${m.title}] ` : ''}${fullText}`;
         }));
@@ -59,19 +48,21 @@ export async function POST(
 
         // 4. AI에게 초안 생성을 위한 프롬프트 작성
         const prompt = `
-${personaContext ? `🎯 현재 당신의 페르소나: "${personaName}" (${personaContext})\n이 페르소나의 전문 지식과 관점을 반영하여 초안을 작성해주세요.\n\n` : ''}당신은 프로젝트 실행을 돕는 유능한 비서이자 ${personaName || '전문가'}입니다. 사용자가 계획한 특정 실행 항목(Action)에 대해, 아래 제공된 [사용자의 기록]을 **철저히 분석**하여 초안을 작성해주세요.
+당신은 프로젝트 실행을 돕는 유능한 비서입니다. 사용자가 계획한 특정 실행 항목(Action)에 대해, 아래 제공된 [사용자의 기록]을 **반드시** 참고하여 초안을 작성해주세요.
 
-⚠️ **매우 중요한 지침 (MUST FOLLOW):**
-1. **첨부파일의 구체적 내용을 직접 녹여내세요**: [참고할 사용자의 관련 기록] 내의 [첨부파일/링크 중요 내용]에 담긴 프로젝트 상세 설명, 기술 명칭, 실질적 성과 수치 등을 **반드시** 초안 내용에 포함하세요.
-2. **절대로 일반적인 예시를 사용하지 마세요**: 가상의 마케팅 사례나 뜬구름 잡는 소리 대신, 오직 아래 제공된 **실제 데이터와 경험**만을 사용하세요. 
-3. **페르소나의 전문성 발휘**: ${personaName ? `"${personaName}" 전문가의 시각에서` : '전문가의 시각에서'} 이 경험을 어떻게 정리하고 강조해야 실무에서 인정받을 수 있을지 전략적으로 작성하세요.
+⚠️ **중요 지침:**
+1. **절대로 일반적인 예시(예: 마케팅, 일반 사무 등)를 사용하지 마세요.** 
+2. 오직 아래 제공된 [참고할 사용자의 관련 기록]에 명시된 구체적인 경험, 기술, 프로젝트 내용만을 사용하여 초안을 작성하세요.
+3. 만약 기록에 "채용담당자" 또는 "인사" 관련 내용이 있다면, 채용 프로세스, 인사 운영, 후보자 관리 등 실제 기록에 기반한 용어와 성과를 사용하세요.
+4. 기록이 부족하더라도 뜬구름 잡는 소리 대신, 기록에 나온 키워드를 확장하는 수준에서만 작성하세요.
+5. **PDF나 이미지 등 첨부파일에서 추출된 내용이 있다면 그 내용을 최우선으로 반영하세요.**
 
 [프로젝트 정보]
 - 프로젝트명: "${project.title}"
 - 요약: ${project.summary || '없음'}
 
 [참고할 사용자의 관련 기록]
-${context || '관련 기록이 없습니다.'}
+${context || '관련 기록이 없습니다. (주의: 기록이 없는 경우 매우 간결하게 작성할 것)'}
 
 [작성할 실행 항목(Action)]
 "${actionText}"
@@ -79,12 +70,12 @@ ${context || '관련 기록이 없습니다.'}
 [작성 형식 가이드]
 - 초안은 마크다운(Markdown) 형식을 사용하세요.
 - 각 경험은 STAR(Situation, Task, Action, Result) 방식을 사용하되, 기록에 수치가 있다면 반드시 포함하세요.
-- 단순히 "정리하기" 수준이 아니라, 실제 제출 가능한 수준의 구체적인 텍스트 초안을 제안하세요.
+- "이미 했던 것 중 무엇을 강조해야 하는지" 혹은 "기록 기반으로 어떻게 구체화할지"에 집중하세요.
 
 결과는 JSON 형식으로 반환해주세요:
 {
   "type": "writing",
-  "content": "마크다운 형식의 구체적인 초안 내용..."
+  "content": "마크다운 형식의 초안 내용..."
 }
 `;
 

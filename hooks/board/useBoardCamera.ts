@@ -25,13 +25,7 @@ export function useBoardCamera({ storageKey, initialBoardSize = { width: 1600, h
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const zoomRef = useRef(1);
-  const boardSizeRef = useRef<BoardSize>(initialBoardSize);
   const cameraAnimationFrameRef = useRef<number | null>(null);
-
-  // Sync ref with state
-  useEffect(() => {
-    boardSizeRef.current = boardSize;
-  }, [boardSize]);
 
   const clampZoom = useCallback((value: number) => Math.min(Math.max(value, 0.5), 1.6), []);
 
@@ -51,14 +45,7 @@ export function useBoardCamera({ storageKey, initialBoardSize = { width: 1600, h
   const viewportBounds: ViewportBounds = useMemo(() => {
     const scrollLeft = -pan.x;
     const scrollTop = -pan.y;
-    let { width: containerWidth, height: containerHeight } = containerSize;
-
-    // 실제 화면 영역을 초과하지 않도록 제한
-    if (boardContainerRef.current) {
-      const rect = boardContainerRef.current.getBoundingClientRect();
-      containerWidth = Math.min(containerWidth, rect.width);
-      containerHeight = Math.min(containerHeight, rect.height);
-    }
+    const { width: containerWidth, height: containerHeight } = containerSize;
 
     const left = scrollLeft / zoom;
     const top = scrollTop / zoom;
@@ -203,27 +190,6 @@ export function useBoardCamera({ storageKey, initialBoardSize = { width: 1600, h
       if (rafId === null) {
         rafId = requestAnimationFrame(() => {
           updatePan();
-
-          // 무한 캔버스 확장 로직: 오른쪽이나 아래쪽 끝에 도달하면 보드 크기 확장
-          const threshold = 300; // 끝에서 300px 이내로 접근하면 확장
-          const { scrollLeft, scrollTop, clientWidth, clientHeight } = container;
-          
-          // 현재 줌과 보드 크기가 반영된 실제 영역 계산 (Ref 사용으로 성능 최적화)
-          const currentZoom = zoomRef.current;
-          const currentBoardSize = boardSizeRef.current;
-          const scaledWidth = currentBoardSize.width * currentZoom;
-          const scaledHeight = currentBoardSize.height * currentZoom;
-
-          const nearRightEdge = scrollLeft + clientWidth >= scaledWidth - threshold;
-          const nearBottomEdge = scrollTop + clientHeight >= scaledHeight - threshold;
-
-          if (nearRightEdge || nearBottomEdge) {
-            setBoardSize(prev => ({
-              width: nearRightEdge ? prev.width + 1000 : prev.width,
-              height: nearBottomEdge ? prev.height + 1000 : prev.height,
-            }));
-          }
-
           rafId = null;
         });
       }

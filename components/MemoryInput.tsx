@@ -4,14 +4,12 @@ import { useState, useRef, useEffect } from 'react';
 import { Memory } from '@/types';
 import PixelIcon from './PixelIcon';
 import ProcessingLoader from './ProcessingLoader';
-import { useLanguage } from './LanguageContext';
 
 interface MemoryInputProps {
   onMemoryCreated: (memory?: Memory) => void;
 }
 
 export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
-  const { t } = useLanguage();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -25,7 +23,7 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
   const [isEditorFocused, setIsEditorFocused] = useState(false);
   const [isMentionPanelOpen, setIsMentionPanelOpen] = useState(false);
   const [mentionSearch, setMentionSearch] = useState('');
-  const [editorHeight, setEditorHeight] = useState(80);
+  const [editorHeight, setEditorHeight] = useState(120);
   const [isResizing, setIsResizing] = useState(false);
   const [connectionSuggestions, setConnectionSuggestions] = useState<Array<{ id: string; content: string; reason: string }>>([]);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<Set<string>>(new Set());
@@ -110,37 +108,25 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
   useEffect(() => {
     if (!isResizing) return;
 
-    const handleMove = (clientY: number) => {
+    const handleMouseMove = (e: MouseEvent) => {
       if (!containerRef.current) return;
-      // 하단 고정이므로 창의 bottom에서 마우스의 y좌표를 뺀 것이 새로운 높이가 됨
       const rect = containerRef.current.getBoundingClientRect();
-      const newHeight = rect.bottom - clientY;
-      
-      // 최소 100px, 최대 500px 제한 (모바일 대응)
-      if (newHeight >= 100 && newHeight <= 500) {
+      const newHeight = e.clientY - rect.top;
+      if (newHeight >= 100 && newHeight <= 600) {
         setEditorHeight(newHeight);
       }
     };
 
-    const handleMouseMove = (e: MouseEvent) => handleMove(e.clientY);
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches[0]) handleMove(e.touches[0].clientY);
-    };
-
-    const handleEnd = () => {
+    const handleMouseUp = () => {
       setIsResizing(false);
     };
 
     window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleEnd);
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('touchend', handleEnd);
+    window.addEventListener('mouseup', handleMouseUp);
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleEnd);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleEnd);
+      window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isResizing]);
 
@@ -241,7 +227,7 @@ ${summary}`;
       };
     } catch (error) {
       console.error('녹음 시작 실패:', error);
-      alert(t('memory.input.voice.error'));
+      alert('마이크 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해주세요.');
     }
   };
 
@@ -262,17 +248,17 @@ ${summary}`;
         if (data.script && data.summary) {
           handleTranscriptionComplete(data.script, data.summary);
         } else {
-          alert(t('memory.input.voice.failed'));
+          alert('음성을 텍스트로 변환하지 못했습니다.');
           setIsProcessing(false);
         }
       } else {
         const error = await res.json();
-        alert(error.error || t('memory.input.voice.failed'));
+        alert(error.error || '음성 변환 실패');
         setIsProcessing(false);
       }
     } catch (error) {
       console.error('음성 변환 실패:', error);
-      alert(t('memory.input.voice.failed'));
+      alert('음성 변환 중 오류가 발생했습니다.');
       setIsProcessing(false);
     }
   };
@@ -476,7 +462,7 @@ ${summary}`;
           setShowConnectionModal(true);
         } else {
           // 성공 토스트 표시
-          setToast({ type: 'success', message: t('memory.input.toast.saved') });
+          setToast({ type: 'success', message: '기억이 저장되었습니다!' });
           onMemoryCreated(data.memory);
           // 2초 후 토스트 닫기
           setTimeout(() => {
@@ -486,7 +472,7 @@ ${summary}`;
       }
     } catch (error) {
       console.error('Failed to save memory:', error);
-      alert(t('memory.input.toast.saveFailed'));
+      alert('기억 저장에 실패했습니다');
     } finally {
       setLoading(false);
     }
@@ -506,28 +492,28 @@ ${summary}`;
         <div className="space-y-3">
           <h3 className="flex items-center gap-2 text-gray-800 font-bold uppercase tracking-tight text-xs mb-1">
             <PixelIcon name="widgets" size={16} />
-            {t('memory.input.guide.widgets')}
+            위젯 가이드
           </h3>
           <div className="space-y-1.5 pl-1 text-[11px] text-gray-500">
             <div className="flex items-center gap-2">
               <PixelIcon name="calendar" size={12} className="flex-shrink-0" />
-              <span>{t('memory.input.guide.widgets.calendar')}</span>
+              <span><strong>캘린더:</strong> 날짜 기반 일정 관리</span>
             </div>
             <div className="flex items-center gap-2">
               <PixelIcon name="map" size={12} className="flex-shrink-0" />
-              <span>{t('memory.input.guide.widgets.minimap')}</span>
+              <span><strong>미니맵:</strong> 보드 전체 뷰</span>
             </div>
             <div className="flex items-center gap-2">
               <PixelIcon name="file" size={12} className="flex-shrink-0" />
-              <span>{t('memory.input.guide.widgets.viewer')}</span>
+              <span><strong>뷰어:</strong> PDF/이미지 표시</span>
             </div>
             <div className="flex items-center gap-2">
               <PixelIcon name="database" size={12} className="flex-shrink-0" />
-              <span>{t('memory.input.guide.widgets.db')}</span>
+              <span><strong>데이터베이스:</strong> 테이블 뷰</span>
             </div>
             <div className="flex items-center gap-2">
               <PixelIcon name="microphone" size={12} className="flex-shrink-0" />
-              <span>{t('memory.input.guide.widgets.recorder')}</span>
+              <span><strong>회의록:</strong> 실시간 녹음</span>
             </div>
           </div>
         </div>
@@ -536,20 +522,20 @@ ${summary}`;
         <div className="space-y-3">
           <h3 className="flex items-center gap-2 text-gray-800 font-bold uppercase tracking-tight text-xs mb-1">
             <PixelIcon name="card" size={16} />
-            {t('memory.input.guide.cards')}
+            카드 가이드
           </h3>
           <div className="space-y-1.5 pl-1 text-[11px] text-gray-500">
             <div className="flex items-center gap-2">
               <PixelIcon name="link" size={12} className="flex-shrink-0" />
-              <span>{t('memory.input.guide.cards.link')}</span>
+              <span>카드 연결로 관계 시각화</span>
             </div>
             <div className="flex items-center gap-2">
               <PixelIcon name="flag" size={12} className="flex-shrink-0" />
-              <span>{t('memory.input.guide.cards.flag')}</span>
+              <span>깃발로 북마크 저장</span>
             </div>
             <div className="flex items-center gap-2">
               <PixelIcon name="folder" size={12} className="flex-shrink-0" />
-              <span>{t('memory.input.guide.cards.group')}</span>
+              <span>그룹으로 분류 정리</span>
             </div>
           </div>
         </div>
@@ -558,16 +544,16 @@ ${summary}`;
         <div className="space-y-3">
           <h3 className="flex items-center gap-2 text-gray-800 font-bold uppercase tracking-tight text-xs mb-1">
             <PixelIcon name="blur" size={16} />
-            {t('memory.input.guide.ai')}
+            AI 분석 가이드
           </h3>
           <div className="space-y-2 pl-1 text-[11px] text-gray-500">
             <div className="flex items-start gap-2">
               <PixelIcon name="blur" size={12} className="mt-0.5 flex-shrink-0" />
-              <span className="leading-tight">{t('memory.input.guide.ai.blob')}</span>
+              <span className="leading-tight">3개 이상 연결된 카드 그룹에 자동으로 블롭 배경 생성</span>
             </div>
             <div className="flex items-start gap-2">
               <PixelIcon name="target" size={12} className="mt-0.5 flex-shrink-0" />
-              <span className="leading-tight">{t('memory.input.guide.ai.plan')}</span>
+              <span className="leading-tight">선택한 카드들을 AI가 분석해 실행 가능한 계획 생성</span>
             </div>
           </div>
         </div>
@@ -576,18 +562,18 @@ ${summary}`;
         <div className="space-y-3">
           <h3 className="flex items-center gap-2 text-gray-800 font-bold uppercase tracking-tight text-xs mb-1">
             <PixelIcon name="lightbulb" size={16} />
-            {t('memory.input.guide.tips')}
+            빠른 시작 팁
           </h3>
           <div className="pl-1 text-[11px] text-gray-500 space-y-1.5">
-            <p className="leading-tight">• {t('memory.input.guide.tips.1')}</p>
-            <p className="leading-tight">• {t('memory.input.guide.tips.2')}</p>
-            <p className="leading-tight">• {t('memory.input.guide.tips.3')}</p>
+            <p className="leading-tight">• 하단 입력창에 자유롭게 기록하세요.</p>
+            <p className="leading-tight">• @를 입력해 다른 기록을 멘션하세요.</p>
+            <p className="leading-tight">• 이미지나 PDF를 드래그해서 넣으세요.</p>
           </div>
         </div>
       </div>
 
-      {/* 중앙 입력 폼 영역 - 토스트 디자인으로 변경 -> 왼쪽 하단으로 이동 */}
-      <div className="fixed bottom-2 md:bottom-4 left-4 md:left-8 z-[100] w-[92%] max-w-md animate-slide-up font-galmuri11">
+      {/* 중앙 입력 폼 영역 - 토스트 디자인으로 변경 */}
+      <div className="fixed bottom-8 right-8 z-[100] w-full max-w-md px-4 animate-slide-up font-galmuri11">
         <div className="bg-white border-4 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative p-1 overflow-visible">
           {/* 픽셀 코너 장식 */}
           <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
@@ -595,14 +581,14 @@ ${summary}`;
           <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
           <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
 
-          <form onSubmit={handleSubmit} className="flex flex-col text-gray-900" data-tutorial-target="memory-input">
+          <form onSubmit={handleSubmit} className="flex flex-col" data-tutorial-target="memory-input">
             {/* 제목 입력 (작게) */}
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={t('memory.input.placeholder.title')}
-              className="w-full px-3 py-0.5 text-xs font-bold border-b border-gray-100 focus:outline-none focus:border-indigo-300 transition-colors bg-transparent text-gray-900 placeholder:text-gray-400"
+              placeholder="제목 (선택)"
+              className="w-full px-3 py-1 text-xs font-bold border-b border-gray-100 focus:outline-none focus:border-indigo-300 transition-colors"
             />
 
             <div
@@ -618,12 +604,12 @@ ${summary}`;
                 style={{ height: `${Math.min(editorHeight, 300)}px` }}
               >
                 {/* 툴바 (슬림하게) */}
-                <div className="flex items-center gap-0.5 px-2 py-0.5 border-b border-gray-100 bg-gray-50/30 overflow-x-auto no-scrollbar flex-nowrap flex-row shrink-0">
+                <div className="flex items-center gap-0.5 px-2 py-1 border-b border-gray-100 bg-gray-50/30">
                   <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => execCommand('bold')}
-                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200 font-bold text-gray-700"
+                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200 font-bold"
                   >
                     B
                   </button>
@@ -631,7 +617,7 @@ ${summary}`;
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => execCommand('italic')}
-                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200 italic font-serif text-gray-700"
+                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200 italic font-serif"
                   >
                     I
                   </button>
@@ -642,7 +628,7 @@ ${summary}`;
                       const url = prompt('링크 URL을 입력해주세요');
                       if (url) execCommand('createLink', url);
                     }}
-                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700"
+                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200"
                   >
                     <PixelIcon name="link" size={12} />
                   </button>
@@ -650,7 +636,7 @@ ${summary}`;
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setIsMentionPanelOpen(!isMentionPanelOpen)}
-                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200 text-gray-700"
+                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200"
                   >
                     @
                   </button>
@@ -661,7 +647,7 @@ ${summary}`;
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={loading}
-                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-50 text-gray-700"
+                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-50"
                   >
                     <PixelIcon name="attachment" size={12} />
                   </button>
@@ -671,7 +657,7 @@ ${summary}`;
                       type="button"
                       onClick={startRecording}
                       disabled={loading}
-                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-50 text-gray-700"
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-50"
                     >
                       <PixelIcon name="microphone" size={12} />
                     </button>
@@ -696,23 +682,23 @@ ${summary}`;
                   <button
                     type="submit"
                     disabled={loading || !content.trim()}
-                    className="px-3 py-1 text-[10px] bg-indigo-600 text-white rounded shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:bg-indigo-700 disabled:bg-gray-300 disabled:shadow-none transition-all active:translate-x-[1px] active:translate-y-[1px] active:shadow-none font-bold"
+                    className="px-3 py-1 text-[10px] bg-indigo-600 text-white rounded shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:bg-indigo-700 disabled:bg-gray-300 disabled:shadow-none transition-all active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
                   >
-                    {loading ? t('memory.input.button.saving') : t('memory.input.button.record')}
+                    {loading ? '...' : '기록하기'}
                   </button>
                 </div>
 
                 {/* 입력 영역 */}
                 <div className="relative flex-1 flex flex-col overflow-hidden">
                   {!getEditorText() && !isEditorFocused && (
-                    <div className="absolute top-2.5 left-3 text-[11px] text-gray-400 pointer-events-none font-medium">
-                      {t('memory.input.placeholder.content')}
+                    <div className="absolute top-2.5 left-3 text-[11px] text-gray-400 pointer-events-none">
+                      새로운 생각을 기록하세요...
                     </div>
                   )}
                   <div
                     ref={editorRef}
                     contentEditable={!loading}
-                    className="flex-1 px-3 pt-2 pb-1 text-[13px] outline-none overflow-y-auto min-h-[50px] text-gray-900 font-medium"
+                    className="flex-1 px-3 py-2 text-[13px] outline-none overflow-y-auto min-h-[50px]"
                     onInput={() => {
                       setContent(getEditorHtml());
                       saveSelection();
@@ -749,13 +735,9 @@ ${summary}`;
                   e.preventDefault();
                   setIsResizing(true);
                 }}
-                onTouchStart={(e) => {
-                  // 터치 이벤트는 preventDefault를 하지 않아야 스크롤과 충돌 안 함
-                  setIsResizing(true);
-                }}
-                className="absolute -top-3 left-0 right-0 h-6 cursor-ns-resize flex items-center justify-center group z-10"
+                className="absolute -top-1.5 left-0 right-0 h-3 cursor-ns-resize flex items-center justify-center group z-10"
               >
-                <div className="w-12 h-1.5 bg-gray-400/20 rounded-full group-hover:bg-gray-400/50 transition-colors"></div>
+                <div className="w-8 h-1 bg-gray-400/30 rounded-full group-hover:bg-gray-400/60 transition-colors"></div>
               </div>
             </div>
 
@@ -768,14 +750,14 @@ ${summary}`;
                     type="text"
                     value={mentionSearch}
                     onChange={(e) => setMentionSearch(e.target.value)}
-                    placeholder={t('memory.input.mention.placeholder')}
-                    className="flex-1 text-xs bg-transparent focus:outline-none text-gray-900 font-bold"
+                    placeholder="기억 검색..."
+                    className="flex-1 text-xs bg-transparent focus:outline-none"
                     autoFocus
                   />
                 </div>
                 <div className="max-h-40 overflow-y-auto">
                   {mentionMatches.length === 0 ? (
-                    <div className="px-3 py-3 text-[10px] text-gray-400 text-center font-bold">{t('memory.input.mention.noResult')}</div>
+                    <div className="px-3 py-3 text-[10px] text-gray-400 text-center">결과 없음</div>
                   ) : (
                     mentionMatches.map(memory => (
                       <button
@@ -783,7 +765,7 @@ ${summary}`;
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => insertMention(memory)}
-                        className="w-full text-left px-3 py-2 hover:bg-indigo-50 text-[11px] flex items-center gap-2 border-b border-gray-50 last:border-0 text-gray-800 font-bold"
+                        className="w-full text-left px-3 py-2 hover:bg-indigo-50 text-[11px] flex items-center gap-2 border-b border-gray-50 last:border-0"
                       >
                         <span className="text-indigo-500 font-bold">@</span>
                         <span className="truncate flex-1">
@@ -801,7 +783,7 @@ ${summary}`;
           {isDragging && (
             <div className="absolute inset-0 flex items-center justify-center bg-indigo-50/90 border-2 border-indigo-500 border-dashed pointer-events-none z-30">
               <div className="text-center">
-                <div className="text-xs font-bold text-indigo-600">{t('memory.input.dropzone')}</div>
+                <div className="text-xs font-bold text-indigo-600">파일을 놓으세요</div>
               </div>
             </div>
           )}
@@ -809,7 +791,7 @@ ${summary}`;
 
         {/* 첨부 파일 목록 (토스트 바 위에 작게 표시) */}
         {files.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-1">
+          <div className="flex flex-wrap gap-1 mb-2">
             {files.map((file, index) => (
               <div
                 key={index}
@@ -832,11 +814,11 @@ ${summary}`;
 
       {/* 조건부 제안 (입력창 근처 토스트로) */}
       {suggestions.length > 0 && (
-        <div className="fixed bottom-6 right-6 w-[92%] max-w-md z-[90] animate-slide-up font-galmuri11">
+        <div className="fixed bottom-32 right-8 w-full max-w-md z-[90] animate-slide-up font-galmuri11 pr-4">
           <div className="bg-amber-50 border-4 border-amber-900 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]">
             <h3 className="text-xs font-bold text-amber-900 mb-2 flex items-center gap-2">
               <PixelIcon name="lightbulb" size={14} />
-              {t('memory.input.ai.suggestion.title')}
+              이런 건 어때요?
             </h3>
             <ul className="space-y-1">
               {suggestions.map((suggestion, idx) => (
@@ -847,7 +829,7 @@ ${summary}`;
               onClick={() => setSuggestions([])}
               className="mt-2 text-[9px] text-amber-600 font-bold hover:underline"
             >
-              {t('memory.input.ai.suggestion.close')}
+              닫기
             </button>
           </div>
         </div>
@@ -855,8 +837,8 @@ ${summary}`;
 
       {/* 연결 제안 토스트 (기존 스타일 유지하되 일관성 보완) */}
       {showConnectionModal && connectionSuggestions.length > 0 && (
-        <div className="fixed bottom-6 right-6 z-[1000] w-[92%] max-w-md animate-slide-up font-galmuri11">
-          <div className="bg-white border-4 border-gray-900 p-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
+          <div className="bg-white border-4 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
             <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
             <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
             <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
@@ -865,8 +847,8 @@ ${summary}`;
             <div className="flex items-start gap-3">
               <div className="mt-1"><PixelIcon name="link" size={20} /></div>
               <div className="flex-1">
-                <h3 className="text-sm font-black text-gray-800 mb-1 uppercase tracking-tight">{t('memory.input.link.suggestion.title')}</h3>
-                <p className="text-[11px] text-gray-600 mb-3 leading-snug">{t('memory.input.link.suggestion.desc')}</p>
+                <h3 className="text-sm font-black text-gray-800 mb-1 uppercase tracking-tight">기록 연결 제안</h3>
+                <p className="text-[11px] text-gray-600 mb-3 leading-snug">AI가 찾은 관련 기록들입니다. 원하는 것만 선택하세요.</p>
 
                 <div className="bg-gray-50 border-2 border-gray-200 p-2 mb-4 max-h-48 overflow-y-auto">
                   <div className="space-y-1.5">
@@ -886,13 +868,9 @@ ${summary}`;
                           }}
                           className="mt-1"
                         />
-                        <div className="flex-1 min-w-0 overflow-hidden">
-                          <p className="text-[11px] text-gray-800 font-bold line-clamp-2 leading-tight mb-0.5">
-                            {stripHtmlClient(suggestion.content)}
-                          </p>
-                          <p className="text-[10px] text-gray-500 line-clamp-2 leading-snug">
-                            {suggestion.reason}
-                          </p>
+                        <div className="flex-1 overflow-hidden">
+                          <p className="text-[10px] text-gray-800 font-bold truncate">{suggestion.content}</p>
+                          <p className="text-[9px] text-gray-500 line-clamp-1">{suggestion.reason}</p>
                         </div>
                       </label>
                     ))}
@@ -906,9 +884,9 @@ ${summary}`;
                       setConnectionSuggestions([]);
                       onMemoryCreated(newMemory || undefined);
                     }}
-                    className="flex-1 py-2 text-[11px] font-bold border-2 border-gray-900 text-gray-700 hover:bg-gray-100 active:translate-y-0.5"
+                    className="flex-1 py-2 text-[10px] font-bold border-2 border-gray-300 hover:bg-gray-50 active:translate-y-0.5"
                   >
-                    {t('memory.input.link.suggestion.skip')}
+                    건너뛰기
                   </button>
                   <button
                     onClick={async () => {
@@ -920,9 +898,8 @@ ${summary}`;
                       }
                       try {
                         const selectedIds = Array.from(selectedConnectionIds);
-                        // 병렬 처리로 속도 개선
-                        await Promise.all(selectedIds.map(relatedId => 
-                          fetch('/api/memories/link', {
+                        for (const relatedId of selectedIds) {
+                          await fetch('/api/memories/link', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -930,13 +907,12 @@ ${summary}`;
                               memoryId2: relatedId,
                               isAIGenerated: true,
                             }),
-                          })
-                        ));
-                        
+                          });
+                        }
                         setShowConnectionModal(false);
                         setConnectionSuggestions([]);
                         setSelectedConnectionIds(new Set());
-                        onMemoryCreated(newMemory || undefined);
+                        onMemoryCreated();
                       } catch (error) {
                         console.error('Failed to create connections:', error);
                         setShowConnectionModal(false);
@@ -944,9 +920,9 @@ ${summary}`;
                         onMemoryCreated(newMemory || undefined);
                       }
                     }}
-                    className="flex-1 py-2 text-[11px] font-bold bg-indigo-600 text-white border-2 border-gray-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:bg-indigo-700 active:translate-y-0.5 active:shadow-none"
+                    className="flex-1 py-2 text-[10px] font-bold bg-indigo-600 text-white border-2 border-gray-900 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.2)] hover:bg-indigo-700 active:translate-y-0.5 active:shadow-none"
                   >
-                    {t('memory.input.link.suggestion.connect')} ({selectedConnectionIds.size})
+                    연결하기 ({selectedConnectionIds.size}개)
                   </button>
                 </div>
               </div>
@@ -957,7 +933,7 @@ ${summary}`;
 
       {/* 성공 토스트 */}
       {toast.type === 'success' && (
-        <div className="fixed bottom-6 right-6 z-[9999] w-[92%] max-w-md animate-slide-up font-galmuri11">
+        <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
           <div className="bg-green-500 text-white border-4 border-gray-900 p-4 min-w-[250px] shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] relative">
             <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
             <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />

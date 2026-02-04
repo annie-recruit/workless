@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useEffect, useRef, useState } from 'react';
-import type { Memory, ActionProject } from '@/types';
+import type { Memory } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ko, enUS } from 'date-fns/locale';
 import { useViewer } from './ViewerContext';
@@ -70,8 +70,6 @@ type MemoryCardProps = {
   onActivityEditStart?: (memoryId: string) => void;
   onActivityEditCommit?: (memoryId: string) => void;
   onActivityEditEnd?: (memoryId: string) => void;
-  projects?: ActionProject[];
-  onProjectClick?: (projectId: string) => void;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -99,8 +97,6 @@ const MemoryCard = memo(
       onActivityEditStart,
       onActivityEditCommit,
       onActivityEditEnd,
-      projects = [],
-      onProjectClick,
     } = props;
     const { t, language } = useLanguage();
     const { viewerExists, openInViewer } = useViewer();
@@ -131,14 +127,6 @@ const MemoryCard = memo(
       }
       prevIsEditingRef.current = isEditing;
     }, [isEditing, editContent]);
-
-    // 페르소나가 변경되면 요약과 제안 초기화 (새로운 페르소나 관점에서 다시 생성되도록)
-    useEffect(() => {
-      setSummary(null);
-      setSuggestions(null);
-      setShowSummary(false);
-      setShowSuggestions(false);
-    }, [personaId]);
 
     const handleToggleSummary = async () => {
       if (!showSummary && !summary) {
@@ -861,90 +849,61 @@ const MemoryCard = memo(
                   {t('memory.card.related.add')}
                 </button>
               </div>
-              {(() => {
-                const relatedMemories = localMemory.relatedMemoryIds || [];
-                const relatedProjects = projects.filter(p => 
-                  p.sourceMemoryIds?.includes(localMemory.id)
-                );
-                const hasRelated = relatedMemories.length > 0 || relatedProjects.length > 0;
+              {localMemory.relatedMemoryIds && localMemory.relatedMemoryIds.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {localMemory.relatedMemoryIds.slice(0, 3).map((relatedId) => {
+                    const relatedMemory = allMemories.find((m) => m.id === relatedId);
+                    if (!relatedMemory) return null;
+                    const noteKey =
+                      relatedMemory.id < localMemory.id
+                        ? `${relatedMemory.id}:${localMemory.id}`
+                        : `${localMemory.id}:${relatedMemory.id}`;
+                    const note = linkNotes?.[noteKey];
 
-                if (!hasRelated) {
-                  return <p className="text-[10px] text-gray-400">{t('memory.card.related.none')}</p>;
-                }
-
-                return (
-                  <div className="flex flex-wrap gap-1">
-                    {/* 연결된 메모리 카드 */}
-                    {relatedMemories.slice(0, 3).map((relatedId) => {
-                      const relatedMemory = allMemories.find((m) => m.id === relatedId);
-                      if (!relatedMemory) return null;
-                      const noteKey =
-                        relatedMemory.id < localMemory.id
-                          ? `${relatedMemory.id}:${localMemory.id}`
-                          : `${localMemory.id}:${relatedMemory.id}`;
-                      const note = linkNotes?.[noteKey];
-
-                      return (
-                        <div key={relatedId} className="relative group">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (onMentionClick) {
-                                onMentionClick(relatedId);
-                              }
-                            }}
-                            className="text-[10px] px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors border border-indigo-200 hover:border-indigo-300 line-clamp-1 max-w-[150px] text-left"
-                            title={relatedMemory.title || stripHtmlClient(relatedMemory.content)}
-                          >
-                            {relatedMemory.title || stripHtmlClient(relatedMemory.content).substring(0, 20)}...
-                          </button>
-                          {note && (
-                            <div className="mt-0.5 text-[9px] text-gray-500 line-clamp-1">{t('common.note')}: {note}</div>
-                          )}
-                          {isEditing && (
-                            <button
-                              onClick={() => {
-                                if (onRequestDeleteLink) {
-                                  onRequestDeleteLink(localMemory.id, relatedId);
-                                }
-                              }}
-                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-red-600 transition-all"
-                              title={t('memory.card.related.unlink')}
-                            >
-                              ×
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                    
-                    {/* 연결된 액션 플랜 */}
-                    {relatedProjects.slice(0, 2).map((project) => (
-                      <div key={project.id} className="relative group">
+                    return (
+                      <div key={relatedId} className="relative group">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (onProjectClick) {
-                              onProjectClick(project.id);
+                            // 연결된 기록 클릭 시 토스트 표시
+                            if (onMentionClick) {
+                              onMentionClick(relatedId);
                             }
                           }}
-                          className="text-[10px] px-1.5 py-0.5 bg-orange-50 hover:bg-orange-100 text-orange-700 transition-colors border border-orange-200 hover:border-orange-300 line-clamp-1 max-w-[150px] text-left flex items-center gap-1"
-                          title={project.title}
+                          className="text-[10px] px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors border border-indigo-200 hover:border-indigo-300 line-clamp-1 max-w-[150px] text-left"
+                          title={relatedMemory.title || stripHtmlClient(relatedMemory.content)}
                         >
-                          <PixelIcon name="flag" size={10} />
-                          {project.title.substring(0, 15)}...
+                          {relatedMemory.title || stripHtmlClient(relatedMemory.content).substring(0, 20)}...
                         </button>
+                        {note && (
+                          <div className="mt-0.5 text-[9px] text-gray-500 line-clamp-1">{t('common.note')}: {note}</div>
+                        )}
+                        {/* 링크 삭제 버튼 */}
+                        {isEditing && (
+                          <button
+                            onClick={() => {
+                              if (onRequestDeleteLink) {
+                                onRequestDeleteLink(localMemory.id, relatedId);
+                              }
+                            }}
+                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-red-600 transition-all"
+                            title={t('memory.card.related.unlink')}
+                          >
+                            ×
+                          </button>
+                        )}
                       </div>
-                    ))}
-
-                    {(relatedMemories.length + relatedProjects.length) > 5 && (
-                      <span className="text-[10px] text-gray-400 self-center">
-                        +{relatedMemories.length + relatedProjects.length - 5}
-                      </span>
-                    )}
-                  </div>
-                );
-              })()}
+                    );
+                  })}
+                  {localMemory.relatedMemoryIds.length > 3 && (
+                    <span className="text-[10px] text-gray-400 self-center">
+                      {t('memory.card.related.more').replace('{count}', (localMemory.relatedMemoryIds.length - 3).toString())}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[10px] text-gray-400">{t('memory.card.related.none')}</p>
+              )}
             </div>
           </div>
 

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import type { RefObject } from 'react';
-import type { Memory, CanvasBlock, ActionProject } from '@/types';
+import type { Memory, CanvasBlock } from '@/types';
 import { CARD_DIMENSIONS } from '@/board/boardUtils';
 
 export type SelectionBox = { startX: number; startY: number; endX: number; endY: number };
@@ -14,7 +14,6 @@ export function useBoardSelection(params: {
   selectedMemoryIdsRef: React.MutableRefObject<Set<string>>;
   selectedBlockIdsRef: React.MutableRefObject<Set<string>>;
   localMemories: Memory[];
-  localProjects: ActionProject[];
   blocks: CanvasBlock[];
   cardSize: 's' | 'm' | 'l';
   setSelectionBox: React.Dispatch<React.SetStateAction<SelectionBox | null>>;
@@ -31,7 +30,6 @@ export function useBoardSelection(params: {
     selectedMemoryIdsRef,
     selectedBlockIdsRef,
     localMemories,
-    localProjects,
     blocks,
     cardSize,
     setSelectionBox,
@@ -66,8 +64,7 @@ export function useBoardSelection(params: {
 
         // Memories selection
         const newSelectedMemories = new Set<string>();
-        
-        // 1. 일반 메모리 카드
+        // localMemories might be undefined in some edge cases
         (localMemories || []).forEach((memory) => {
           const pos = currentPositions[memory.id];
           if (!pos) return;
@@ -87,51 +84,14 @@ export function useBoardSelection(params: {
           }
         });
 
-        // 2. 액션 프로젝트 카드
-        (localProjects || []).forEach((project) => {
-          const cardWidth = 480; // ActionProjectCard 고정 너비
-          // 프로젝트 카드의 높이는 내용에 따라 가변적이지만, 대략적인 최소 높이 200px 사용
-          const cardHeight = 300; 
-
-          const cardLeft = project.x;
-          const cardRight = project.x + cardWidth;
-          const cardTop = project.y;
-          const cardBottom = project.y + cardHeight;
-
-          if (
-            cardRight >= boxLeft &&
-            cardLeft <= boxRight &&
-            cardBottom >= boxTop &&
-            cardTop <= boxBottom
-          ) {
-            newSelectedMemories.add(project.id);
-          }
-        });
-
-        // Blocks (Widgets) selection
+        // Blocks selection
         const newSelectedBlocks = new Set<string>();
+        // blocks might be undefined initially
         (blocks || []).forEach((block) => {
-          // 미니맵은 틀고정(Viewport coordinates)이므로 보드 좌표 기반 드래그 선택에서 제외
-          if (block.type === 'minimap') return;
-
-          // 각 위젯 타입별 실제 렌더링 크기 반영
-          let width = block.width;
-          let height = block.height;
-
-          if (!width || !height) {
-            if (block.type === 'calendar') {
-              width = 245;
-              height = 280;
-            } else {
-              width = 420;
-              height = 320;
-            }
-          }
-
           const blockLeft = block.x;
-          const blockRight = block.x + width;
+          const blockRight = block.x + (block.width || 400); // Default width fallback
           const blockTop = block.y;
-          const blockBottom = block.y + height;
+          const blockBottom = block.y + (block.height || 300); // Default height fallback
 
           if (
             blockRight >= boxLeft &&

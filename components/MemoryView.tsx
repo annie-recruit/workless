@@ -79,11 +79,10 @@ const DatabaseBlock = dynamic(() => import('./DatabaseBlock'), {
 interface MemoryViewProps {
   memories: Memory[];
   onMemoryDeleted?: () => void;
-  onMemoryCreated?: (newMemory: Memory) => void;
   personaId?: string | null;
 }
 
-export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated, personaId }: MemoryViewProps) {
+export default function MemoryView({ memories, onMemoryDeleted, personaId }: MemoryViewProps) {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id || session?.user?.email || '';
   const { t, language } = useLanguage();
@@ -149,19 +148,17 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
 
   // props로부터 localMemories 동기화
   useEffect(() => {
-    setLocalMemories(prev => {
-      // 새로운 메모리가 추가되었는지 확인 (개수 증가로 간단히 판단)
-      if (memories.length > prev.length) {
-        // 새로 추가된 메모리 ID 찾기
-        const prevIds = new Set(prev.map(m => m.id));
-        const added = memories.find(m => !prevIds.has(m.id));
-        if (added) {
-          setPendingFocusId(added.id);
-        }
+    // 새로운 메모리가 추가되었는지 확인 (개수 증가로 간단히 판단)
+    if (memories.length > localMemories.length) {
+      // 새로 추가된 메모리 ID 찾기
+      const prevIds = new Set(localMemories.map(m => m.id));
+      const added = memories.find(m => !prevIds.has(m.id));
+      if (added) {
+        setPendingFocusId(added.id);
       }
-      return memories;
-    });
-  }, [memories]);
+    }
+    setLocalMemories(memories);
+  }, [memories, localMemories]);
 
   // 새로운 메모리 위치가 확보되면 해당 위치로 포커스
   useEffect(() => {
@@ -892,7 +889,6 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
     selectedMemoryIdsRef,
     selectedBlockIdsRef,
     localMemories,
-    localProjects,
     blocks,
     cardSize,
     setSelectionBox,
@@ -1282,7 +1278,6 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
     getLinkKey,
     positions,
     cardSize,
-    projects: localProjects,
   });
 
   const connectionPairsArray = connectionPairsWithColor.pairsWithColor;
@@ -1332,11 +1327,8 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
   // filteredMemories 기반 connectionPairs for Minimap (실제 보드와 동일한 데이터 사용)
   const minimapConnectionPairs = useMemo(() => {
     // connectionPairsWithColor의 pairsWithColor를 직접 사용 (실제 보드와 동일)
-    // filteredMemories와 localProjects의 ID를 모두 포함
-    const visibleIds = new Set([
-      ...filteredMemories.map(m => m.id),
-      ...localProjects.map(p => p.id)
-    ]);
+    // filteredMemories에 있는 메모리들만 필터링
+    const visibleIds = new Set(filteredMemories.map(m => m.id));
 
     return connectionPairsWithColor.pairsWithColor
       .filter((pair: any) => visibleIds.has(pair.from) && visibleIds.has(pair.to))
@@ -1347,9 +1339,9 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
         offsetIndex: pair.offsetIndex || 0,
         totalConnections: pair.totalConnections || 1,
       }));
-  }, [filteredMemories, connectionPairsWithColor, localProjects]);
+  }, [filteredMemories, connectionPairsWithColor]);
 
-  // Minimap용 positions: 메모리 positions + blocks 위치 + 액션 플랜 위치 병합
+  // Minimap용 positions: 메모리 positions + blocks 위치 병합
   const minimapPositions = useMemo(() => {
     const merged: Record<string, { x: number; y: number }> = { ...positions };
 
@@ -1360,15 +1352,8 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
       }
     });
 
-    // 액션 플랜의 위치를 positions에 추가
-    localProjects.forEach(project => {
-      if (project.x !== undefined && project.y !== undefined) {
-        merged[project.id] = { x: project.x, y: project.y };
-      }
-    });
-
     return merged;
-  }, [positions, blocks, localProjects]);
+  }, [positions, blocks]);
 
   // Select/Delete Keyboard Handler
   useEffect(() => {
@@ -1876,8 +1861,181 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
                   draft={isPlacingFlag ? placingFlagDraft : null}
                 />
 
-                {/* 미니맵 블록은 boardRef 외부에 별도로 틀고정 방식으로 렌더링하도록 변경됨 */}
+                {/* 미니맵 블록은 boardRef 내부에 렌더링 */}
+                {blocks.find(b => b.type === 'minimap') && (() => {
+                  const minimapBlock = blocks.find(b => b.type === 'minimap')!;
+                  // 기존 블록이 크면 메모리 카드 크기로 강제 축소
+                  const minimapWidth = minimapBlock.width && minimapBlock.width > 250 ? 240 : (minimapBlock.width || 240);
+                  const minimapHeight = minimapBlock.height && minimapBlock.height > 190 ? 180 : (minimapBlock.height || 180);
 
+                  // 보드 좌표계로 위치 설정
+                  const left = minimapBlock.x;
+                  const top = minimapBlock.y;
+                  const minimapZIndex =
+                    draggingBlockId === minimapBlock.id
+                      ? 10000
+                      : lastClickedItem?.type === 'block' && lastClickedItem.id === minimapBlock.id
+                        ? 5000
+                        : clickedBlockId === minimapBlock.id
+                          ? 100
+                          : 30;
+
+                  contentLayoutRef.current[`block:${minimapBlock.id}`] = {
+                    x: left,
+                    y: top,
+                    width: minimapWidth,
+                    height: minimapHeight,
+                    zIndex: minimapZIndex,
+                  };
+
+                  return (
+                    <div
+                      key={minimapBlock.id}
+                      data-block-id={minimapBlock.id}
+                      data-minimap-block={minimapBlock.id}
+                      className={`absolute bg-white border-[3px] border-black rounded-lg shadow-xl ${isHighlightMode && highlightedContentIdSet.has(`block:${minimapBlock.id}`)
+                        ? 'outline outline-2 outline-indigo-500/35'
+                        : ''
+                        }`}
+                      style={{
+                        transform: `translate3d(${left}px, ${top}px, 0)`,
+                        width: `${minimapWidth}px`,
+                        height: `${minimapHeight}px`,
+                        zIndex: minimapZIndex,
+                        opacity: draggingBlockId === minimapBlock.id ? 0.85 : 1,
+                        transition: 'none',
+                        willChange: draggingBlockId === minimapBlock.id ? 'transform' : 'auto',
+                        pointerEvents: draggingBlockId === minimapBlock.id ? 'none' : 'auto',
+                        contain: 'layout style paint',
+                      }}
+                      onPointerDown={(e) => {
+                        const target = e.target as HTMLElement;
+                        // 버튼만 제외하고, 캔버스 포함 모든 영역에서 드래그 가능
+                        const isInteractiveElement = target.closest('button');
+
+                        if (!isInteractiveElement) {
+                          bringToFrontBlock(minimapBlock.id);
+                          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                        }
+
+                        if (isInteractiveElement) {
+                          return;
+                        }
+
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        // 보드 좌표계로 드래그 시작
+                        const rect = boardRef.current!.getBoundingClientRect();
+                        const scale = zoomRef.current;
+                        const mouseX = (e.clientX - rect.left) / scale;
+                        const mouseY = (e.clientY - rect.top) / scale;
+
+                        handlePointerDownWithDelay(e, () => {
+                          setDraggingEntity({ type: 'block', id: minimapBlock.id });
+                          setDragOffset({
+                            x: mouseX - minimapBlock.x,
+                            y: mouseY - minimapBlock.y,
+                          });
+                        });
+                      }}
+                    >
+                      {/* 헤더 */}
+                      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-300 bg-white rounded-t-lg">
+                        <div className="flex items-center gap-1.5">
+                          <PixelIcon name="minimap" size={16} />
+                          <span className="text-xs font-semibold text-gray-700">Minimap</span>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleBlockDelete(minimapBlock.id);
+                          }}
+                          className="text-gray-400 hover:text-gray-600 text-xs"
+                          title="삭제"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      {/* 크기 조정 핸들 */}
+                      <div
+                        className="absolute bottom-0 right-0 w-4 h-4 bg-blue-500 cursor-se-resize opacity-0 hover:opacity-100 transition-opacity rounded-tl-lg"
+                        style={{ zIndex: 1000 }}
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          const startX = e.clientX;
+                          const startY = e.clientY;
+                          const startWidth = minimapBlock.width || 240;
+                          const startHeight = minimapBlock.height || 180;
+
+                          const handleMove = (moveEvent: PointerEvent) => {
+                            const deltaX = moveEvent.clientX - startX;
+                            const deltaY = moveEvent.clientY - startY;
+                            // 메모리 카드 크기 정도로 제한 (최대 280x200, 최소 200x150)
+                            const newWidth = Math.max(200, Math.min(280, startWidth + deltaX));
+                            const newHeight = Math.max(150, Math.min(200, startHeight + deltaY));
+
+                            setBlocks(prev => {
+                              const updated = [...prev];
+                              const index = updated.findIndex(b => b.id === minimapBlock.id);
+                              if (index !== -1) {
+                                const currentBlock = updated[index];
+                                updated[index] = { ...currentBlock, width: newWidth, height: newHeight };
+                              }
+                              return updated;
+                            });
+                          };
+
+                          const handleUp = () => {
+                            window.removeEventListener('pointermove', handleMove);
+                            window.removeEventListener('pointerup', handleUp);
+
+                            // 최신 상태에서 크기 가져와서 저장
+                            setBlocks(prev => {
+                              const currentBlock = prev.find(b => b.id === minimapBlock.id);
+                              if (currentBlock && (currentBlock.width !== startWidth || currentBlock.height !== startHeight)) {
+                                handleBlockUpdate(minimapBlock.id, {
+                                  width: currentBlock.width,
+                                  height: currentBlock.height
+                                });
+                              }
+                              return prev;
+                            });
+                          };
+
+                          window.addEventListener('pointermove', handleMove);
+                          window.addEventListener('pointerup', handleUp);
+                        }}
+                      />
+                      {/* 미니맵 캔버스 */}
+                      {boardSize.width > 0 && boardSize.height > 0 && (
+                        <div
+                          className="overflow-hidden rounded-b-lg"
+                          style={{
+                            height: `${(minimapBlock.height || 180) - 40}px`,
+                            width: '100%'
+                          }}
+                        >
+                          <Minimap
+                            positions={minimapPositions}
+                            blocks={blocks.filter(b => b.type !== 'minimap')}
+                            memories={filteredMemories}
+                            connectionPairs={minimapConnectionPairs}
+                            viewportBounds={viewportBounds}
+                            zoom={zoom}
+                            cardColorMap={cardColorMap}
+                            boardSize={boardSize}
+                            containerWidth={minimapBlock.width || 240}
+                            containerHeight={(minimapBlock.height || 180) - 40}
+                            cardSize={cardSize}
+                            blobAreas={blobAreas}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
                 {/* 드래그 선택 박스 */}
                 {selectionBox && (() => {
                   const left = Math.min(selectionBox.startX, selectionBox.endX);
@@ -1937,7 +2095,7 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
                       zIndex: blockZIndex,
                     };
                     return (
-                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-indigo-400 ring-offset-2 rounded-lg' : ''}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-purple-400 rounded-lg' : ''}>
                         <CalendarBlock
                           blockId={block.id}
                           x={block.x}
@@ -2053,7 +2211,7 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
                       zIndex: blockZIndex,
                     };
                     return (
-                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-indigo-400 ring-offset-2 rounded-lg' : ''}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-purple-400 rounded-lg' : ''}>
                         <ViewerBlock
                           blockId={block.id}
                           x={block.x}
@@ -2137,7 +2295,7 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
                       zIndex: blockZIndex,
                     };
                     return (
-                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-indigo-400 ring-offset-2 rounded-lg' : ''}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-purple-400 rounded-lg' : ''}>
                         <MeetingRecorderBlock
                           blockId={block.id}
                           x={block.x}
@@ -2203,7 +2361,7 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
                     };
 
                     return (
-                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-indigo-400 ring-offset-2 rounded-lg' : ''}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-purple-400 rounded-lg' : ''}>
                         <DatabaseBlock
                           blockId={block.id}
                           x={block.x}
@@ -2431,7 +2589,7 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
                         overflow: 'visible',
                       }}
                       className={`absolute select-none touch-none cursor-grab active:cursor-grabbing ${isDragging ? 'cursor-grabbing border border-indigo-500' : ''
-                        } ${isSelected ? 'ring-4 ring-indigo-400 ring-offset-2 rounded-lg' : ''} ${isBlobHovered ? 'ring-2 ring-blue-200/60 ring-offset-1' : ''
+                        } ${isSelected ? 'ring-2 ring-blue-300/50 ring-offset-1' : ''} ${isBlobHovered ? 'ring-2 ring-blue-200/60 ring-offset-1' : ''
                         }`}
                     >
                       <MemoryCard
@@ -2478,13 +2636,6 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
                         onActivityEditStart={(memoryId) => startEdit(`memory:${memoryId}`)}
                         onActivityEditCommit={(memoryId) => endEdit(`memory:${memoryId}`, true)}
                         onActivityEditEnd={() => { }}
-                        projects={localProjects}
-                        onProjectClick={(projectId) => {
-                          const project = localProjects.find(p => p.id === projectId);
-                          if (project) {
-                            handleMentionClick(memory.id, projectId);
-                          }
-                        }}
                       />
                     </div>
                   );
@@ -2505,7 +2656,7 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
                         transition: isDragging ? 'none' : 'transform 0.2s ease-out',
                         transformOrigin: 'center center',
                       }}
-                      className={`absolute cursor-grab active:cursor-grabbing ${isSelected ? 'ring-4 ring-indigo-400 ring-offset-2 rounded-lg' : ''}`}
+                      className={`absolute cursor-grab active:cursor-grabbing ${isSelected ? 'ring-2 ring-blue-300/50 ring-offset-1' : ''}`}
                       onPointerDown={(e) => {
                         const target = e.target as HTMLElement;
                         if (
@@ -2566,7 +2717,6 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
                         }}
                         onAddMemory={(newMemory) => {
                           setLocalMemories(prev => [newMemory, ...prev]);
-                          if (onMemoryCreated) onMemoryCreated(newMemory);
                         }}
                         onOpenLinkManager={setLinkManagerProject}
                         onMentionClick={(mentionedMemoryId) =>
@@ -2576,10 +2726,10 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
                         onRequestDeleteLink={(projectId, memoryId) =>
                           setToast({ type: 'delete-link', data: { memoryId1: projectId, memoryId2: memoryId } })
                         }
+                        onActivityPointerOverCapture={handleActivityPointerOverCapture}
                         onActivityPointerOutCapture={handleActivityPointerOutCapture}
                         onActivityFocusCapture={handleActivityFocusCapture}
                         onActivityBlurCapture={handleActivityBlurCapture}
-                        personaId={personaId}
                       />
                     </div>
                   );
@@ -2605,189 +2755,6 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
                   해당 그룹에 기억이 없습니다
                 </div>
               )}
-            </div>
-            
-            {/* Viewport Overlay Layer - 틀고정 요소들 (미니맵 등) */}
-            <div className="absolute inset-0 pointer-events-none z-[100]">
-              {blocks.find(b => b.type === 'minimap') && (() => {
-                const minimapBlock = blocks.find(b => b.type === 'minimap')!;
-                const minimapWidth = minimapBlock.width && minimapBlock.width > 250 ? 240 : (minimapBlock.width || 240);
-                const minimapHeight = minimapBlock.height && minimapBlock.height > 190 ? 180 : (minimapBlock.height || 180);
-
-                // 틀고정(Sticky)을 위해 뷰포트 좌표계로 위치 설정
-                const left = minimapBlock.x;
-                const top = minimapBlock.y;
-                const minimapZIndex =
-                  draggingBlockId === minimapBlock.id
-                    ? 10000
-                    : lastClickedItem?.type === 'block' && lastClickedItem.id === minimapBlock.id
-                      ? 5000
-                      : clickedBlockId === minimapBlock.id
-                        ? 100
-                        : 30;
-
-                return (
-                  <div
-                    key={minimapBlock.id}
-                    data-block-id={minimapBlock.id}
-                    data-minimap-block={minimapBlock.id}
-                    className={`absolute bg-white border-[3px] border-black rounded-lg shadow-xl pointer-events-auto ${
-                      selectedBlockIds.has(minimapBlock.id) ? 'ring-4 ring-indigo-400 ring-offset-2' : ''
-                    } ${isHighlightMode && highlightedContentIdSet.has(`block:${minimapBlock.id}`)
-                      ? 'outline outline-2 outline-indigo-500/35'
-                      : ''
-                      }`}
-                    style={{
-                      transform: `translate3d(${left}px, ${top}px, 0)`,
-                      width: `${minimapWidth}px`,
-                      height: `${minimapHeight}px`,
-                      zIndex: minimapZIndex,
-                      opacity: draggingBlockId === minimapBlock.id ? 0.85 : 1,
-                      transition: 'none',
-                      willChange: draggingBlockId === minimapBlock.id ? 'transform' : 'auto',
-                      contain: 'layout style paint',
-                    }}
-                    onPointerDown={(e) => {
-                      const target = e.target as HTMLElement;
-                      const isInteractiveElement = target.closest('button');
-
-                      // Ctrl/Cmd 키로 다중 선택 모드
-                      const isMultiSelect = e.ctrlKey || e.metaKey;
-
-                      if (isMultiSelect) {
-                        setSelectedBlockIds(prev => {
-                          const next = new Set(prev);
-                          if (next.has(minimapBlock.id)) {
-                            next.delete(minimapBlock.id);
-                          } else {
-                            next.add(minimapBlock.id);
-                          }
-                          return next;
-                        });
-                        return;
-                      }
-
-                      if (!isInteractiveElement) {
-                        bringToFrontBlock(minimapBlock.id);
-                        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-                      }
-
-                      if (isInteractiveElement) {
-                        return;
-                      }
-
-                      e.preventDefault();
-                      e.stopPropagation();
-
-                      // 틀고정 레이어에 있으므로 보드 좌표계(zoom 스케일)를 무시하고 뷰포트 좌표로 드래그
-                      const rect = boardContainerRef.current!.getBoundingClientRect();
-                      const mouseX = e.clientX - rect.left;
-                      const mouseY = e.clientY - rect.top;
-
-                      handlePointerDownWithDelay(e, () => {
-                        setDraggingEntity({ type: 'block', id: minimapBlock.id });
-                        setDragOffset({
-                          x: mouseX - minimapBlock.x,
-                          y: mouseY - minimapBlock.y,
-                        });
-                      });
-                    }}
-                  >
-                    {/* 헤더 */}
-                    <div className="flex items-center justify-between px-3 py-2 border-b border-gray-300 bg-white rounded-t-lg">
-                      <div className="flex items-center gap-1.5">
-                        <PixelIcon name="minimap" size={16} />
-                        <span className="text-xs font-semibold text-gray-700">Minimap</span>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleBlockDelete(minimapBlock.id);
-                        }}
-                        className="text-gray-400 hover:text-gray-600 text-xs"
-                        title="삭제"
-                      >
-                        ×
-                      </button>
-                    </div>
-                    {/* 크기 조정 핸들 */}
-                    <div
-                      className="absolute bottom-0 right-0 w-4 h-4 bg-blue-500 cursor-se-resize opacity-0 hover:opacity-100 transition-opacity rounded-tl-lg"
-                      style={{ zIndex: 1000 }}
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        const startX = e.clientX;
-                        const startY = e.clientY;
-                        const startWidth = minimapBlock.width || 240;
-                        const startHeight = minimapBlock.height || 180;
-
-                        const handleMove = (moveEvent: PointerEvent) => {
-                          const deltaX = moveEvent.clientX - startX;
-                          const deltaY = moveEvent.clientY - startY;
-                          const newWidth = Math.max(200, Math.min(280, startWidth + deltaX));
-                          const newHeight = Math.max(150, Math.min(200, startHeight + deltaY));
-
-                          setBlocks(prev => {
-                            const updated = [...prev];
-                            const index = updated.findIndex(b => b.id === minimapBlock.id);
-                            if (index !== -1) {
-                              const currentBlock = updated[index];
-                              updated[index] = { ...currentBlock, width: newWidth, height: newHeight };
-                            }
-                            return updated;
-                          });
-                        };
-
-                        const handleUp = () => {
-                          window.removeEventListener('pointermove', handleMove);
-                          window.removeEventListener('pointerup', handleUp);
-
-                          setBlocks(prev => {
-                            const currentBlock = prev.find(b => b.id === minimapBlock.id);
-                            if (currentBlock && (currentBlock.width !== startWidth || currentBlock.height !== startHeight)) {
-                              handleBlockUpdate(minimapBlock.id, {
-                                width: currentBlock.width,
-                                height: currentBlock.height
-                              });
-                            }
-                            return prev;
-                          });
-                        };
-
-                        window.addEventListener('pointermove', handleMove);
-                        window.addEventListener('pointerup', handleUp);
-                      }}
-                    />
-                    {/* 미니맵 캔버스 */}
-                    {boardSize.width > 0 && boardSize.height > 0 && (
-                      <div
-                        className="overflow-hidden rounded-b-lg"
-                        style={{
-                          height: `${(minimapBlock.height || 180) - 40}px`,
-                          width: '100%'
-                        }}
-                      >
-                        <Minimap
-                          positions={minimapPositions}
-                          blocks={blocks.filter(b => b.type !== 'minimap')}
-                          memories={filteredMemories}
-                          projects={localProjects}
-                          connectionPairs={minimapConnectionPairs}
-                          viewportBounds={viewportBounds}
-                          zoom={zoom}
-                          cardColorMap={cardColorMap}
-                          boardSize={boardSize}
-                          containerWidth={minimapBlock.width || 240}
-                          containerHeight={(minimapBlock.height || 180) - 40}
-                          cardSize={cardSize}
-                          blobAreas={blobAreas}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
             </div>
           </div>
         </div>
@@ -2823,7 +2790,6 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
         sanitizeHtml={sanitizeHtml}
         stripHtmlClient={stripHtmlClient}
         boardSize={boardSize}
-        personaId={personaId}
       />
 
       <WidgetSynergyToast
@@ -2834,7 +2800,6 @@ export default function MemoryView({ memories, onMemoryDeleted, onMemoryCreated,
         memories={localMemories}
         blocks={blocks}
         projects={localProjects}
-        personaId={personaId}
         onSynergyComplete={async () => {
           // 시너지 완료 후 블록 데이터 다시 불러오기
           await fetchBlocks();

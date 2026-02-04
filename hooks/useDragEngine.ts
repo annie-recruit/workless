@@ -127,16 +127,10 @@ export function useDragEngine(params: {
       if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
 
       rafIdRef.current = requestAnimationFrame(() => {
-        const boardRect = boardRef.current!.getBoundingClientRect();
-        const containerRect = boardContainerRef.current!.getBoundingClientRect();
+        const rect = boardRef.current!.getBoundingClientRect();
         const scale = zoomRef.current;
-        
-        // 미니맵 블록은 줌의 영향을 받지 않는 레이어에 있으므로 스케일 계산을 제외하고 컨테이너 기준 좌표 사용
-        const minimapBlock = blocks.find(b => b.id === draggingEntity.id && b.type === 'minimap');
-        const isMinimap = !!minimapBlock;
-        
-        const mouseX = isMinimap ? (event.clientX - containerRect.left) : (event.clientX - boardRect.left) / scale;
-        const mouseY = isMinimap ? (event.clientY - containerRect.top) : (event.clientY - boardRect.top) / scale;
+        const mouseX = (event.clientX - rect.left) / scale;
+        const mouseY = (event.clientY - rect.top) / scale;
 
         if (draggingEntity.type === 'block') {
           const newX = Math.max(0, mouseX - dragOffset.x);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useCallback, useEffect } from 'react';
-import { Memory, ActionProject } from '@/types';
+import { Memory } from '@/types';
 import { CARD_DIMENSIONS } from '@/board/boardUtils';
 
 interface UseBoardConnectionsProps {
@@ -11,7 +11,6 @@ interface UseBoardConnectionsProps {
     getLinkKey: (id1: string, id2: string) => string;
     positions: Record<string, { x: number; y: number }>;
     cardSize: 's' | 'm' | 'l';
-    projects?: ActionProject[];
 }
 
 export function useBoardConnections({
@@ -21,7 +20,6 @@ export function useBoardConnections({
     getLinkKey,
     positions,
     cardSize,
-    projects = [],
 }: UseBoardConnectionsProps) {
     // 간단한 시드 기반 랜덤 함수 (groupId 기반 고정 랜덤)
     const seededRandom = useCallback((seed: number) => {
@@ -37,7 +35,6 @@ export function useBoardConnections({
         const allMemoryIds = new Set(localMemories.map(m => m.id));
         const invalidConnections: Array<{ memoryId: string; invalidRelatedId: string }> = [];
 
-        // 메모리 카드 간 연결
         localMemories.forEach(memory => {
             const related = memory.relatedMemoryIds || [];
             related.forEach(relatedId => {
@@ -52,25 +49,6 @@ export function useBoardConnections({
                 if (set.has(key)) return;
                 set.add(key);
                 pairs.push({ from: memory.id, to: relatedId });
-            });
-        });
-
-        // 액션 플랜 ↔ 메모리 카드 연결
-        projects.forEach(project => {
-            const sourceMemoryIds = project.sourceMemoryIds || [];
-            sourceMemoryIds.forEach(memoryId => {
-                // 메모리가 존재하고 보이는지 확인
-                if (!allMemoryIds.has(memoryId)) {
-                    return;
-                }
-                if (!visibleIds.has(memoryId)) {
-                    return;
-                }
-                // 액션 플랜 -> 메모리 연결 추가
-                const key = [project.id, memoryId].sort().join(':');
-                if (set.has(key)) return;
-                set.add(key);
-                pairs.push({ from: project.id, to: memoryId });
             });
         });
 
@@ -142,7 +120,7 @@ export function useBoardConnections({
             nodeToGroup,
             invalidConnections,
         };
-    }, [localMemories, filteredMemories, linkInfo, getLinkKey, projects]);
+    }, [localMemories, filteredMemories, linkInfo, getLinkKey]);
 
     // 유효하지 않은 연결 정리
     useEffect(() => {
@@ -189,19 +167,6 @@ export function useBoardConnections({
                 .map(id => {
                     const pos = positions[id];
                     if (!pos) return null;
-                    
-                    // 액션 플랜 체크
-                    const project = projects?.find(p => p.id === id);
-                    if (project) {
-                        return {
-                            x: pos.x,
-                            y: pos.y,
-                            width: 360,
-                            height: 120,
-                        };
-                    }
-                    
-                    // 일반 메모리 카드
                     const cardData = CARD_DIMENSIONS[cardSize];
                     return {
                         x: pos.x,
@@ -252,4 +217,3 @@ export function useBoardConnections({
         blobAreas,
     };
 }
-

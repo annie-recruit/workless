@@ -40,7 +40,6 @@ interface BoardOverlayProps {
     sanitizeHtml: (val: string) => string;
     stripHtmlClient: (val: string) => string;
     boardSize: { width: number; height: number };
-    personaId?: string | null;
 }
 
 export default function BoardOverlay({
@@ -73,7 +72,6 @@ export default function BoardOverlay({
     sanitizeHtml,
     stripHtmlClient,
     boardSize,
-    personaId,
 }: BoardOverlayProps) {
     useEffect(() => {
         if (toast.type === 'success') {
@@ -284,8 +282,7 @@ export default function BoardOverlay({
                                                 userPrompt: projectPrompt,
                                                 x: 100,
                                                 y: 100,
-                                                color: 'bg-indigo-50',
-                                                personaId: personaId
+                                                color: 'bg-indigo-50'
                                             }),
                                         });
                                         if (res.ok) {

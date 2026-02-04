@@ -22,7 +22,6 @@ interface ActionProjectCardProps {
     onActivityPointerOutCapture?: (e: React.PointerEvent) => void;
     onActivityFocusCapture?: (e: React.FocusEvent) => void;
     onActivityBlurCapture?: (e: React.FocusEvent) => void;
-    personaId?: string | null;
 }
 
 export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
@@ -42,7 +41,6 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
     onActivityPointerOutCapture,
     onActivityFocusCapture,
     onActivityBlurCapture,
-    personaId,
 }) => {
     const { t, language } = useLanguage();
     const [generatingActions, setGeneratingActions] = useState<Set<string>>(new Set());
@@ -102,7 +100,6 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
                     milestoneId,
                     actionId,
                     actionText,
-                    personaId,
                 }),
             });
 
@@ -198,7 +195,7 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
     return (
         <div
             id={`project-${project.id}`}
-            className={`group relative w-[336px] p-6 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] transition-all hover:scale-[1.02] flex flex-col ${isDragging ? 'opacity-50' : 'opacity-100'
+            className={`group relative w-[480px] p-6 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] transition-all hover:scale-[1.02] flex flex-col ${isDragging ? 'opacity-50' : 'opacity-100'
                 } ${bgColorClass} ${isSelected || isHighlighted ? 'ring-4 ring-indigo-400 ring-offset-2' : ''}`}
             onPointerOverCapture={onActivityPointerOverCapture}
             onPointerOutCapture={onActivityPointerOutCapture}
@@ -254,13 +251,13 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
                     </div>
                     {isEditing ? (
                         <input
-                            className="text-lg font-black text-gray-900 leading-tight bg-transparent border-b-2 border-indigo-300 focus:outline-none w-full"
+                            className="text-xl font-black text-gray-900 leading-tight bg-transparent border-b-2 border-indigo-300 focus:outline-none w-full"
                             value={editTitle}
                             onChange={e => setEditTitle(e.target.value)}
                             autoFocus
                         />
                     ) : (
-                        <h3 className="text-lg font-black text-gray-900 leading-tight">
+                        <h3 className="text-xl font-black text-gray-900 leading-tight">
                             {project.title}
                         </h3>
                     )}
@@ -293,12 +290,12 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
             <div className="mb-7 p-4 bg-gray-50 border border-gray-200">
                 {isEditing ? (
                     <textarea
-                        className="text-xs text-gray-700 leading-relaxed bg-transparent w-full focus:outline-none min-h-[60px]"
+                        className="text-sm text-gray-700 leading-relaxed bg-transparent w-full focus:outline-none min-h-[60px]"
                         value={editSummary}
                         onChange={e => setEditSummary(e.target.value)}
                     />
                 ) : (
-                    <p className="text-xs text-gray-700 leading-relaxed italic">
+                    <p className="text-sm text-gray-700 leading-relaxed italic">
                         "{project.summary}"
                     </p>
                 )}
@@ -342,7 +339,7 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
                                             <div className="flex items-start justify-between gap-2">
                                                 <p
                                                     onClick={() => handleToggleAction(milestone.id, action.id)}
-                                                    className={`text-[11px] font-medium leading-tight transition-all select-none ${action.completed ? 'text-gray-400 line-through decoration-gray-400 decoration-2' : 'text-gray-900'
+                                                    className={`text-[15px] font-medium leading-tight transition-all select-none ${action.completed ? 'text-gray-400 line-through decoration-gray-400 decoration-2' : 'text-gray-900'
                                                         }`}
                                                 >
                                                     {action.text}
@@ -380,112 +377,112 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
                                                     </button>
                                                 )}
                                             </div>
-                                        </div>
-                                    </div>
 
-                                    {/* 생성된 초안 뷰 - 체크박스 라인에 맞춰서 렌더링 */}
-                                    {action.draft && !action.completed && (
-                                        <div className="mt-3 animate-fadeIn">
-                                            {action.draft.type === 'research' ? (
-                                                // 조사형 (Research)
-                                                <div className="bg-yellow-50 border-2 border-yellow-400 p-3 relative">
-                                                    <div className="absolute -top-2.5 left-2 px-1.5 bg-yellow-400 text-yellow-900 text-[10px] font-bold uppercase tracking-tight">
-                                                        Research Result
-                                                    </div>
-                                                    <ul className="space-y-2 mt-1">
-                                                        {action.draft.links?.map((link, idx) => (
-                                                            <li key={idx} className="flex items-start gap-2 text-xs">
-                                                                <span className="text-yellow-600 mt-0.5">🔍</span>
-                                                                <div className="min-w-0">
-                                                                    <a
-                                                                        href={link.url}
-                                                                        target="_blank"
-                                                                        rel="noreferrer"
-                                                                        className="font-bold text-gray-800 hover:underline hover:text-indigo-600 block truncate"
-                                                                        onClick={(e) => e.stopPropagation()}
-                                                                    >
-                                                                        {link.title}
-                                                                    </a>
-                                                                    <span className="text-[10px] text-gray-500">{link.domain}</span>
-                                                                </div>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                    <div className="mt-3 flex justify-end gap-2">
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                const textToCopy = action.draft!.links?.map(l => `${l.title}\n${l.url}`).join('\n\n') || '';
-                                                                handleCopyDraft(action.id, textToCopy);
-                                                            }}
-                                                            className={`px-2 py-1 bg-white border border-yellow-200 text-[10px] font-bold text-yellow-700 hover:bg-yellow-100 flex items-center gap-1 transition-all ${isCopying[action.id] ? 'bg-yellow-50 text-yellow-500' : ''}`}
-                                                        >
-                                                            <PixelIcon name={isCopying[action.id] ? "check" : "copy"} size={12} />
-                                                            {isCopying[action.id] ? 'Copied!' : 'Copy All Links'}
-                                                        </button>
-                                                        <button
-                                                            disabled={isCreatingCard[action.id]}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                const textToSave = action.draft!.links?.map(l => `- ${l.title}: ${l.url}`).join('\n') || '';
-                                                                handleConvertToCard(action.id, `[Research: ${action.text}]\n\n${textToSave}`);
-                                                            }}
-                                                            className={`px-2 py-1 bg-white border border-yellow-200 text-[10px] font-bold text-yellow-700 hover:bg-yellow-100 flex items-center gap-1 disabled:opacity-50 transition-all ${isCreatingCard[action.id] ? 'bg-orange-50' : ''}`}
-                                                        >
-                                                            <PixelIcon name={isCreatingCard[action.id] ? "refresh" : "plus"} size={12} className={isCreatingCard[action.id] ? 'animate-spin' : ''} />
-                                                            {isCreatingCard[action.id] ? 'Creating...' : 'Create as Card'}
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                // 글쓰기형 (Writing)
-                                                <div className="bg-blue-50 border-2 border-blue-400 p-3 relative">
-                                                    <div className="absolute -top-2.5 left-2 px-1.5 bg-blue-400 text-white text-[10px] font-bold uppercase tracking-tight">
-                                                        Draft Content
-                                                    </div>
-                                                    <textarea
-                                                        className="w-full h-32 text-xs bg-white border border-blue-200 p-2 focus:outline-none focus:border-blue-500 resize-none mt-1 leading-relaxed text-gray-700"
-                                                        value={draftContents[action.id] ?? action.draft.content}
-                                                        onChange={(e) => setDraftContents(prev => ({ ...prev, [action.id]: e.target.value }))}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                    />
-                                                    <div className="mt-2 flex justify-end gap-2">
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                const content = draftContents[action.id] ?? action.draft!.content;
-                                                                handleCopyDraft(action.id, content);
-                                                            }}
-                                                            className={`px-2 py-1 bg-white border border-blue-200 text-[10px] font-bold text-blue-700 hover:bg-blue-100 flex items-center gap-1 transition-all ${isCopying[action.id] ? 'bg-blue-50 text-blue-500' : ''}`}
-                                                        >
-                                                            <PixelIcon name={isCopying[action.id] ? "check" : "copy"} size={12} />
-                                                            {isCopying[action.id] ? 'Copied!' : 'Copy'}
-                                                        </button>
-                                                        <button
-                                                            disabled={isCreatingCard[action.id]}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleConvertToCard(action.id, draftContents[action.id] ?? action.draft!.content);
-                                                            }}
-                                                            className={`px-2 py-1 bg-white border border-blue-200 text-[10px] font-bold text-blue-700 hover:bg-blue-100 flex items-center gap-1 disabled:opacity-50 transition-all ${isCreatingCard[action.id] ? 'bg-indigo-50' : ''}`}
-                                                        >
-                                                            <PixelIcon name={isCreatingCard[action.id] ? "refresh" : "plus"} size={12} className={isCreatingCard[action.id] ? 'animate-spin' : ''} />
-                                                            {isCreatingCard[action.id] ? 'Creating...' : 'Create as Card'}
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleDeleteDraft(milestone.id, action.id);
-                                                            }}
-                                                            className="px-2 py-1 text-[10px] text-gray-400 hover:text-red-500"
-                                                        >
-                                                            Dismiss
-                                                        </button>
-                                                    </div>
+                                            {/* 생성된 초안 뷰 */}
+                                            {action.draft && !action.completed && (
+                                                <div className="mt-3 animate-fadeIn">
+                                                    {action.draft.type === 'research' ? (
+                                                        // 조사형 (Research)
+                                                        <div className="bg-yellow-50 border-2 border-yellow-400 p-3 relative">
+                                                            <div className="absolute -top-2.5 left-2 px-1.5 bg-yellow-400 text-yellow-900 text-[10px] font-bold uppercase tracking-tight">
+                                                                Research Result
+                                                            </div>
+                                                            <ul className="space-y-2 mt-1">
+                                                                {action.draft.links?.map((link, idx) => (
+                                                                    <li key={idx} className="flex items-start gap-2 text-xs">
+                                                                        <span className="text-yellow-600 mt-0.5">🔍</span>
+                                                                        <div className="min-w-0">
+                                                                            <a
+                                                                                href={link.url}
+                                                                                target="_blank"
+                                                                                rel="noreferrer"
+                                                                                className="font-bold text-gray-800 hover:underline hover:text-indigo-600 block truncate"
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                            >
+                                                                                {link.title}
+                                                                            </a>
+                                                                            <span className="text-[10px] text-gray-500">{link.domain}</span>
+                                                                        </div>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                            <div className="mt-3 flex justify-end gap-2">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        const textToCopy = action.draft!.links?.map(l => `${l.title}\n${l.url}`).join('\n\n') || '';
+                                                                        handleCopyDraft(action.id, textToCopy);
+                                                                    }}
+                                                                    className={`px-2 py-1 bg-white border border-yellow-200 text-[10px] font-bold text-yellow-700 hover:bg-yellow-100 flex items-center gap-1 transition-all ${isCopying[action.id] ? 'bg-yellow-50 text-yellow-500' : ''}`}
+                                                                >
+                                                                    <PixelIcon name={isCopying[action.id] ? "check" : "copy"} size={12} />
+                                                                    {isCopying[action.id] ? 'Copied!' : 'Copy All Links'}
+                                                                </button>
+                                                                <button
+                                                                    disabled={isCreatingCard[action.id]}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        const textToSave = action.draft!.links?.map(l => `- ${l.title}: ${l.url}`).join('\n') || '';
+                                                                        handleConvertToCard(action.id, `[Research: ${action.text}]\n\n${textToSave}`);
+                                                                    }}
+                                                                    className={`px-2 py-1 bg-white border border-yellow-200 text-[10px] font-bold text-yellow-700 hover:bg-yellow-100 flex items-center gap-1 disabled:opacity-50 transition-all ${isCreatingCard[action.id] ? 'bg-orange-50' : ''}`}
+                                                                >
+                                                                    <PixelIcon name={isCreatingCard[action.id] ? "refresh" : "plus"} size={12} className={isCreatingCard[action.id] ? 'animate-spin' : ''} />
+                                                                    {isCreatingCard[action.id] ? 'Creating...' : 'Create as Card'}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        // 글쓰기형 (Writing)
+                                                        <div className="bg-blue-50 border-2 border-blue-400 p-3 relative">
+                                                            <div className="absolute -top-2.5 left-2 px-1.5 bg-blue-400 text-white text-[10px] font-bold uppercase tracking-tight">
+                                                                Draft Content
+                                                            </div>
+                                                            <textarea
+                                                                className="w-full h-32 text-xs bg-white border border-blue-200 p-2 focus:outline-none focus:border-blue-500 resize-none mt-1 leading-relaxed text-gray-700"
+                                                                value={draftContents[action.id] ?? action.draft.content}
+                                                                onChange={(e) => setDraftContents(prev => ({ ...prev, [action.id]: e.target.value }))}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                            <div className="mt-2 flex justify-end gap-2">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        const content = draftContents[action.id] ?? action.draft!.content;
+                                                                        handleCopyDraft(action.id, content);
+                                                                    }}
+                                                                    className={`px-2 py-1 bg-white border border-blue-200 text-[10px] font-bold text-blue-700 hover:bg-blue-100 flex items-center gap-1 transition-all ${isCopying[action.id] ? 'bg-blue-50 text-blue-500' : ''}`}
+                                                                >
+                                                                    <PixelIcon name={isCopying[action.id] ? "check" : "copy"} size={12} />
+                                                                    {isCopying[action.id] ? 'Copied!' : 'Copy'}
+                                                                </button>
+                                                                <button
+                                                                    disabled={isCreatingCard[action.id]}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleConvertToCard(action.id, draftContents[action.id] ?? action.draft!.content);
+                                                                    }}
+                                                                    className={`px-2 py-1 bg-white border border-blue-200 text-[10px] font-bold text-blue-700 hover:bg-blue-100 flex items-center gap-1 disabled:opacity-50 transition-all ${isCreatingCard[action.id] ? 'bg-indigo-50' : ''}`}
+                                                                >
+                                                                    <PixelIcon name={isCreatingCard[action.id] ? "refresh" : "plus"} size={12} className={isCreatingCard[action.id] ? 'animate-spin' : ''} />
+                                                                    {isCreatingCard[action.id] ? 'Creating...' : 'Create as Card'}
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteDraft(milestone.id, action.id);
+                                                                    }}
+                                                                    className="px-2 py-1 text-[10px] text-gray-400 hover:text-red-500"
+                                                                >
+                                                                    Dismiss
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
