@@ -30,10 +30,14 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
     const fetchEmails = async () => {
         setStatus('loading');
         try {
+            console.log('[GmailImport] Fetching emails...');
             const response = await fetch('/api/import/gmail');
+            console.log('[GmailImport] Response status:', response.status);
             const data = await response.json();
+            console.log('[GmailImport] Response data:', data);
 
             if (response.status === 403 || data.code === 'INSUFFICIENT_SCOPES') {
+                console.log('[GmailImport] Insufficient scopes - triggering re-auth');
                 // 권한이 없는 경우 동의 화면을 강제로 띄우기 위해 재로그인 시도
                 signIn('google', {
                     callbackUrl: window.location.href,
@@ -43,6 +47,7 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
             }
 
             if (response.ok) {
+                console.log('[GmailImport] Success - emails count:', data.emails?.length || 0);
                 setEmails(data.emails || []);
                 setStatus('selecting');
                 // 아직 임포트되지 않은 메일들만 기본 선택
@@ -51,10 +56,11 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                     .map(e => e.messageId);
                 setSelectedIds(new Set(unimportedIds));
             } else {
+                console.error('[GmailImport] API error:', data);
                 setStatus('error');
             }
         } catch (error) {
-            console.error('Fetch error:', error);
+            console.error('[GmailImport] Fetch error:', error);
             setStatus('error');
         }
     };
