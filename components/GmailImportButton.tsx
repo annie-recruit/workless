@@ -27,6 +27,12 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [importCount, setImportCount] = useState(0);
 
+    // 상태 변화 디버깅
+    useEffect(() => {
+        console.log('[GmailImport] Status changed to:', status);
+        console.log('[GmailImport] Emails length:', emails.length);
+    }, [status, emails.length]);
+
     const fetchEmails = async () => {
         setStatus('loading');
         try {
@@ -48,12 +54,15 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
 
             if (response.ok) {
                 console.log('[GmailImport] Success - emails count:', data.emails?.length || 0);
+                console.log('[GmailImport] Emails data:', data.emails);
                 setEmails(data.emails || []);
+                console.log('[GmailImport] Setting status to selecting...');
                 setStatus('selecting');
                 // 아직 임포트되지 않은 메일들만 기본 선택
                 const unimportedIds = (data.emails as GmailEmail[])
                     ?.filter(e => !e.isImported)
                     .map(e => e.messageId);
+                console.log('[GmailImport] Unimported IDs:', unimportedIds);
                 setSelectedIds(new Set(unimportedIds));
             } else {
                 console.error('[GmailImport] API error:', data);
