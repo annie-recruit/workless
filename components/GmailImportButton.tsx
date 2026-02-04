@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { signIn } from 'next-auth/react';
 import PixelIcon from './PixelIcon';
 import ProcessingLoader from './ProcessingLoader';
@@ -26,6 +27,12 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
     const [emails, setEmails] = useState<GmailEmail[]>([]);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [importCount, setImportCount] = useState(0);
+    const [mounted, setMounted] = useState(false);
+
+    // 클라이언트 사이드에서만 Portal 렌더링
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // 상태 변화 디버깅
     useEffect(() => {
@@ -150,7 +157,7 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
             </button>
 
             {/* 메일 선택 토스트 UI */}
-            {status === 'selecting' && (
+            {mounted && status === 'selecting' && createPortal(
                 <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
                     <div className="bg-white border-4 border-gray-900 p-5 w-[400px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
                         {/* 픽셀 코너 장식 */}
@@ -243,12 +250,13 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* 임포트 중 로딩 토스트 */}
-            {status === 'importing' && (
-                <div className="fixed bottom-20 right-6 z-[9999] animate-slide-up font-galmuri11">
+            {mounted && status === 'importing' && createPortal(
+                <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
                     <div className="bg-white border-4 border-gray-900 p-5 min-w-[300px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
                         <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
@@ -263,7 +271,8 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             <style jsx>{`
