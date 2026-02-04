@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserId } from '@/lib/auth';
-import { memoryDb, boardBlocksDb, projectDb } from '@/lib/db';
+import { memoryDb, boardBlocksDb, projectDb, personaDb } from '@/lib/db';
 import { stripHtml } from '@/lib/text';
 import { CalendarBlockConfig, MeetingRecorderBlockConfig, DatabaseBlockConfig, ActionProject } from '@/types';
 import OpenAI from 'openai';
@@ -23,54 +23,61 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-    try {
-        const { synergyType, memoryIds, blockIds, projectIds, personaId } = await req.json();
+  try {
+    const { synergyType, memoryIds, blockIds, projectIds } = await req.json();
 
-        if (!synergyType) {
-            return NextResponse.json({ error: 'Synergy type is required' }, { status: 400 });
-        }
+    if (!synergyType) {
+      return NextResponse.json({ error: 'Synergy type is required' }, { status: 400 });
+    }
 
-        // 페르소나 정보 가져오기
-        let personaContext = '';
-        let personaName = '';
-        if (personaId) {
-            const persona = personaDb.getById(personaId, userId);
-            if (persona) {
-                personaName = persona.name;
-                personaContext = persona.context || persona.description || '';
-            }
-        }
-
-        switch (synergyType) {
-            case 'meeting-recorder-calendar':
-                return await handleMeetingRecorderCalendar(userId, blockIds, personaContext, personaName);
-            case 'database-memory':
-                return await handleDatabaseMemory(userId, blockIds, memoryIds, personaContext, personaName);
-            case 'calendar-memory':
-                return await handleCalendarMemory(userId, blockIds, memoryIds, personaContext, personaName);
-            case 'action-plan-calendar':
-                return await handleActionPlanCalendar(userId, blockIds, projectIds);
-            case 'meeting-recorder-action-plan':
-                return await handleMeetingRecorderActionPlan(userId, blockIds, projectIds, personaContext, personaName);
-            case 'action-plan-database':
-                return await handleActionPlanDatabase(userId, blockIds, projectIds);
-            default:
-                return NextResponse.json({ error: 'Unknown synergy type' }, { status: 400 });
-        }
-    } catch (error: any) {
+    switch (synergyType) {
+      case 'meeting-recorder-calendar':
+        return await handleMeetingRecorderCalendar(userId, blockIds);
+      case 'database-memory':
+        return await handleDatabaseMemory(userId, blockIds, memoryIds);
+      case 'calendar-memory':
+        return await handleCalendarMemory(userId, blockIds, memoryIds);
+      case 'action-plan-calendar':
+        return await handleActionPlanCalendar(userId, blockIds, projectIds);
+      case 'meeting-recorder-action-plan':
+        return await handleMeetingRecorderActionPlan(userId, blockIds, projectIds);
+      case 'action-plan-database':
+        return await handleActionPlanDatabase(userId, blockIds, projectIds);
+      default:
+        return NextResponse.json({ error: 'Unknown synergy type' }, { status: 400 });
+    }
+  } catch (error: any) {
     console.error('Widget synergy error:', error);
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
 }
 
 // 1. 미팅녹음 - 캘린더
-async function handleMeetingRecorderCalendar(userId: string, blockIds: string[], personaContext?: string, personaName?: string) {
-  // ... (중략)
+async function handleMeetingRecorderCalendar(userId: string, blockIds: string[]) {
+  const meetingRecorderBlock = boardBlocksDb.getById(blockIds.find(id => {
+    const block = boardBlocksDb.getById(id, userId);
+    return block?.type === 'meeting-recorder';
+  }) || '', userId);
+  const calendarBlock = boardBlocksDb.getById(blockIds.find(id => {
+    const block = boardBlocksDb.getById(id, userId);
+    return block?.type === 'calendar';
+  }) || '', userId);
+
+  if (!meetingRecorderBlock || !calendarBlock) {
+    return NextResponse.json({ error: 'Meeting recorder and calendar blocks are required' }, { status: 400 });
+  }
+
+  const meetingConfig = meetingRecorderBlock.config as MeetingRecorderBlockConfig;
+  const calendarConfig = calendarBlock.config as CalendarBlockConfig;
+
+  if (!meetingConfig.script && !meetingConfig.summary) {
+    return NextResponse.json({ error: 'Meeting recorder has no content' }, { status: 400 });
+  }
+
   const meetingContent = meetingConfig.summary || meetingConfig.script || '';
 
   // AI에게 회의록 분석 요청 (액션 아이템 및 날짜 추출)
-  const prompt = `
-${personaContext ? `🎯 페르소나 관점: "${personaName}" (${personaContext})\n` : ''}다음 회의록에서 액션 아이템과 날짜를 추출해주세요. 페르소나의 관점을 반영하여 중요도가 높은 항목 위주로 선별해주세요.
+  const prompt = `다음 회의록에서 액션 아이템과 날짜를 추출해주세요.
 
 회의록 내용:
 ${meetingContent}
@@ -150,21 +157,16 @@ async function handleDatabaseMemory(userId: string, blockIds: string[], memoryId
     content: stripHtml(m.content),
   }));
 
-  const propertiesInfo = dbConfig.properties.map(p => `- ID: ${p.id}, 이름: ${p.name}, 타입: ${p.type}`).join('\n');
-  const prompt = `다음 기록들을 데이터베이스 행으로 변환해주세요.
-
-데이터베이스 속성 정의:
-${propertiesInfo}
+  const propertiesList = dbConfig.properties.map(p => `${p.name} (${p.type})`).join(', ');
+  const prompt = `다음 기록들을 데이터베이스 행으로 변환해주세요. 데이터베이스 속성: ${propertiesList}
 
 기록들:
 ${JSON.stringify(memoriesText, null, 2)}
 
-중요: 각 행의 JSON 키는 반드시 위에서 정의된 'ID'를 사용하세요. 이름이나 다른 텍스트를 키로 사용하지 마세요.
-
 JSON 형식으로 응답:
 {
   "rows": [
-    {"[ID1]": "값1", "[ID2]": "값2", ...}
+    {"property1": "value1", "property2": "value2", ...}
   ]
 }`;
 
@@ -179,38 +181,13 @@ JSON 형식으로 응답:
 
   // 추출된 데이터를 행으로 추가
   const newRows = [...rows];
-  const extractedRows = Array.isArray(extractedData.rows) ? extractedData.rows : [];
-  
-  extractedRows.forEach((row: Record<string, any>) => {
-    // AI가 속성 ID를 키로 사용하지 않고 이름 등을 사용했을 경우를 대비한 매핑 보정
-    const mappedProperties: Record<string, any> = {};
-    
-    dbConfig.properties.forEach(prop => {
-      // 1. 정확한 ID 매칭
-      if (row[prop.id] !== undefined) {
-        mappedProperties[prop.id] = row[prop.id];
-      } 
-      // 2. 속성 이름으로 매칭 (AI가 실수했을 경우 대비)
-      else if (row[prop.name] !== undefined) {
-        mappedProperties[prop.id] = row[prop.name];
-      }
-      // 3. 소문자 이름으로 매칭
-      else {
-        const foundKey = Object.keys(row).find(k => k.toLowerCase() === prop.name.toLowerCase());
-        if (foundKey) {
-          mappedProperties[prop.id] = row[foundKey];
-        }
-      }
+  extractedData.rows.forEach((row: Record<string, any>) => {
+    newRows.push({
+      id: `row-${Date.now()}-${Math.random()}`,
+      properties: row,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     });
-
-    if (Object.keys(mappedProperties).length > 0) {
-      newRows.push({
-        id: `row-${Date.now()}-${Math.random()}`,
-        properties: mappedProperties,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-    }
   });
 
   // 데이터베이스 블록 업데이트
@@ -353,40 +330,47 @@ async function handleActionPlanCalendar(userId: string, blockIds: string[], proj
 }
 
 // 5. 미팅녹음 - 액션플랜
-async function handleMeetingRecorderActionPlan(userId: string, blockIds: string[], projectIds: string[], personaContext?: string, personaName?: string) {
-  // ... (중략)
+async function handleMeetingRecorderActionPlan(userId: string, blockIds: string[], projectIds: string[]) {
+  const meetingRecorderBlock = boardBlocksDb.getById(blockIds.find(id => {
+    const block = boardBlocksDb.getById(id, userId);
+    return block?.type === 'meeting-recorder';
+  }) || '', userId);
+
+  if (!meetingRecorderBlock) {
+    return NextResponse.json({ error: 'Meeting recorder block is required' }, { status: 400 });
+  }
+
+  const meetingConfig = meetingRecorderBlock.config as MeetingRecorderBlockConfig;
   const meetingContent = meetingConfig.summary || meetingConfig.script || '';
 
+  if (!meetingContent) {
+    return NextResponse.json({ error: 'Meeting recorder has no content' }, { status: 400 });
+  }
+
   // AI에게 회의록을 액션플랜으로 변환 요청
-  const prompt = `
-${personaContext ? `🎯 현재 당신의 페르소나: "${personaName}" (${personaContext})\n이 페르소나의 전문 지식과 관점을 반영하여 회의록을 분석하고 액션 플랜을 세워주세요.\n\n` : ''}당신은 생산성 전문가입니다. 다음 회의록 내용을 **철저히 분석**하여 구체적이고 실행 가능한 "액션 프로젝트"를 설계해주세요.
+  const prompt = `다음 회의록을 액션플랜으로 변환해주세요.
 
 회의록 내용:
 ${meetingContent}
 
-⚠️ **중요 지침:**
-1. **결정사항 중심**: 회의에서 나온 구체적인 결정사항, 담당자, 마감 기한을 액션 아이템에 포함하세요.
-2. **구체적 수치**: 논의된 숫자나 데이터가 있다면 반드시 활용하세요.
-3. **페르소나 반영**: ${personaName ? `"${personaName}" 전문가의 시각에서` : '전문가의 시각에서'} 이 회의 이후에 가장 먼저 해야 할 전략적인 일들을 제안하세요.
-
 JSON 형식으로 응답:
 {
-  "title": "...",
-  "summary": "...",
-  "expectedDuration": "...",
+  "title": "프로젝트 제목",
+  "summary": "프로젝트 요약",
+  "expectedDuration": "예상 기간 (예: 20day plan)",
   "milestones": [
     {
       "id": "milestone-1",
       "title": "마일스톤 제목",
       "actions": [
-        {"id": "action-1", "text": "매우 구체적인 액션 내용 (예: ~를 위해 ~하기)", "duration": "1h", "completed": false}
+        {"id": "action-1", "text": "액션 내용", "duration": "1h", "completed": false}
       ]
     }
   ]
 }`;
 
   const completion = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'gpt-4o-mini',
     messages: [{ role: 'user', content: prompt }],
     response_format: { type: 'json_object' },
   });
@@ -447,17 +431,16 @@ async function handleActionPlanDatabase(userId: string, blockIds: string[], proj
     // 데이터베이스 속성에 맞게 매핑
     const properties: Record<string, any> = {};
     dbConfig.properties.forEach(prop => {
-      const propName = prop.name.toLowerCase().trim();
-      
-      if (['title', '제목', '이름', 'name'].includes(propName)) {
+      const propNameLower = prop.name.toLowerCase();
+      if (propNameLower === 'title') {
         properties[prop.id] = project.title;
-      } else if (['summary', '요약', '설명', 'description', '내용'].includes(propName)) {
+      } else if (propNameLower === 'summary') {
         properties[prop.id] = project.summary;
-      } else if (['duration', 'expectedduration', '기간', '예상기간', '소요시간'].includes(propName)) {
+      } else if (propNameLower === 'duration' || propNameLower === 'expectedduration') {
         properties[prop.id] = project.expectedDuration;
-      } else if (['milestones', '단계', '할일', '마일스톤'].includes(propName)) {
+      } else if (propNameLower === 'milestones') {
         properties[prop.id] = JSON.stringify(milestones);
-      } else if (['createdat', 'created', '생성일', '날짜', 'date'].includes(propName)) {
+      } else if (propNameLower === 'createdat' || propNameLower === 'created') {
         properties[prop.id] = new Date(project.createdAt).toISOString();
       } else {
         // 기본값 설정
