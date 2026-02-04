@@ -150,11 +150,8 @@ export const GmailImportButton: React.FC<GmailImportButtonProps> = ({ onImportCo
             </button>
 
             {/* 메일 선택 토스트 UI */}
-            {status === 'selecting' && (() => {
-                console.log('[GmailImport] Rendering toast UI - emails:', emails.length);
-                return true;
-            })() && (
-                <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[99999] animate-slide-up font-galmuri11">
+            {status === 'selecting' && (
+                <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
                     <div className="bg-white border-4 border-gray-900 p-5 w-[400px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
                         {/* 픽셀 코너 장식 */}
                         <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
