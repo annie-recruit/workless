@@ -503,7 +503,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'features.insights.subtitle': 'AI Insights',
     'features.insights.desc': '축적된 기억에서 패턴과 인사이트를 발견하세요',
     'features.insights.detail1': '자주 등장하는 주제 자동 추출',
-    'features.insights.detail2': '관련 기억 스마트 연결',
+    'features.insights.detail2': '관련된 주제 기록들 분포도 확인 가능',
     'features.insights.detail3': '생산성 패턴 분석',
     'features.insights.detail4': '개인화된 제안과 리마인더',
     
