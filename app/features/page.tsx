@@ -237,10 +237,12 @@ export default function FeaturesPage() {
                         <span className="text-[9px] font-bold text-white/80 whitespace-nowrap">{f.title}</span>
                       </div>
                     ))}
-                    <div className="flex items-center gap-2 ml-auto text-xs text-indigo-400">
-                      <PixelIcon name="chevronRight" size={12} />
-                      <span>{t('features.cover.hint')}</span>
-                    </div>
+                  </div>
+
+                  {/* 우측 하단 탐색 힌트 */}
+                  <div className="absolute bottom-5 right-8 flex items-center gap-2 text-xs text-indigo-400 z-10">
+                    <PixelIcon name="chevronRight" size={12} />
+                    <span>{t('features.cover.hint')}</span>
                   </div>
                 </div>
               ) : /* 무한 캔버스 기능 (3번째 슬라이드) */ currentSlide === 2 ? (
