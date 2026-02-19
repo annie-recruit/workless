@@ -174,89 +174,58 @@ export default function FeaturesPage() {
   const feature = features[currentSlide];
 
   const handleExportPDF = () => {
-    const coverFeature = features[0];
-    const slideFeatures = features.slice(1);
-
-    const slidesHTML = slideFeatures.map((f, i) => `
-      <div class="slide" style="page-break-before: ${i === 0 ? 'avoid' : 'always'};">
-        <div class="slide-number">${i + 1} / ${slideFeatures.length}</div>
-        <div class="slide-subtitle">${f.subtitle || ''}</div>
-        <h2 class="slide-title">${f.title}</h2>
-        <p class="slide-desc">${f.description}</p>
-        <ul class="slide-details">
-          ${f.details.map(d => `<li>${d}</li>`).join('')}
-        </ul>
-      </div>
-    `).join('');
-
-    const html = `<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <title>WORKLESS Feature Guide</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif; background: #fff; color: #111; }
-    .cover {
-      min-height: 100vh; display: flex; flex-direction: column;
-      justify-content: center; padding: 60px;
-      background: #1e1b4b; color: #fff; page-break-after: always;
-    }
-    .cover-badge {
-      display: inline-block; border: 1px solid #818cf8;
-      padding: 4px 12px; font-size: 10px; letter-spacing: 0.3em;
-      color: #a5b4fc; text-transform: uppercase; margin-bottom: 24px;
-    }
-    .cover-title { font-size: 72px; font-weight: 900; letter-spacing: -2px; line-height: 1; margin-bottom: 20px; }
-    .cover-desc { font-size: 15px; color: #c7d2fe; line-height: 1.7; max-width: 480px; margin-bottom: 40px; }
-    .cover-grid { display: flex; flex-wrap: wrap; gap: 8px; }
-    .cover-item {
-      border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08);
-      padding: 8px 14px; font-size: 11px; color: rgba(255,255,255,0.8); font-weight: 600;
-    }
-    .slide {
-      min-height: 100vh; display: flex; flex-direction: column;
-      justify-content: center; padding: 60px; position: relative;
-    }
-    .slide-number { font-size: 11px; color: #999; font-weight: 600; letter-spacing: 0.1em; margin-bottom: 12px; }
-    .slide-subtitle { font-size: 11px; font-weight: 700; color: #4f46e5; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 10px; }
-    .slide-title { font-size: 40px; font-weight: 900; letter-spacing: -1px; margin-bottom: 16px; }
-    .slide-desc { font-size: 14px; color: #555; line-height: 1.7; margin-bottom: 32px; max-width: 520px; }
-    .slide-details { list-style: none; display: flex; flex-direction: column; gap: 10px; }
-    .slide-details li {
-      padding: 14px 18px; border: 2px solid #111; font-size: 13px;
-      font-weight: 600; position: relative;
-    }
-    .slide-details li::before { content: '■'; margin-right: 10px; font-size: 8px; vertical-align: middle; }
-    @media print {
-      @page { margin: 0; size: A4; }
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    }
-  </style>
-</head>
-<body>
-  <div class="cover">
-    <div class="cover-badge">Feature Guide</div>
-    <div class="cover-title">WORKLESS</div>
-    <p class="cover-desc">${coverFeature.description}</p>
-    <div class="cover-grid">
-      ${slideFeatures.map(f => `<div class="cover-item">${f.title}</div>`).join('')}
-    </div>
-  </div>
-  ${slidesHTML}
-  <script>window.onload = function(){ window.print(); }<\/script>
-</body>
-</html>`;
-
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-    }
+    window.print();
   };
 
+  const slideFeatures = features.slice(1);
+
   return (
-    <main className="min-h-screen bg-white font-galmuri11">
+    <>
+    {/* ===== 인쇄 전용 뷰 (화면에서는 숨김, print 시에만 표시) ===== */}
+    <div className="hidden print:block font-galmuri11" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
+      <style>{`
+        @page { margin: 0; size: A4 landscape; }
+        @media print {
+          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+      `}</style>
+
+      {/* 표지 */}
+      <div style={{ pageBreakAfter: 'always', width: '100%', height: '100vh', background: '#1e1b4b', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px', boxSizing: 'border-box' }}>
+        <div style={{ border: '1px solid #818cf8', display: 'inline-block', padding: '4px 14px', marginBottom: '24px', width: 'fit-content' }}>
+          <span style={{ fontSize: '10px', letterSpacing: '0.3em', color: '#a5b4fc', textTransform: 'uppercase', fontWeight: 700 }}>Feature Guide</span>
+        </div>
+        <h1 style={{ fontSize: '80px', fontWeight: 900, color: '#fff', letterSpacing: '-3px', lineHeight: 1, marginBottom: '20px' }}>WORKLESS</h1>
+        <p style={{ fontSize: '14px', color: '#c7d2fe', lineHeight: 1.7, maxWidth: '500px', marginBottom: '40px' }}>{features[0].description}</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {slideFeatures.map(f => (
+            <div key={f.id} style={{ border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(255,255,255,0.1)', padding: '8px 16px', fontSize: '11px', color: 'rgba(255,255,255,0.85)', fontWeight: 700 }}>{f.title}</div>
+          ))}
+        </div>
+      </div>
+
+      {/* 각 기능 슬라이드 */}
+      {slideFeatures.map((f, i) => (
+        <div key={f.id} style={{ pageBreakAfter: i < slideFeatures.length - 1 ? 'always' : 'auto', width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px 80px', boxSizing: 'border-box', background: '#fff' }}>
+          <p style={{ fontSize: '11px', color: '#aaa', fontWeight: 600, letterSpacing: '0.1em', marginBottom: '10px' }}>{i + 1} / {slideFeatures.length}</p>
+          {f.subtitle && (
+            <p style={{ fontSize: '11px', fontWeight: 700, color: '#4f46e5', textTransform: 'uppercase', letterSpacing: '0.25em', marginBottom: '10px' }}>{f.subtitle}</p>
+          )}
+          <h2 style={{ fontSize: '52px', fontWeight: 900, letterSpacing: '-1.5px', marginBottom: '16px', color: '#111' }}>{f.title}</h2>
+          <p style={{ fontSize: '14px', color: '#555', lineHeight: 1.7, marginBottom: '36px', maxWidth: '560px' }}>{f.description}</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {f.details.map((d, di) => (
+              <div key={di} style={{ padding: '16px 20px', border: '2px solid #111', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ width: '8px', height: '8px', background: '#111', flexShrink: 0, display: 'inline-block' }} />
+                {d}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <main className="min-h-screen bg-white font-galmuri11 print:hidden">
       {/* 언어 토글 (고정 위치) */}
       <div className="fixed top-4 right-4 z-[100] scale-90 md:scale-100">
         <PixelLanguageToggle />
@@ -1057,5 +1026,6 @@ export default function FeaturesPage() {
         </div>
       </div>
     </main>
+    </>
   );
 }
