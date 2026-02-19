@@ -33,7 +33,7 @@ export default function PixelKakaoAdFit({
     useEffect(() => {
         // 스크립트가 로드된 후 광고 초기화
         const timer = setTimeout(() => {
-            if (window.adfit) {
+            if ((window as any).adfit) {
                 console.log('카카오 애드핏 스크립트 로드됨');
             }
         }, 1000);
