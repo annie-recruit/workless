@@ -202,42 +202,47 @@ export default function FeaturesPage() {
       {/* 메인 영역 - 왼쪽 이미지, 오른쪽 설명 */}
       <div className="container mx-auto px-4 py-8 md:py-16">
         <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-[1.2fr_0.8fr] gap-8 items-center">
+          <div className={currentSlide === 0 ? '' : 'grid md:grid-cols-[1.2fr_0.8fr] gap-8 items-center'}>
             {/* 왼쪽 - 이미지/아이콘 영역 */}
-            <div className="rounded-2xl p-8 flex items-center justify-center relative overflow-hidden min-h-[500px] bg-white">
+            <div className={currentSlide === 0 ? 'w-full' : 'rounded-2xl p-8 flex items-center justify-center relative overflow-hidden min-h-[500px] bg-white'}>
               {/* 표지 슬라이드 (첫 번째 슬라이드) */}
               {currentSlide === 0 ? (
-                <div className="relative w-full h-[450px] bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-gray-300 overflow-hidden flex flex-col items-center justify-center gap-8 p-6">
-                  {/* 픽셀 로고 배너 */}
-                  <div className="relative inline-block">
-                    <div className="absolute -top-0.5 -left-0.5 w-2 h-2 bg-gray-800" />
-                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-gray-800" />
-                    <div className="absolute -bottom-0.5 -left-0.5 w-2 h-2 bg-gray-800" />
-                    <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-gray-800" />
-                    <div className="bg-indigo-600 px-10 py-5 border-2 border-gray-800 shadow-[6px_6px_0px_0px_rgba(0,0,0,0.2)]">
-                      <h1 className="text-4xl font-black text-white tracking-tighter uppercase">WORKLESS</h1>
-                      <p className="text-xs text-indigo-200 text-center tracking-widest mt-1">FEATURE GUIDE</p>
+                <div className="relative w-full h-[420px] bg-indigo-950 border-2 border-gray-800 overflow-hidden flex items-center px-12 gap-16 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.15)]">
+                  {/* 픽셀 도트 패턴 배경 */}
+                  <div className="absolute inset-0 opacity-[0.07] bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:14px_14px]" />
+                  {/* 픽셀 코너 장식 */}
+                  <div className="absolute top-3 left-3 w-3 h-3 border-l-2 border-t-2 border-indigo-400" />
+                  <div className="absolute top-3 right-3 w-3 h-3 border-r-2 border-t-2 border-indigo-400" />
+                  <div className="absolute bottom-3 left-3 w-3 h-3 border-l-2 border-b-2 border-indigo-400" />
+                  <div className="absolute bottom-3 right-3 w-3 h-3 border-r-2 border-b-2 border-indigo-400" />
+
+                  {/* 왼쪽: 로고 + 설명 */}
+                  <div className="flex-1 text-white z-10 space-y-5">
+                    <div className="relative inline-block">
+                      <div className="border border-indigo-400 px-2 py-0.5">
+                        <span className="text-[10px] font-bold tracking-[0.35em] text-indigo-300 uppercase">Feature Guide</span>
+                      </div>
+                    </div>
+                    <h1 className="text-6xl md:text-7xl font-black tracking-tighter uppercase leading-none text-white">
+                      WORK<br />LESS
+                    </h1>
+                    <p className="text-sm text-indigo-200 leading-relaxed max-w-xs">
+                      {t('features.cover.desc')}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-indigo-400 pt-2">
+                      <PixelIcon name="chevronRight" size={12} />
+                      <span>{t('features.cover.hint')}</span>
                     </div>
                   </div>
 
-                  {/* 기능 아이콘 그리드 */}
-                  <div className="grid grid-cols-4 gap-2 w-full">
+                  {/* 오른쪽: 기능 그리드 */}
+                  <div className="grid grid-cols-2 gap-2 z-10 flex-shrink-0">
                     {features.slice(1).map((f) => (
-                      <div key={f.id} className="relative bg-white border-2 border-gray-800 p-2 flex flex-col items-center gap-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]">
-                        <div className="absolute -top-0.5 -left-0.5 w-1 h-1 bg-gray-800" />
-                        <div className="absolute -top-0.5 -right-0.5 w-1 h-1 bg-gray-800" />
-                        <div className="absolute -bottom-0.5 -left-0.5 w-1 h-1 bg-gray-800" />
-                        <div className="absolute -bottom-0.5 -right-0.5 w-1 h-1 bg-gray-800" />
-                        <PixelIcon name={f.icon} size={14} className="text-indigo-600" />
-                        <span className="text-[7px] font-bold text-gray-700 text-center leading-tight">{f.title}</span>
+                      <div key={f.id} className="relative bg-white/10 border border-white/20 px-3 py-2 flex items-center gap-2 hover:bg-white/15 transition-all">
+                        <PixelIcon name={f.icon} size={13} className="text-indigo-300 flex-shrink-0" />
+                        <span className="text-[9px] font-bold text-white/80 leading-tight">{f.title}</span>
                       </div>
                     ))}
-                  </div>
-
-                  {/* 탐색 힌트 */}
-                  <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
-                    <PixelIcon name="chevronRight" size={12} />
-                    <span>{t('features.cover.hint')}</span>
                   </div>
                 </div>
               ) : /* 무한 캔버스 기능 (3번째 슬라이드) */ currentSlide === 2 ? (
@@ -864,8 +869,8 @@ export default function FeaturesPage() {
               )}
             </div>
 
-            {/* 오른쪽 - 설명 영역 */}
-            <div className="space-y-6">
+            {/* 오른쪽 - 설명 영역 (표지 슬라이드에서는 숨김) */}
+            {currentSlide !== 0 && <div className="space-y-6">
               <div>
                 <h2 className="text-2xl md:text-3xl font-black text-gray-900 mb-3 tracking-tight">
                   {feature.title}
@@ -896,7 +901,7 @@ export default function FeaturesPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </div>}
           </div>
 
           {/* 네비게이션 */}
