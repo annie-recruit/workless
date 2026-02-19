@@ -141,35 +141,35 @@ export default function FeaturesPage() {
     }
   ];
 
+  const totalSlides = features.length;
+
   const nextSlide = () => {
-    if (currentSlide < features.length - 1) {
-      setCurrentSlide(currentSlide + 1);
-    }
+    setCurrentSlide(prev => Math.min(prev + 1, totalSlides - 1));
   };
 
   const prevSlide = () => {
-    if (currentSlide > 0) {
-      setCurrentSlide(currentSlide - 1);
-    }
+    setCurrentSlide(prev => Math.max(prev - 1, 0));
   };
 
   const goToSlide = (index: number) => {
     setCurrentSlide(index);
   };
 
-  // 키보드 네비게이션
+  // 키보드 네비게이션 - 함수형 업데이트로 stale closure 방지
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft') {
-        prevSlide();
+        e.preventDefault();
+        setCurrentSlide(prev => Math.max(prev - 1, 0));
       } else if (e.key === 'ArrowRight') {
-        nextSlide();
+        e.preventDefault();
+        setCurrentSlide(prev => Math.min(prev + 1, totalSlides - 1));
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentSlide]);
+  }, [totalSlides]);
 
   const feature = features[currentSlide];
 
