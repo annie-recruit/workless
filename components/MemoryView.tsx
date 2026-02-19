@@ -349,11 +349,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     if (draggingEntity.type === 'memory') {
       localMemories.forEach(memory => {
         if (memory.id === draggedId) return;
-        const connected = (memory.connectedMemoryIds || []) as string[];
+        const connected = (memory.relatedMemoryIds || []) as string[];
         if (connected.includes(draggedId)) ids.add(`memory:${memory.id}`);
       });
       const currentMemory = localMemories.find(m => m.id === draggedId);
-      (currentMemory?.connectedMemoryIds || []).forEach((id: string) => ids.add(`memory:${id}`));
+      (currentMemory?.relatedMemoryIds || []).forEach((id: string) => ids.add(`memory:${id}`));
       blocks.forEach(block => {
         const cfg = block.config as any;
         if (cfg?.linkedMemoryIds?.includes(draggedId)) ids.add(`block:${block.id}`);
