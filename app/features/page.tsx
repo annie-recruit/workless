@@ -179,7 +179,7 @@ export default function FeaturesPage() {
 
   const slideFeatures = features.slice(1);
 
-  const renderSlideVisual = (idx: number) => {
+  const renderSlideVisual = (idx: number, forPrint = false) => {
     if (idx === 0) {
       return (
         <div className="w-full">
@@ -303,7 +303,10 @@ export default function FeaturesPage() {
           <div className="relative w-full h-[500px] flex items-center justify-start pl-4">
             <div className="w-[320px] h-[500px] overflow-hidden border-2 border-gray-300 rounded-lg shadow-lg bg-white font-galmuri11">
               <div className="relative isolate overflow-hidden px-5 py-6 text-white">
-                <PixelGradientBanner />
+                {forPrint
+                  ? <div className="absolute inset-0 h-full w-full" style={{ background: 'linear-gradient(135deg, rgb(249,115,22) 0%, rgb(251,146,60) 40%, rgb(79,70,229) 100%)', zIndex: -1 }} />
+                  : <PixelGradientBanner />
+                }
                 <div className="mb-2"><div className="text-[10px] opacity-90 mb-1">{t('features.visual.insights.date')}</div><h2 className="text-lg font-bold">{t('features.visual.insights.title')}</h2></div>
                 <p className="text-xs opacity-90 whitespace-pre-wrap">{t('features.visual.insights.desc')}</p>
               </div>
@@ -495,7 +498,7 @@ export default function FeaturesPage() {
           {/* 좌측 비주얼 - zoom으로 축소하여 페이지에 맞춤 */}
           <div style={{ position: 'relative', overflow: 'hidden', height: '100%', display: 'flex', alignItems: 'center' }}>
             <div style={{ zoom: 0.65, width: '100%' }}>
-              {renderSlideVisual(i + 1)}
+              {renderSlideVisual(i + 1, true)}
             </div>
           </div>
           {/* 우측 텍스트 */}
