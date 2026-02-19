@@ -1,15 +1,18 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Memory } from '@/types';
 import PixelIcon from './PixelIcon';
 import ProcessingLoader from './ProcessingLoader';
+import { useLanguage } from './LanguageContext';
 
 interface MemoryInputProps {
   onMemoryCreated: (memory?: Memory) => void;
 }
 
 export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
+  const { t } = useLanguage();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -18,12 +21,18 @@ export default function MemoryInput({ onMemoryCreated }: MemoryInputProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  // 클라이언트 사이드에서만 Portal 렌더링
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [isDragging, setIsDragging] = useState(false);
   const [memories, setMemories] = useState<Memory[]>([]);
   const [isEditorFocused, setIsEditorFocused] = useState(false);
   const [isMentionPanelOpen, setIsMentionPanelOpen] = useState(false);
   const [mentionSearch, setMentionSearch] = useState('');
-  const [editorHeight, setEditorHeight] = useState(120);
+  const [editorHeight, setEditorHeight] = useState(80);
   const [isResizing, setIsResizing] = useState(false);
   const [connectionSuggestions, setConnectionSuggestions] = useState<Array<{ id: string; content: string; reason: string }>>([]);
   const [selectedConnectionIds, setSelectedConnectionIds] = useState<Set<string>>(new Set());
@@ -492,28 +501,28 @@ ${summary}`;
         <div className="space-y-3">
           <h3 className="flex items-center gap-2 text-gray-800 font-bold uppercase tracking-tight text-xs mb-1">
             <PixelIcon name="widgets" size={16} />
-            위젯 가이드
+            {t('memory.input.guide.widgets')}
           </h3>
           <div className="space-y-1.5 pl-1 text-[11px] text-gray-500">
             <div className="flex items-center gap-2">
               <PixelIcon name="calendar" size={12} className="flex-shrink-0" />
-              <span><strong>캘린더:</strong> 날짜 기반 일정 관리</span>
+              <span>{t('memory.input.guide.widgets.calendar')}</span>
             </div>
             <div className="flex items-center gap-2">
               <PixelIcon name="map" size={12} className="flex-shrink-0" />
-              <span><strong>미니맵:</strong> 보드 전체 뷰</span>
+              <span>{t('memory.input.guide.widgets.minimap')}</span>
             </div>
             <div className="flex items-center gap-2">
               <PixelIcon name="file" size={12} className="flex-shrink-0" />
-              <span><strong>뷰어:</strong> PDF/이미지 표시</span>
+              <span>{t('memory.input.guide.widgets.viewer')}</span>
             </div>
             <div className="flex items-center gap-2">
               <PixelIcon name="database" size={12} className="flex-shrink-0" />
-              <span><strong>데이터베이스:</strong> 테이블 뷰</span>
+              <span>{t('memory.input.guide.widgets.db')}</span>
             </div>
             <div className="flex items-center gap-2">
               <PixelIcon name="microphone" size={12} className="flex-shrink-0" />
-              <span><strong>회의록:</strong> 실시간 녹음</span>
+              <span>{t('memory.input.guide.widgets.recorder')}</span>
             </div>
           </div>
         </div>
@@ -522,20 +531,20 @@ ${summary}`;
         <div className="space-y-3">
           <h3 className="flex items-center gap-2 text-gray-800 font-bold uppercase tracking-tight text-xs mb-1">
             <PixelIcon name="card" size={16} />
-            카드 가이드
+            {t('memory.input.guide.cards')}
           </h3>
           <div className="space-y-1.5 pl-1 text-[11px] text-gray-500">
             <div className="flex items-center gap-2">
               <PixelIcon name="link" size={12} className="flex-shrink-0" />
-              <span>카드 연결로 관계 시각화</span>
+              <span>{t('memory.input.guide.cards.link')}</span>
             </div>
             <div className="flex items-center gap-2">
               <PixelIcon name="flag" size={12} className="flex-shrink-0" />
-              <span>깃발로 북마크 저장</span>
+              <span>{t('memory.input.guide.cards.flag')}</span>
             </div>
             <div className="flex items-center gap-2">
               <PixelIcon name="folder" size={12} className="flex-shrink-0" />
-              <span>그룹으로 분류 정리</span>
+              <span>{t('memory.input.guide.cards.group')}</span>
             </div>
           </div>
         </div>
@@ -544,16 +553,16 @@ ${summary}`;
         <div className="space-y-3">
           <h3 className="flex items-center gap-2 text-gray-800 font-bold uppercase tracking-tight text-xs mb-1">
             <PixelIcon name="blur" size={16} />
-            AI 분석 가이드
+            {t('memory.input.guide.ai')}
           </h3>
           <div className="space-y-2 pl-1 text-[11px] text-gray-500">
             <div className="flex items-start gap-2">
               <PixelIcon name="blur" size={12} className="mt-0.5 flex-shrink-0" />
-              <span className="leading-tight">3개 이상 연결된 카드 그룹에 자동으로 블롭 배경 생성</span>
+              <span className="leading-tight">{t('memory.input.guide.ai.blob')}</span>
             </div>
             <div className="flex items-start gap-2">
               <PixelIcon name="target" size={12} className="mt-0.5 flex-shrink-0" />
-              <span className="leading-tight">선택한 카드들을 AI가 분석해 실행 가능한 계획 생성</span>
+              <span className="leading-tight">{t('memory.input.guide.ai.plan')}</span>
             </div>
           </div>
         </div>
@@ -562,19 +571,19 @@ ${summary}`;
         <div className="space-y-3">
           <h3 className="flex items-center gap-2 text-gray-800 font-bold uppercase tracking-tight text-xs mb-1">
             <PixelIcon name="lightbulb" size={16} />
-            빠른 시작 팁
+            {t('memory.input.guide.tips')}
           </h3>
           <div className="pl-1 text-[11px] text-gray-500 space-y-1.5">
-            <p className="leading-tight">• 하단 입력창에 자유롭게 기록하세요.</p>
-            <p className="leading-tight">• @를 입력해 다른 기록을 멘션하세요.</p>
-            <p className="leading-tight">• 이미지나 PDF를 드래그해서 넣으세요.</p>
+            <p className="leading-tight">• {t('memory.input.guide.tips.1')}</p>
+            <p className="leading-tight">• {t('memory.input.guide.tips.2')}</p>
+            <p className="leading-tight">• {t('memory.input.guide.tips.3')}</p>
           </div>
         </div>
       </div>
 
-      {/* 중앙 입력 폼 영역 - 토스트 디자인으로 변경 */}
-      <div className="fixed bottom-8 right-8 z-[100] w-full max-w-md px-4 animate-slide-up font-galmuri11">
-        <div className="bg-white border-4 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative p-1 overflow-visible">
+      {/* 중앙 입력 폼 영역 - 하단 중앙 */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-md px-4 animate-slide-up font-galmuri11">
+        <div className="bg-white border-3 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative p-1 overflow-visible">
           {/* 픽셀 코너 장식 */}
           <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
           <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
@@ -588,7 +597,7 @@ ${summary}`;
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="제목 (선택)"
-              className="w-full px-3 py-1 text-xs font-bold border-b border-gray-100 focus:outline-none focus:border-indigo-300 transition-colors"
+              className="w-full px-3 py-1 text-xs text-black font-bold border-b border-gray-100 focus:outline-none focus:border-indigo-300 transition-colors"
             />
 
             <div
@@ -609,7 +618,7 @@ ${summary}`;
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => execCommand('bold')}
-                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200 font-bold"
+                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200 font-bold text-gray-900"
                   >
                     B
                   </button>
@@ -617,7 +626,7 @@ ${summary}`;
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => execCommand('italic')}
-                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200 italic font-serif"
+                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200 italic font-serif text-gray-900"
                   >
                     I
                   </button>
@@ -628,15 +637,15 @@ ${summary}`;
                       const url = prompt('링크 URL을 입력해주세요');
                       if (url) execCommand('createLink', url);
                     }}
-                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200"
+                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-900"
                   >
-                    <PixelIcon name="link" size={12} />
+                    <PixelIcon name="link" size={12} className="text-gray-900" />
                   </button>
                   <button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setIsMentionPanelOpen(!isMentionPanelOpen)}
-                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200"
+                    className="w-6 h-6 flex items-center justify-center text-[10px] rounded hover:bg-gray-200 text-gray-900"
                   >
                     @
                   </button>
@@ -647,9 +656,9 @@ ${summary}`;
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={loading}
-                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-50"
+                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-50 text-gray-900"
                   >
-                    <PixelIcon name="attachment" size={12} />
+                    <PixelIcon name="attachment" size={12} className="text-gray-900" />
                   </button>
 
                   {!isRecording && !isProcessing ? (
@@ -657,9 +666,9 @@ ${summary}`;
                       type="button"
                       onClick={startRecording}
                       disabled={loading}
-                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-50"
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 disabled:opacity-50 text-gray-900"
                     >
-                      <PixelIcon name="microphone" size={12} />
+                      <PixelIcon name="microphone" size={12} className="text-gray-900" />
                     </button>
                   ) : isRecording ? (
                     <button
@@ -672,7 +681,7 @@ ${summary}`;
                     </button>
                   ) : (
                     <div className="w-6 h-6 flex items-center justify-center">
-                      <ProcessingLoader size={10} variant="inline" tone="indigo" />
+                      <ProcessingLoader size={10} variant="inline" tone="graphite" />
                     </div>
                   )}
 
@@ -698,7 +707,7 @@ ${summary}`;
                   <div
                     ref={editorRef}
                     contentEditable={!loading}
-                    className="flex-1 px-3 py-2 text-[13px] outline-none overflow-y-auto min-h-[50px]"
+                    className="flex-1 px-3 py-2 text-[13px] text-black outline-none overflow-y-auto min-h-[50px]"
                     onInput={() => {
                       setContent(getEditorHtml());
                       saveSelection();
@@ -815,7 +824,11 @@ ${summary}`;
       {/* 조건부 제안 (입력창 근처 토스트로) */}
       {suggestions.length > 0 && (
         <div className="fixed bottom-32 right-8 w-full max-w-md z-[90] animate-slide-up font-galmuri11 pr-4">
-          <div className="bg-amber-50 border-4 border-amber-900 p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.2)]">
+          <div className="bg-amber-50 border-3 border-gray-900 p-4 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+            <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+            <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
             <h3 className="text-xs font-bold text-amber-900 mb-2 flex items-center gap-2">
               <PixelIcon name="lightbulb" size={14} />
               이런 건 어때요?
@@ -836,9 +849,9 @@ ${summary}`;
       )}
 
       {/* 연결 제안 토스트 (기존 스타일 유지하되 일관성 보완) */}
-      {showConnectionModal && connectionSuggestions.length > 0 && (
+      {mounted && showConnectionModal && connectionSuggestions.length > 0 && createPortal(
         <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-          <div className="bg-white border-4 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+          <div className="bg-white border-3 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
             <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
             <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
             <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
@@ -928,7 +941,8 @@ ${summary}`;
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 성공 토스트 */}

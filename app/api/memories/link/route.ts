@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { memoryId1, memoryId2, note, isAIGenerated } = await req.json();
+    const { memoryId1, memoryId2, note, isAIGenerated, linkType } = await req.json();
 
     if (!memoryId1 || !memoryId2) {
       return NextResponse.json(
@@ -84,10 +84,11 @@ export async function POST(req: NextRequest) {
     }
 
     // 링크 메모 저장 (쌍으로 1개)
+    const validLinkType = ['depends-on', 'derives-from', 'related'].includes(linkType) ? linkType : 'related';
     if (typeof note === 'string') {
-      memoryLinkDb.upsert(memoryId1, memoryId2, note.trim(), isAIGenerated === true, userId);
+      memoryLinkDb.upsert(memoryId1, memoryId2, note.trim(), isAIGenerated === true, userId, validLinkType);
     } else {
-      memoryLinkDb.upsert(memoryId1, memoryId2, undefined, isAIGenerated === true, userId);
+      memoryLinkDb.upsert(memoryId1, memoryId2, undefined, isAIGenerated === true, userId, validLinkType);
     }
 
     return NextResponse.json({
@@ -175,10 +176,14 @@ export async function DELETE(req: NextRequest) {
     // 링크 메모 삭제
     memoryLinkDb.delete(memoryId1, memoryId2);
 
+    // 업데이트된 메모리/프로젝트 가져오기
+    const updatedMemory1 = isProject1 ? projectDb.getById(memoryId1, userId) : memoryDb.getById(memoryId1, userId);
+    const updatedMemory2 = isProject2 ? projectDb.getById(memoryId2, userId) : memoryDb.getById(memoryId2, userId);
+
     return NextResponse.json({
       message: '링크 삭제 완료',
-      memory1: isProject1 ? projectDb.getById(memoryId1, userId) : memoryDb.getById(memoryId1, userId),
-      memory2: isProject2 ? projectDb.getById(memoryId2, userId) : memoryDb.getById(memoryId2, userId)
+      memory1: updatedMemory1,
+      memory2: updatedMemory2
     });
   } catch (error) {
     console.error('Failed to unlink memories:', error);

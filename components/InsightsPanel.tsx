@@ -6,7 +6,6 @@ import { Goal } from '@/types';
 import PixelIcon from './PixelIcon';
 import ProcessingLoader from './ProcessingLoader';
 import PixelGradientBanner from './PixelGradientBanner';
-import PersonaSelector from './PersonaSelector';
 import { useLanguage } from './LanguageContext';
 import { dataLayer } from '@/lib/dataLayer';
 
@@ -123,15 +122,8 @@ export default function InsightsPanel({ personaId, onPersonaChange }: InsightsPa
 
       {/* 콘텐츠 영역 */}
       <div className="space-y-6 p-6">
-        {/* 페르소나 선택 및 새로고침 버튼 */}
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex-shrink-0">
-            <PersonaSelector
-              selectedPersonaId={personaId}
-              onPersonaChange={onPersonaChange || (() => {})}
-              data-tutorial-target="persona-selector"
-            />
-          </div>
+        {/* 새로고침 버튼 */}
+        <div className="flex items-center justify-end">
           <button
             onClick={fetchInsights}
             className="text-sm text-indigo-500 hover:text-indigo-600 flex items-center gap-1 flex-shrink-0"
@@ -252,7 +244,7 @@ function GoalsSection() {
     return (
       <div className="bg-white p-4 border border-gray-300">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">{t('insights.goals.title')}</h3>
-        <ProcessingLoader variant="inline" tone="indigo" label={t('insights.loading')} />
+        <ProcessingLoader variant="inline" tone="graphite" label={t('insights.loading')} />
       </div>
     );
   }

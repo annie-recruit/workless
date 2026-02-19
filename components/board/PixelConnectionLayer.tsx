@@ -21,6 +21,60 @@ export interface PixelConnectionLayerHandle {
     redraw: () => void;
 }
 
+// 카드 테두리와 직선이 만나는 교차점 계산
+function getBorderPoint(
+    cardX: number, cardY: number, cardW: number, cardH: number,
+    targetCX: number, targetCY: number
+): { x: number; y: number } {
+    const cx = cardX + cardW / 2;
+    const cy = cardY + cardH / 2;
+    const dx = targetCX - cx;
+    const dy = targetCY - cy;
+    if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return { x: cx, y: cy };
+    const hw = cardW / 2;
+    const hh = cardH / 2;
+    const tx = Math.abs(dx) > 0.001 ? hw / Math.abs(dx) : Infinity;
+    const ty = Math.abs(dy) > 0.001 ? hh / Math.abs(dy) : Infinity;
+    const t = Math.min(tx, ty);
+    return { x: cx + dx * t, y: cy + dy * t };
+}
+
+// 타입별 시각 스타일
+function getLinkStyle(linkType: string | undefined) {
+    switch (linkType) {
+        case 'depends-on':
+            return { fixedColor: '#F97316', lineWidth: 3, lineDash: [] as number[], bidirectional: false, arrowLen: 14, arrowWidth: 7 };
+        case 'derives-from':
+            return { fixedColor: '#8B5CF6', lineWidth: 1.5, lineDash: [] as number[], bidirectional: false, arrowLen: 12, arrowWidth: 5 };
+        case 'related':
+        default:
+            return { fixedColor: null, lineWidth: 2, lineDash: [6, 4] as number[], bidirectional: true, arrowLen: 10, arrowWidth: 5 };
+    }
+}
+
+// 화살촉 그리기
+function drawArrowHead(
+    ctx: CanvasRenderingContext2D,
+    tipX: number, tipY: number,
+    angle: number,
+    arrowLen: number, arrowWidth: number,
+    color: string
+) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(tipX, tipY);
+    ctx.lineTo(
+        tipX - arrowLen * Math.cos(angle) + arrowWidth * Math.sin(angle),
+        tipY - arrowLen * Math.sin(angle) - arrowWidth * Math.cos(angle)
+    );
+    ctx.lineTo(
+        tipX - arrowLen * Math.cos(angle) - arrowWidth * Math.sin(angle),
+        tipY - arrowLen * Math.sin(angle) + arrowWidth * Math.cos(angle)
+    );
+    ctx.closePath();
+    ctx.fill();
+}
+
 const PixelConnectionLayer = forwardRef<PixelConnectionLayerHandle, PixelConnectionLayerProps>(({
     connectionPairs,
     getLivePos,
@@ -47,7 +101,6 @@ const PixelConnectionLayer = forwardRef<PixelConnectionLayerHandle, PixelConnect
             const boardW = boardSize.width;
             const boardH = boardSize.height;
 
-            // 캔버스 물리 해상도 설정 (Retina 대응)
             if (canvas.width !== boardW * dpr || canvas.height !== boardH * dpr) {
                 canvas.width = boardW * dpr;
                 canvas.height = boardH * dpr;
@@ -56,50 +109,8 @@ const PixelConnectionLayer = forwardRef<PixelConnectionLayerHandle, PixelConnect
             }
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
-        ctx.imageSmoothingEnabled = false;
+        ctx.imageSmoothingEnabled = true;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // 연결선 전용 픽셀 크기 (더 세밀하게 표현)
-        const LINE_PIXEL_SIZE = 2;
-        const ARROW_PIXEL_SIZE = 4;
-
-        const drawPixelLine = (x1: number, y1: number, x2: number, y2: number, color: string, alpha: number) => {
-            let x1p = Math.round(x1 / LINE_PIXEL_SIZE);
-            let y1p = Math.round(y1 / LINE_PIXEL_SIZE);
-            const x2p = Math.round(x2 / LINE_PIXEL_SIZE);
-            const y2p = Math.round(y2 / LINE_PIXEL_SIZE);
-
-            const dx = Math.abs(x2p - x1p);
-            const dy = Math.abs(y2p - y1p);
-            const sx = x1p < x2p ? 1 : -1;
-            const sy = y1p < y2p ? 1 : -1;
-            let err = dx - dy;
-
-            ctx.globalAlpha = alpha;
-            ctx.fillStyle = color;
-
-            while (true) {
-                ctx.fillRect(x1p * LINE_PIXEL_SIZE, y1p * LINE_PIXEL_SIZE, LINE_PIXEL_SIZE, LINE_PIXEL_SIZE);
-                if (x1p === x2p && y1p === y2p) break;
-                const e2 = 2 * err;
-                if (e2 > -dy) { err -= dy; x1p += sx; }
-                if (e2 < dx) { err += dx; y1p += sy; }
-            }
-        };
-
-        const drawArrowhead = (tx: number, ty: number, angle: number, color: string, alpha: number) => {
-            ctx.save();
-            const ps = ARROW_PIXEL_SIZE;
-            const snapX = Math.round(tx / ps) * ps;
-            const snapY = Math.round(ty / ps) * ps;
-            ctx.translate(snapX, snapY);
-            ctx.rotate(angle);
-            ctx.globalAlpha = alpha;
-            ctx.fillStyle = color;
-            ctx.fillRect(-ps, -ps / 2, ps, ps);
-            ctx.fillRect(-ps * 2, -ps, ps, ps * 2);
-            ctx.restore();
-        };
 
         connectionPairs.forEach(pair => {
             const from = getLivePos(pair.from);
@@ -110,74 +121,83 @@ const PixelConnectionLayer = forwardRef<PixelConnectionLayerHandle, PixelConnect
                 blob.memoryIds.includes(pair.from) && blob.memoryIds.includes(pair.to)
             );
 
-            const offsetIndex = (pair as any).offsetIndex || 0;
-            const totalConnections = (pair as any).totalConnections || 1;
+            const offsetIndex = pair.offsetIndex || 0;
+            const totalConnections = pair.totalConnections || 1;
             const lineOffset = totalConnections > 1 ? (offsetIndex - (totalConnections - 1) / 2) * 12 : 0;
 
-            // 엔티티 타입별 중심점 계산
             const getDimensions = (id: string) => {
                 const project = projects.find(p => p.id === id);
-                if (project) return { centerX: 180, centerY: 60 }; // 360/2, 상단 타이틀 부근
+                if (project) return { width: 360, height: 120 };
                 return CARD_DIMENSIONS[cardSize];
             };
 
             const fromDim = getDimensions(pair.from);
             const toDim = getDimensions(pair.to);
 
-            // 시작점과 끝점은 절대 픽셀 스냅하지 않음 (카드 위치와 1:1 동기화)
-            const fromX = from.x + fromDim.centerX;
-            const fromY = from.y + fromDim.centerY;
-            const toX = to.x + toDim.centerX;
-            const toY = to.y + toDim.centerY;
+            // 각 카드의 중앙점
+            const fromCX = from.x + fromDim.width / 2;
+            const fromCY = from.y + fromDim.height / 2;
+            const toCX = to.x + toDim.width / 2;
+            const toCY = to.y + toDim.height / 2;
 
-            const dx_full = toX - fromX;
-            const dy_full = toY - fromY;
-            const len = Math.max(1, Math.sqrt(dx_full * dx_full + dy_full * dy_full));
-            const perpX = -dy_full / (len || 1);
-            const perpY = dx_full / (len || 1);
+            // 중앙-중앙 방향 벡터 (perp offset 계산용)
+            const dx = toCX - fromCX;
+            const dy = toCY - fromCY;
+            const len = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+            const perpX = -dy / len;
+            const perpY = dx / len;
 
-            const aFromX = fromX + perpX * lineOffset;
-            const aFromY = fromY + perpY * lineOffset;
-            const aToX = toX + perpX * lineOffset;
-            const aToY = toY + perpY * lineOffset;
+            // 테두리 교차점 계산
+            const borderFrom = getBorderPoint(from.x, from.y, fromDim.width, fromDim.height, toCX, toCY);
+            const borderTo = getBorderPoint(to.x, to.y, toDim.width, toDim.height, fromCX, fromCY);
 
+            // 중복 연결 시 perp offset 적용
+            const aFromX = borderFrom.x + perpX * lineOffset;
+            const aFromY = borderFrom.y + perpY * lineOffset;
+            const aToX = borderTo.x + perpX * lineOffset;
+            const aToY = borderTo.y + perpY * lineOffset;
+
+            // 베지어 제어점
             const midX = (aFromX + aToX) / 2;
             const midY = (aFromY + aToY) / 2;
-            // 곡률 강화: 더 유려한 곡선 표현
             const curveOffset = Math.min(80, len * 0.25);
-            const cx = midX - (dy_full / (len || 1)) * curveOffset;
-            const cy = midY + (dx_full / (len || 1)) * curveOffset;
+            const cx = midX - (dy / len) * curveOffset;
+            const cy = midY + (dx / len) * curveOffset;
 
             const isLineHovered = hoveredBlobId && blobAreas.some(blob =>
                 blob.id === hoveredBlobId && blob.memoryIds.includes(pair.from) && blob.memoryIds.includes(pair.to)
             );
             const alpha = isInBlobGroup ? (isLineHovered ? 0.7 : 0.4) : 1.0;
 
-            // 최적화: 모바일이거나 드래그 중(isPaused=true)인 경우 계산량 대폭 감소
-            // 드래그 중에도 선이 끊어져 보이지 않도록 최소 density 확보
-            const steps = (isPaused || isMobile)
-                ? Math.max(8, Math.floor(len / 10)) 
-                : Math.max(15, Math.floor(len / 6));
+            const style = getLinkStyle(pair.linkType);
+            const strokeColor = style.fixedColor || pair.color;
 
-            let lx = aFromX;
-            let ly = aFromY;
-            for (let i = 1; i <= steps; i++) {
-                const t = i / steps;
-                const currX = (1 - t) * (1 - t) * aFromX + 2 * (1 - t) * t * cx + t * t * aToX;
-                const currY = (1 - t) * (1 - t) * aFromY + 2 * (1 - t) * t * cy + t * t * aToY;
-                
-                // 드래그 중이거나 모바일인 경우에도 drawPixelLine을 사용하여 선이 이어지게 함
-                // 대신 steps를 조절하여 전체 연산량을 제어합니다.
-                drawPixelLine(lx, ly, currX, currY, pair.color, alpha);
-                
-                lx = currX;
-                ly = currY;
-            }
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = style.lineWidth;
+            ctx.lineCap = 'round';
+            ctx.setLineDash(style.lineDash);
+            ctx.beginPath();
+            ctx.moveTo(aFromX, aFromY);
+            ctx.quadraticCurveTo(cx, cy, aToX, aToY);
+            ctx.stroke();
 
+            // 화살촉 (점선 끄고 그리기)
             if (!isInBlobGroup) {
-                const angle = Math.atan2(aToY - cy, aToX - cx);
-                drawArrowhead(aToX, aToY, angle, pair.color, alpha);
+                ctx.setLineDash([]);
+
+                // to 방향 화살촉 (항상)
+                const angleToEnd = Math.atan2(aToY - cy, aToX - cx);
+                drawArrowHead(ctx, aToX, aToY, angleToEnd, style.arrowLen, style.arrowWidth, strokeColor);
+
+                // from 방향 화살촉 (related = bidirectional)
+                if (style.bidirectional) {
+                    const angleToStart = Math.atan2(aFromY - cy, aFromX - cx);
+                    drawArrowHead(ctx, aFromX, aFromY, angleToStart, style.arrowLen, style.arrowWidth, strokeColor);
+                }
             }
+            ctx.restore();
         });
     }, [connectionPairs, getLivePos, cardSize, boardSize, isEnabled, hoveredBlobId, blobAreas, projects, isPaused, isMobile]);
 

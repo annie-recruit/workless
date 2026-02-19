@@ -3,7 +3,12 @@
 import React, { useMemo, useState } from 'react';
 import { ActionProject, ProjectMilestone, ProjectAction, ActionDraft, Memory } from '@/types';
 import PixelIcon from './PixelIcon';
+import ProcessingLoader from './ProcessingLoader';
 import { useLanguage } from './LanguageContext';
+import { PixelCorners } from './ui/PixelCorners';
+import { apiPost } from '@/lib/apiClient';
+import { formatLocalDate } from '@/lib/dateUtils';
+import { API, TIMEOUT, CARD_COLOR_OPTIONS } from '@/lib/constants';
 
 interface ActionProjectCardProps {
     project: ActionProject;
@@ -90,24 +95,10 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
     const handleCreateDraft = async (milestoneId: string, actionId: string, actionText: string) => {
         setGeneratingActions(prev => new Set([...prev, actionId]));
         try {
-            // API 호출을 통해 실제 데이터 기반 초안 생성
-            const response = await fetch(`/api/projects/${project.id}/generate-draft`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    milestoneId,
-                    actionId,
-                    actionText,
-                }),
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to generate draft');
-            }
-
-            const data = await response.json();
+            const data = await apiPost<{ draft: ActionDraft }>(
+                `/api/projects/${project.id}/generate-draft`,
+                { milestoneId, actionId, actionText }
+            );
             const draft = data.draft;
 
             const newMilestones = project.milestones.map((m) => {
@@ -160,17 +151,11 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
         
         setIsCreatingCard(prev => ({ ...prev, [actionId]: true }));
         try {
-            const response = await fetch('/api/memories', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    content,
-                    source: 'action-project-draft',
-                    derivedFromCardId: project.id
-                }),
+            const data = await apiPost<{ memory: Memory }>(API.MEMORIES, {
+                content,
+                source: 'action-project-draft',
+                derivedFromCardId: project.id,
             });
-            if (!response.ok) throw new Error('Failed to create card');
-            const data = await response.json();
             if (onAddMemory) onAddMemory(data.memory);
             
             // 성공 알림 대신 버튼 상태로 피드백 (필요 시 토스트 등 사용)
@@ -189,24 +174,20 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
         setIsCopying(prev => ({ ...prev, [actionId]: true }));
         setTimeout(() => {
             setIsCopying(prev => ({ ...prev, [actionId]: false }));
-        }, 2000);
+        }, TIMEOUT.COPY_FEEDBACK);
     };
 
     return (
         <div
             id={`project-${project.id}`}
-            className={`group relative w-[480px] p-6 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] transition-all hover:scale-[1.02] flex flex-col ${isDragging ? 'opacity-50' : 'opacity-100'
-                } ${bgColorClass} ${isSelected || isHighlighted ? 'ring-4 ring-indigo-400 ring-offset-2' : ''}`}
+            className={`group relative w-[480px] p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] transition-all hover:scale-[1.02] flex flex-col ${isDragging ? 'opacity-50' : 'opacity-100'
+                } ${bgColorClass} ${isSelected || isHighlighted ? 'border-[3px] border-blue-400' : 'border-2 border-gray-800'}`}
             onPointerOverCapture={onActivityPointerOverCapture}
             onPointerOutCapture={onActivityPointerOutCapture}
             onFocusCapture={onActivityFocusCapture}
             onBlurCapture={onActivityBlurCapture}
         >
-            {/* 픽셀 코너 장식 */}
-            <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
-            <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
-            <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
+            <PixelCorners />
 
             {/* 드래그 아이콘 */}
             <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-30 transition-opacity pointer-events-none">
@@ -241,33 +222,25 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
             </div>
 
             {/* 헤더 */}
-            <div className="flex justify-between items-start mb-5">
-                <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1.5">
-                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold border border-indigo-200 uppercase tracking-tighter">
-                            {t('memory.list.project.title')}
-                        </span>
-                        <span className="text-[10px] text-gray-500 font-mono">{project.expectedDuration}</span>
-                    </div>
-                    {isEditing ? (
-                        <input
-                            className="text-xl font-black text-gray-900 leading-tight bg-transparent border-b-2 border-indigo-300 focus:outline-none w-full"
-                            value={editTitle}
-                            onChange={e => setEditTitle(e.target.value)}
-                            autoFocus
-                        />
-                    ) : (
-                        <h3 className="text-xl font-black text-gray-900 leading-tight">
-                            {project.title}
-                        </h3>
-                    )}
+            <div className="mb-5">
+                <div className="flex items-center gap-2 mb-1.5">
+                    <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold border border-indigo-200 uppercase tracking-tighter">
+                        {t('memory.list.project.title')}
+                    </span>
+                    <span className="text-[10px] text-gray-500 font-mono">{project.expectedDuration}</span>
                 </div>
-                <button
-                    onClick={() => onDelete(project.id)}
-                    className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-                >
-                    <PixelIcon name="delete" size={20} />
-                </button>
+                {isEditing ? (
+                    <input
+                        className="text-xl font-black text-gray-900 leading-tight bg-transparent border-b-2 border-indigo-300 focus:outline-none w-full"
+                        value={editTitle}
+                        onChange={e => setEditTitle(e.target.value)}
+                        autoFocus
+                    />
+                ) : (
+                    <h3 className="text-xl font-black text-gray-900 leading-tight">
+                        {project.title}
+                    </h3>
+                )}
             </div>
 
             {/* 진행바 */}
@@ -427,7 +400,11 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
                                                                     }}
                                                                     className={`px-2 py-1 bg-white border border-yellow-200 text-[10px] font-bold text-yellow-700 hover:bg-yellow-100 flex items-center gap-1 disabled:opacity-50 transition-all ${isCreatingCard[action.id] ? 'bg-orange-50' : ''}`}
                                                                 >
-                                                                    <PixelIcon name={isCreatingCard[action.id] ? "refresh" : "plus"} size={12} className={isCreatingCard[action.id] ? 'animate-spin' : ''} />
+                                                                    {isCreatingCard[action.id] ? (
+                                                                        <ProcessingLoader size={10} scale={1} variant="inline" tone="graphite" />
+                                                                    ) : (
+                                                                        <PixelIcon name="plus" size={12} />
+                                                                    )}
                                                                     {isCreatingCard[action.id] ? 'Creating...' : 'Create as Card'}
                                                                 </button>
                                                             </div>
@@ -464,7 +441,11 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
                                                                     }}
                                                                     className={`px-2 py-1 bg-white border border-blue-200 text-[10px] font-bold text-blue-700 hover:bg-blue-100 flex items-center gap-1 disabled:opacity-50 transition-all ${isCreatingCard[action.id] ? 'bg-indigo-50' : ''}`}
                                                                 >
-                                                                    <PixelIcon name={isCreatingCard[action.id] ? "refresh" : "plus"} size={12} className={isCreatingCard[action.id] ? 'animate-spin' : ''} />
+                                                                    {isCreatingCard[action.id] ? (
+                                                                        <ProcessingLoader size={10} scale={1} variant="inline" tone="graphite" />
+                                                                    ) : (
+                                                                        <PixelIcon name="plus" size={12} />
+                                                                    )}
                                                                     {isCreatingCard[action.id] ? 'Creating...' : 'Create as Card'}
                                                                 </button>
                                                                 <button
@@ -544,13 +525,9 @@ export const ActionProjectCard: React.FC<ActionProjectCardProps> = ({
 
             {/* 바닥 정보 */}
             <div className="mt-6 flex items-center justify-between text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                <span>{new Date(project.createdAt).toLocaleDateString(language === 'ko' ? 'ko-KR' : 'en-US')}</span>
+                <span>{formatLocalDate(project.createdAt, language)}</span>
                 <div className="flex items-center gap-1.5">
-                    {([
-                        { id: 'bg-orange-50', class: 'bg-orange-300 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]' },
-                        { id: 'bg-indigo-50', class: 'bg-indigo-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]' },
-                        { id: 'bg-purple-50', class: 'bg-purple-400 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]' },
-                    ] as const).map((item) => (
+                    {CARD_COLOR_OPTIONS.map((item) => (
                         <button
                             key={item.id}
                             onClick={() => onUpdate(project.id, { color: item.id })}

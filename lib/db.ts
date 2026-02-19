@@ -419,6 +419,21 @@ runMigration('memory_links isAIGenerated', () => {
   }
 });
 
+// 마이그레이션: memory_links 테이블에 linkType, fromMemoryId 컬럼 추가
+runMigration('memory_links linkType fromMemoryId', () => {
+  const columns = db.prepare("PRAGMA table_info(memory_links)").all() as any[];
+  const hasLinkType = columns.some((col: any) => col.name === 'linkType');
+  if (!hasLinkType) {
+    console.log('📊 Adding linkType column to memory_links table...');
+    db.exec("ALTER TABLE memory_links ADD COLUMN linkType TEXT NOT NULL DEFAULT 'related'");
+  }
+  const hasFromMemoryId = columns.some((col: any) => col.name === 'fromMemoryId');
+  if (!hasFromMemoryId) {
+    console.log('📊 Adding fromMemoryId column to memory_links table...');
+    db.exec('ALTER TABLE memory_links ADD COLUMN fromMemoryId TEXT');
+  }
+});
+
 // 마이그레이션: memories 테이블에 source 관련 컬럼 추가
 runMigration('memories source columns', () => {
   const columns = db.prepare("PRAGMA table_info(memories)").all() as any[];
@@ -1200,7 +1215,7 @@ export const boardCardColorDb = {
 };
 
 export const memoryLinkDb = {
-  upsert(memoryId1: string, memoryId2: string, note?: string, isAIGenerated?: boolean, userId?: string): void {
+  upsert(memoryId1: string, memoryId2: string, note?: string, isAIGenerated?: boolean, userId?: string, linkType?: string): void {
     const [a, b] = memoryId1 < memoryId2 ? [memoryId1, memoryId2] : [memoryId2, memoryId1];
 
     // userId가 없는 경우, memoryId1으로부터 userId를 추출
@@ -1210,14 +1225,16 @@ export const memoryLinkDb = {
     }
 
     const stmt = db.prepare(`
-      INSERT INTO memory_links (userId, memoryId1, memoryId2, note, isAIGenerated, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO memory_links (userId, memoryId1, memoryId2, note, isAIGenerated, linkType, fromMemoryId, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(userId, memoryId1, memoryId2) DO UPDATE SET
         note = excluded.note,
         isAIGenerated = excluded.isAIGenerated,
+        linkType = excluded.linkType,
+        fromMemoryId = excluded.fromMemoryId,
         updatedAt = excluded.updatedAt
     `);
-    stmt.run(userId, a, b, note || null, isAIGenerated ? 1 : 0, Date.now());
+    stmt.run(userId, a, b, note || null, isAIGenerated ? 1 : 0, linkType || 'related', memoryId1, Date.now());
   },
 
   delete(memoryId1: string, memoryId2: string): void {
@@ -1226,7 +1243,7 @@ export const memoryLinkDb = {
     stmt.run(a, b);
   },
 
-  getByMemoryIds(memoryIds: string[]): { memoryId1: string; memoryId2: string; note: string | null; isAIGenerated: number }[] {
+  getByMemoryIds(memoryIds: string[]): { memoryId1: string; memoryId2: string; note: string | null; isAIGenerated: number; linkType: string; fromMemoryId: string | null }[] {
     if (memoryIds.length === 0) return [];
     const placeholders = memoryIds.map(() => '?').join(', ');
     const stmt = db.prepare(`

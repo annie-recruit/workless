@@ -45,21 +45,7 @@ export default function PrivacyPage() {
                   <li>Google 계정 ID</li>
                 </ul>
 
-                <h3 className="text-xl font-medium mt-6 mb-3">1.2 Gmail 데이터</h3>
-                <p className="text-slate-300 mb-4">
-                  사용자가 Gmail 연동을 선택한 경우, 다음 Gmail 데이터에 접근합니다:
-                </p>
-                <ul className="list-disc list-inside text-slate-300 space-y-2 ml-4">
-                  <li>Gmail 메시지 읽기 권한 (읽기 전용)</li>
-                  <li>"Workless" 라벨이 지정된 이메일의 제목, 발신자, 본문 내용</li>
-                  <li>이메일 메타데이터 (날짜, 메시지 ID 등)</li>
-                </ul>
-                <p className="text-slate-300 mt-4">
-                  <strong>중요:</strong> Workless는 Gmail 데이터를 <strong>읽기 전용</strong>으로만 사용하며, 
-                  이메일을 보내거나 수정하지 않습니다.
-                </p>
-
-                <h3 className="text-xl font-medium mt-6 mb-3">1.3 사용자 생성 콘텐츠</h3>
+                <h3 className="text-xl font-medium mt-6 mb-3">1.2 사용자 생성 콘텐츠</h3>
                 <p className="text-slate-300 mb-4">
                   서비스 사용 중 생성하는 정보:
                 </p>
@@ -70,7 +56,7 @@ export default function PrivacyPage() {
                   <li>기타 사용자가 입력한 콘텐츠</li>
                 </ul>
 
-                <h3 className="text-xl font-medium mt-6 mb-3">1.4 기술 정보</h3>
+                <h3 className="text-xl font-medium mt-6 mb-3">1.3 기술 정보</h3>
                 <p className="text-slate-300 mb-4">
                   서비스 제공을 위해 자동으로 수집되는 정보:
                 </p>
@@ -88,8 +74,7 @@ export default function PrivacyPage() {
                   수집한 정보는 다음 목적으로 사용됩니다:
                 </p>
                 <ul className="list-disc list-inside text-slate-300 space-y-2 ml-4">
-                  <li><strong>서비스 제공:</strong> 개인 비서 기능 제공 및 Gmail 연동 서비스 운영</li>
-                  <li><strong>콘텐츠 분석:</strong> Gmail에서 가져온 이메일을 AI로 분석하여 메모로 변환</li>
+                  <li><strong>서비스 제공:</strong> 개인 비서 기능 및 워크스페이스 제공</li>
                   <li><strong>사용자 인증:</strong> Google 계정을 통한 로그인 및 계정 관리</li>
                   <li><strong>서비스 개선:</strong> 사용자 경험 개선 및 기능 개발</li>
                   <li><strong>고객 지원:</strong> 문의사항 응대 및 기술 지원</li>
@@ -119,7 +104,7 @@ export default function PrivacyPage() {
                       </tr>
                       <tr>
                         <td className="border border-slate-700 p-2">Google LLC</td>
-                        <td className="border border-slate-700 p-2">사용자 인증 및 Gmail 데이터 연동</td>
+                        <td className="border border-slate-700 p-2">사용자 인증 (OAuth)</td>
                         <td className="border border-slate-700 p-2">회원 탈퇴 시 또는 위탁 계약 종료 시까지</td>
                       </tr>
                     </tbody>
@@ -134,7 +119,7 @@ export default function PrivacyPage() {
                   <li><strong>이전되는 국가:</strong> 미국</li>
                   <li><strong>이전 항목:</strong> 이메일 주소, 이름, 사용자 생성 콘텐츠(메모 등)</li>
                   <li><strong>이전 방법:</strong> API 호출 시 네트워크를 통한 전송</li>
-                  <li><strong>이전 목적:</strong> 서비스 기능 제공(AI 분석 및 Google 연동)</li>
+                  <li><strong>이전 목적:</strong> 서비스 기능 제공(AI 분석 및 Google 인증)</li>
                 </ul>
               </section>
 
@@ -155,7 +140,6 @@ export default function PrivacyPage() {
                   <li>개인정보 수정 요청</li>
                   <li>개인정보 삭제 요청</li>
                   <li>계정 삭제 요청</li>
-                  <li>Gmail 연동 해제</li>
                 </ul>
                 <p className="text-slate-300 mt-4">
                   데이터 삭제를 원하시면 다음 이메일로 문의해주세요:{" "}
@@ -176,10 +160,6 @@ export default function PrivacyPage() {
                   <li>접근 제어 및 인증 시스템</li>
                   <li>정기적인 보안 점검</li>
                 </ul>
-                <p className="text-slate-300 mt-4">
-                  <strong>중요:</strong> Gmail 데이터는 읽기 전용으로만 사용되며, 
-                  사용자가 명시적으로 요청한 경우에만 접근합니다.
-                </p>
               </section>
 
               <section>
@@ -196,7 +176,7 @@ export default function PrivacyPage() {
                   Workless는 다음 제3자 서비스를 사용합니다:
                 </p>
                 <ul className="list-disc list-inside text-slate-300 space-y-2 ml-4">
-                  <li><strong>Google OAuth:</strong> 사용자 인증 및 Gmail API 접근</li>
+                  <li><strong>Google OAuth:</strong> 사용자 인증</li>
                   <li><strong>OpenAI API:</strong> AI 기반 콘텐츠 분석 및 요약</li>
                 </ul>
                 <p className="text-slate-300 mt-4">
@@ -270,20 +250,7 @@ export default function PrivacyPage() {
                   <li>Google Account ID</li>
                 </ul>
 
-                <h3 className="text-xl font-medium mt-6 mb-3">1.2 Gmail Data</h3>
-                <p className="text-slate-300 mb-4">
-                  If you choose to integrate Gmail, we access the following data:
-                </p>
-                <ul className="list-disc list-inside text-slate-300 space-y-2 ml-4">
-                  <li>Gmail message read permission (read-only)</li>
-                  <li>Subject, sender, and body of emails labeled "Workless"</li>
-                  <li>Email metadata (date, message ID, etc.)</li>
-                </ul>
-                <p className="text-slate-300 mt-4">
-                  <strong>Important:</strong> Workless uses Gmail data in <strong>read-only</strong> mode and does not send or modify emails.
-                </p>
-
-                <h3 className="text-xl font-medium mt-6 mb-3">1.3 User-Generated Content</h3>
+                <h3 className="text-xl font-medium mt-6 mb-3">1.2 User-Generated Content</h3>
                 <p className="text-slate-300 mb-4">
                   Information you create while using the service:
                 </p>
@@ -294,7 +261,7 @@ export default function PrivacyPage() {
                   <li>Other content you input</li>
                 </ul>
 
-                <h3 className="text-xl font-medium mt-6 mb-3">1.4 Technical Information</h3>
+                <h3 className="text-xl font-medium mt-6 mb-3">1.3 Technical Information</h3>
                 <p className="text-slate-300 mb-4">
                   Information automatically collected for service provision:
                 </p>
@@ -312,8 +279,7 @@ export default function PrivacyPage() {
                   The collected information is used for:
                 </p>
                 <ul className="list-disc list-inside text-slate-300 space-y-2 ml-4">
-                  <li><strong>Service Provision:</strong> Providing personal assistant features and Gmail integration</li>
-                  <li><strong>Content Analysis:</strong> Analyzing emails from Gmail with AI to convert them into memos</li>
+                  <li><strong>Service Provision:</strong> Providing personal assistant features and workspace services</li>
                   <li><strong>User Authentication:</strong> Login and account management via Google</li>
                   <li><strong>Service Improvement:</strong> Improving user experience and developing new features</li>
                   <li><strong>Customer Support:</strong> Responding to inquiries and providing technical support</li>
@@ -343,7 +309,7 @@ export default function PrivacyPage() {
                       </tr>
                       <tr>
                         <td className="border border-slate-700 p-2">Google LLC</td>
-                        <td className="border border-slate-700 p-2">User authentication and Gmail data integration</td>
+                        <td className="border border-slate-700 p-2">User authentication (OAuth)</td>
                         <td className="border border-slate-700 p-2">Until account deletion or end of contract</td>
                       </tr>
                     </tbody>
@@ -358,7 +324,7 @@ export default function PrivacyPage() {
                   <li><strong>Recipient Country:</strong> USA</li>
                   <li><strong>Transferred Items:</strong> Email address, name, user-generated content (memos, etc.)</li>
                   <li><strong>Transfer Method:</strong> Transmission via network during API calls</li>
-                  <li><strong>Transfer Purpose:</strong> Providing service features (AI analysis and Google integration)</li>
+                  <li><strong>Transfer Purpose:</strong> Providing service features (AI analysis and Google authentication)</li>
                 </ul>
               </section>
 
@@ -379,7 +345,6 @@ export default function PrivacyPage() {
                   <li>Request to correct personal information</li>
                   <li>Request to delete personal information</li>
                   <li>Request for account deletion</li>
-                  <li>Disconnect Gmail integration</li>
                 </ul>
                 <p className="text-slate-300 mt-4">
                   To request data deletion, please contact us at:{" "}
@@ -400,9 +365,6 @@ export default function PrivacyPage() {
                   <li>Access control and authentication systems</li>
                   <li>Regular security audits</li>
                 </ul>
-                <p className="text-slate-300 mt-4">
-                  <strong>Important:</strong> Gmail data is used in read-only mode and only accessed upon explicit request.
-                </p>
               </section>
 
               <section>
@@ -418,7 +380,7 @@ export default function PrivacyPage() {
                   Workless uses the following third-party services:
                 </p>
                 <ul className="list-disc list-inside text-slate-300 space-y-2 ml-4">
-                  <li><strong>Google OAuth:</strong> Authentication and Gmail API access</li>
+                  <li><strong>Google OAuth:</strong> User authentication</li>
                   <li><strong>OpenAI API:</strong> AI-based content analysis and summarization</li>
                 </ul>
                 <p className="text-slate-300 mt-4">

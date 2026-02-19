@@ -9,6 +9,7 @@
 import { nanoid } from 'nanoid';
 import { localDB } from './localDB';
 import type { Memory, Group, Goal, CanvasBlock } from '@/types';
+import { STORAGE_KEY, API, JSON_HEADERS } from './constants';
 
 export type DataSource = 'local' | 'server';
 export type SyncMode = 'disabled' | 'enabled' | 'auto';
@@ -17,13 +18,11 @@ export class DataLayer {
   private syncMode: SyncMode = 'disabled';
 
   constructor() {
-    // 로컬스토리지에서 동기화 설정 로드
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('workless:syncMode');
-      // 기본값을 auto로 변경하여 신규 사용자가 자연스럽게 동기화되도록 함
+      const saved = localStorage.getItem(STORAGE_KEY.SYNC_MODE);
       this.syncMode = (saved as SyncMode) || 'auto';
       if (!saved) {
-        localStorage.setItem('workless:syncMode', 'auto');
+        localStorage.setItem(STORAGE_KEY.SYNC_MODE, 'auto');
       }
     }
   }
@@ -34,7 +33,7 @@ export class DataLayer {
   setSyncMode(mode: SyncMode) {
     this.syncMode = mode;
     if (typeof window !== 'undefined') {
-      localStorage.setItem('workless:syncMode', mode);
+      localStorage.setItem(STORAGE_KEY.SYNC_MODE, mode);
     }
   }
 
@@ -216,7 +215,7 @@ export class DataLayer {
    */
   async deleteProject(id: string, userId: string): Promise<void> {
     // 현재 프로젝트는 서버에만 있으므로 서버 API 호출
-    const res = await fetch(`/api/projects?id=${id}`, {
+    const res = await fetch(`${API.PROJECTS}?id=${id}`, {
       method: 'DELETE',
     });
     if (!res.ok) {
@@ -229,7 +228,7 @@ export class DataLayer {
   }
 
   private async syncGoalDeleteToServer(id: string): Promise<void> {
-    const res = await fetch(`/api/goals?id=${id}`, {
+    const res = await fetch(`${API.GOALS}?id=${id}`, {
       method: 'DELETE',
     });
     if (!res.ok) throw new Error('Delete goal failed');
@@ -249,7 +248,7 @@ export class DataLayer {
 
       // 로컬에 그룹이 없고 동기화가 활성화되어 있으면 서버에서 가져오기 시도
       if (localGroups.length === 0 && this.isSyncEnabled()) {
-        const res = await fetch('/api/groups');
+        const res = await fetch(API.GROUPS);
         if (res.ok) {
           const data = await res.json();
           const serverGroups = data.groups || [];
@@ -262,7 +261,7 @@ export class DataLayer {
       return localGroups;
     } catch (error) {
       console.error('[DataLayer] Failed to get groups from local DB:', error);
-      const res = await fetch('/api/groups');
+      const res = await fetch(API.GROUPS);
       if (res.ok) {
         const data = await res.json();
         return data.groups || [];
@@ -323,7 +322,7 @@ export class DataLayer {
         .sortBy('createdAt');
 
       if (localBlocks.length === 0 && this.isSyncEnabled()) {
-        const res = await fetch('/api/board/blocks');
+        const res = await fetch(API.BOARD_BLOCKS);
         if (res.ok) {
           const data = await res.json();
           const serverBlocks = data.blocks || [];
@@ -336,7 +335,7 @@ export class DataLayer {
       return localBlocks;
     } catch (error) {
       console.error('[DataLayer] Failed to get blocks from local DB:', error);
-      const res = await fetch('/api/board/blocks');
+      const res = await fetch(API.BOARD_BLOCKS);
       if (res.ok) {
         const data = await res.json();
         return data.blocks || [];
@@ -385,15 +384,15 @@ export class DataLayer {
   }
 
   private async syncBlockToServer(block: CanvasBlock): Promise<void> {
-    await fetch('/api/board/blocks', {
+    await fetch(API.BOARD_BLOCKS, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: JSON_HEADERS,
       body: JSON.stringify(block),
     });
   }
 
   private async syncBlockDeleteToServer(id: string): Promise<void> {
-    await fetch(`/api/board/blocks?id=${id}`, {
+    await fetch(`${API.BOARD_BLOCKS}?id=${id}`, {
       method: 'DELETE',
     });
   }
@@ -403,7 +402,7 @@ export class DataLayer {
   // ========================================
 
   private async getMemoriesFromServer(userId: string): Promise<Memory[]> {
-    const res = await fetch('/api/memories');
+    const res = await fetch(API.MEMORIES);
     if (!res.ok) return [];
     const data = await res.json();
     return data.memories || [];
@@ -411,9 +410,9 @@ export class DataLayer {
 
   private async syncMemoryToServer(memory: Memory): Promise<void> {
     console.log(`[Sync] Background sync starting for memory ${memory.id}`);
-    const res = await fetch('/api/memories', {
+    const res = await fetch(API.MEMORIES, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: JSON_HEADERS,
       body: JSON.stringify(memory),
     });
     if (!res.ok) {
@@ -426,7 +425,7 @@ export class DataLayer {
 
   private async syncMemoryDeleteToServer(id: string): Promise<void> {
     console.log(`[Sync] Background delete starting for memory ${id}`);
-    const res = await fetch(`/api/memories?id=${id}`, {
+    const res = await fetch(`${API.MEMORIES}?id=${id}`, {
       method: 'DELETE',
     });
     if (!res.ok) {
@@ -443,9 +442,9 @@ export class DataLayer {
 
   private async syncGroupToServer(group: Group): Promise<void> {
     console.log(`[Sync] Background sync starting for group ${group.id}`);
-    const res = await fetch('/api/groups', {
+    const res = await fetch(API.GROUPS, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: JSON_HEADERS,
       body: JSON.stringify(group),
     });
     if (!res.ok) {
@@ -457,7 +456,7 @@ export class DataLayer {
 
   private async syncGroupDeleteToServer(id: string): Promise<void> {
     console.log(`[Sync] Background delete starting for group ${id}`);
-    const res = await fetch(`/api/groups?id=${id}`, {
+    const res = await fetch(`${API.GROUPS}?id=${id}`, {
       method: 'DELETE',
     });
     if (!res.ok) {
@@ -558,9 +557,9 @@ export class DataLayer {
 
     console.log(`[Sync] Backing up ${filteredData.memories.length} memories, ${filteredData.groups.length} groups...`);
     
-    const res = await fetch('/api/sync/backup', {
+    const res = await fetch(API.SYNC_BACKUP, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: JSON_HEADERS,
       body: JSON.stringify({ userId, data: filteredData }),
     });
 
@@ -579,7 +578,7 @@ export class DataLayer {
    */
   async restoreFromServer(userId: string): Promise<void> {
     console.log(`[Sync] Restore starting for user ${userId}...`);
-    const res = await fetch(`/api/sync/restore?userId=${userId}`);
+    const res = await fetch(`${API.SYNC_RESTORE}?userId=${userId}`);
     if (!res.ok) {
       const err = await res.text();
       console.error(`[Sync] Restore failed:`, err);

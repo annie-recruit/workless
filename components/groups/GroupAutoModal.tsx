@@ -29,7 +29,7 @@ export default function GroupAutoModal({
 }: Props) {
   return (
     <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-      <div className="bg-white border-4 border-gray-900 p-5 min-w-[400px] max-w-[500px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+      <div className="bg-white border-3 border-gray-900 p-5 min-w-[400px] max-w-[500px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
         {/* 픽셀 코너 장식 */}
         <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
         <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
@@ -50,13 +50,21 @@ export default function GroupAutoModal({
               />
             </div>
 
-            <div className="bg-gradient-to-br from-orange-50 to-indigo-50 border-2 border-indigo-400 p-3 mb-4 max-h-64 overflow-y-auto">
+            <div className="bg-gradient-to-br from-orange-50 to-indigo-50 border-2 border-indigo-400 p-3 mb-4 max-h-64 overflow-y-auto"
+              style={{
+                clipPath: 'polygon(2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px)'
+              }}
+            >
               <p className="text-xs font-black text-gray-700 mb-2 uppercase tracking-tight">
                 묶일 기록들 ({(editableRelatedMemories?.length || 0) + 1}개):
               </p>
               <ul className="space-y-2">
                 {/* 현재 기록 */}
-                <li className="text-xs text-gray-700 flex items-center gap-2 p-2 bg-white border-2 border-gray-300">
+                <li className="text-xs text-gray-700 flex items-center gap-2 p-2 bg-white border-2 border-gray-300"
+                  style={{
+                    clipPath: 'polygon(2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px)'
+                  }}
+                >
                   <PixelIcon name="card" size={12} className="text-indigo-500" />
                   <span className="flex-1 line-clamp-1 font-medium">{groupModalMemory ? stripHtmlClient(groupModalMemory.content) : ''}</span>
                 </li>
@@ -64,7 +72,11 @@ export default function GroupAutoModal({
                 {editableRelatedMemories.map((m, idx: number) => {
                   const relatedMemory = localMemories.find((mem) => mem.id === m.id);
                   return (
-                    <li key={m.id || idx} className="text-xs text-gray-700 flex items-center gap-2 p-2 bg-white border-2 border-gray-300 group">
+                    <li key={m.id || idx} className="text-xs text-gray-700 flex items-center gap-2 p-2 bg-white border-2 border-gray-300 group"
+                      style={{
+                        clipPath: 'polygon(2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px)'
+                      }}
+                    >
                       <PixelIcon name="card" size={12} className="text-indigo-500" />
                       <span className="flex-1 line-clamp-1 font-medium">
                         {relatedMemory ? stripHtmlClient(relatedMemory.content) : m.content ? stripHtmlClient(m.content) : ''}

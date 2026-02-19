@@ -250,7 +250,7 @@ export default function PdfViewer({
   if (isLoading || !Document || !Page) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
-        <ProcessingLoader size={32} variant="panel" tone="indigo" />
+        <ProcessingLoader size={32} variant="panel" tone="graphite" />
       </div>
     );
   }
@@ -259,7 +259,7 @@ export default function PdfViewer({
   if (!pdfUrl) {
     return (
       <div className="flex flex-col items-center justify-center h-full">
-        <ProcessingLoader size={32} variant="panel" tone="indigo" />
+        <ProcessingLoader size={32} variant="panel" tone="graphite" />
         {loadError && (
           <p className="text-rose-500 text-xs mt-2">{loadError}</p>
         )}
@@ -299,7 +299,7 @@ export default function PdfViewer({
         }}
         loading={
           <div className="flex flex-col items-center justify-center h-full">
-            <ProcessingLoader size={32} variant="panel" tone="orange" />
+            <ProcessingLoader size={32} variant="panel" tone="graphite" />
           </div>
         }
         error={

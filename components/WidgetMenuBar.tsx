@@ -31,11 +31,11 @@ export default function WidgetMenuBar({
   const { t } = useLanguage();
 
   return (
-    <div className="shrink-0 sticky top-0 z-20 flex items-center gap-2 px-3 py-2.5 text-xs text-gray-500 bg-indigo-50/30 backdrop-blur-xl border-b border-indigo-100/30 shadow-none overflow-x-auto no-scrollbar flex-nowrap flex-row">
+    <div className="shrink-0 sticky top-0 z-20 flex items-center gap-2 px-3 py-2.5 text-xs text-gray-500 bg-indigo-50/80 border-b border-indigo-100/30 shadow-none overflow-x-auto no-scrollbar flex-nowrap flex-row">
       <div className="flex items-center gap-2 min-w-max">
         <button
           onClick={onCreateCalendar}
-          className="px-2.5 py-1.5 text-xs rounded-md border border-indigo-200/50 bg-white/40 backdrop-blur-sm hover:bg-white/60 text-indigo-700 flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-none active:scale-95 transition-all"
+          className="px-2.5 py-1.5 text-xs rounded-md border border-indigo-200/50 bg-white/70 hover:bg-white text-indigo-700 flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-none active:scale-95 transition-colors"
           title={t('onboarding.calendar')}
         >
           <PixelIcon name="calendar" size={16} />
@@ -44,7 +44,7 @@ export default function WidgetMenuBar({
         <button
           onClick={onCreateMinimap}
           disabled={blocks.some(b => b.type === 'minimap')}
-          className="px-2.5 py-1.5 text-xs rounded-md border border-indigo-200/50 bg-white/40 backdrop-blur-sm hover:bg-white/60 disabled:opacity-50 disabled:cursor-not-allowed text-indigo-700 flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-none active:scale-95 transition-all"
+          className="px-2.5 py-1.5 text-xs rounded-md border border-indigo-200/50 bg-white/70 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-indigo-700 flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-none active:scale-95 transition-colors"
           title={blocks.some(b => b.type === 'minimap') ? t('memory.view.board.widget.minimap.limit') : t('memory.view.board.widget.minimap')}
         >
           <PixelIcon name="minimap" size={16} />
@@ -52,7 +52,7 @@ export default function WidgetMenuBar({
         </button>
         <button
           onClick={onCreateViewer}
-          className="px-2.5 py-1.5 text-xs rounded-md border border-indigo-200/50 bg-white/40 backdrop-blur-sm hover:bg-white/60 text-indigo-700 flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-none active:scale-95 transition-all"
+          className="px-2.5 py-1.5 text-xs rounded-md border border-indigo-200/50 bg-white/70 hover:bg-white text-indigo-700 flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-none active:scale-95 transition-colors"
           title={t('memory.view.board.widget.viewer')}
         >
           <PixelIcon name="viewer" size={16} />
@@ -60,7 +60,7 @@ export default function WidgetMenuBar({
         </button>
         <button
           onClick={onCreateMeetingRecorder}
-          className="px-2.5 py-1.5 text-xs rounded-md border border-indigo-200/50 bg-white/40 backdrop-blur-sm hover:bg-white/60 text-indigo-700 flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-none active:scale-95 transition-all"
+          className="px-2.5 py-1.5 text-xs rounded-md border border-indigo-200/50 bg-white/70 hover:bg-white text-indigo-700 flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-none active:scale-95 transition-colors"
           title={t('memory.view.board.widget.recorder')}
         >
           <PixelIcon name="meeting-recorder" size={16} />
@@ -68,7 +68,7 @@ export default function WidgetMenuBar({
         </button>
         <button
           onClick={onCreateDatabase}
-          className="px-2.5 py-1.5 text-xs rounded-md border border-indigo-200/50 bg-white/40 backdrop-blur-sm hover:bg-white/60 text-indigo-700 flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-none active:scale-95 transition-all"
+          className="px-2.5 py-1.5 text-xs rounded-md border border-indigo-200/50 bg-white/70 hover:bg-white text-indigo-700 flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-none active:scale-95 transition-colors"
           title={t('memory.view.board.widget.db')}
         >
           <PixelIcon name="database" size={16} />
@@ -86,7 +86,7 @@ export default function WidgetMenuBar({
         </button>
         <button
           onClick={onToggleBlob}
-          className={`px-2.5 py-1.5 text-xs rounded-md border border-indigo-200/50 flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-none active:scale-95 transition-all ${isBlobEnabled ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white/40 backdrop-blur-sm text-indigo-700'}`}
+          className={`px-2.5 py-1.5 text-xs rounded-md border border-indigo-200/50 flex items-center gap-1.5 whitespace-nowrap shrink-0 shadow-none active:scale-95 transition-colors ${isBlobEnabled ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white/70 text-indigo-700'}`}
           title="Toggle Blob"
         >
           <PixelIcon name="group" size={16} className={isBlobEnabled ? 'text-white' : 'text-indigo-500'} />

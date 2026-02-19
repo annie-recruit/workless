@@ -4,10 +4,17 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { Memory, CanvasBlock } from '@/types';
 import { CARD_DIMENSIONS } from '@/board/boardUtils';
 
+interface ActionProject {
+  id: string;
+  title: string;
+  sourceMemoryIds?: string[];
+}
+
 interface MinimapProps {
   positions: Record<string, { x: number; y: number }>;
   blocks: CanvasBlock[];
   memories: Memory[];
+  projects?: ActionProject[];
   connectionPairs?: { from: string; to: string; color: string; offsetIndex: number }[];
   viewportBounds: { left: number; top: number; width: number; height: number };
   zoom: number;
@@ -42,6 +49,7 @@ export default function Minimap({
   positions,
   blocks,
   memories,
+  projects,
   connectionPairs,
   viewportBounds,
   zoom,
@@ -459,20 +467,10 @@ export default function Minimap({
         const dx = x2 - x1;
         const dy = y2 - y1;
 
-        // 픽셀 계단 효과: 수평 우선 → 수직 → 수평 (3단계)
+        // 직선 연결
         ctx.beginPath();
         ctx.moveTo(Math.round(x1), Math.round(y1));
-
-        // 1단계: 수평으로 1/3 이동
-        const midX1 = Math.round(x1 + dx / 3);
-        ctx.lineTo(midX1, Math.round(y1));
-
-        // 2단계: 수직으로 전체 이동
-        ctx.lineTo(midX1, Math.round(y2));
-
-        // 3단계: 수평으로 나머지 이동
         ctx.lineTo(Math.round(x2), Math.round(y2));
-
         ctx.stroke();
       };
 
@@ -505,9 +503,22 @@ export default function Minimap({
           const offsetToX = toX + perpX * offset;
           const offsetToY = toY + perpY * offset;
 
+          // 연결 타입에 따른 색상 결정
+          let lineColor = '#C4B5FD'; // 기본 색상
+          const isFromProject = projects?.some(p => p.id === pair.from);
+          const isToProject = projects?.some(p => p.id === pair.to);
+          
+          if (isFromProject || isToProject) {
+            // 액션 플랜 ↔ 메모리: 주황색
+            lineColor = '#FB923C';
+          } else {
+            // 메모리 ↔ 메모리: 인디고
+            lineColor = '#6366F1';
+          }
+
           // 픽셀 계단식 연결선 그리기 (더 굵게, 최소 두께 보장)
           const lineWidth = Math.max(2, 3 * bounds.scale); // 최소 2px 보장
-          drawPixelLine(offsetFromX, offsetFromY, offsetToX, offsetToY, pair.color || '#C4B5FD', lineWidth);
+          drawPixelLine(offsetFromX, offsetFromY, offsetToX, offsetToY, lineColor, lineWidth);
         });
       });
     } else {
@@ -525,13 +536,7 @@ export default function Minimap({
 
         ctx.beginPath();
         ctx.moveTo(Math.round(x1), Math.round(y1));
-
-        // 픽셀 계단 효과: 수평 → 수직 → 수평
-        const midX1 = Math.round(x1 + dx / 3);
-        ctx.lineTo(midX1, Math.round(y1));
-        ctx.lineTo(midX1, Math.round(y2));
         ctx.lineTo(Math.round(x2), Math.round(y2));
-
         ctx.stroke();
       };
 

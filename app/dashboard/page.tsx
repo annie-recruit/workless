@@ -14,6 +14,7 @@ import PersonaSelector from '@/components/PersonaSelector';
 import GlobalSearch from '@/components/GlobalSearch';
 import PixelIcon from '@/components/PixelIcon';
 import ProcessingLoader from '@/components/ProcessingLoader';
+import PixelLanguageToggle from '@/components/PixelLanguageToggle';
 import { Memory, CanvasBlock } from '@/types';
 
 export default function Home() {
@@ -28,6 +29,7 @@ export default function Home() {
   const contentMaxWidth = showInsights ? 'calc(100vw - 360px)' : '100%';
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const lastActiveElementRef = useRef<HTMLElement | null>(null);
+  const [groupRefreshKey, setGroupRefreshKey] = useState(0);
 
   const fetchDashboardData = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -158,7 +160,7 @@ export default function Home() {
   if (status === 'loading' || (status === 'authenticated' && loading)) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <ProcessingLoader size={32} variant="overlay" tone="indigo" label="워크스페이스 로딩 중..." />
+        <ProcessingLoader size={32} variant="overlay" tone="graphite" label="워크스페이스 로딩 중..." />
       </main>
     );
   }
@@ -166,13 +168,24 @@ export default function Home() {
   if (!session) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <ProcessingLoader size={32} variant="overlay" tone="indigo" label="로그인 페이지로 이동 중..." />
+        <ProcessingLoader size={32} variant="overlay" tone="graphite" label="로그인 페이지로 이동 중..." />
       </main>
     );
   }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-indigo-50 flex relative">
+      {/* 언어 토글 + About 버튼 (고정 위치) */}
+      <div className="fixed top-4 right-4 z-[100] flex items-center gap-3 scale-90 md:scale-100">
+        <Link
+          href="/features"
+          className="px-3 py-1 bg-white border-2 border-gray-800 text-gray-900 font-bold text-[10px] hover:bg-gray-50 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,0.4)]"
+        >
+          About
+        </Link>
+        <PixelLanguageToggle />
+      </div>
+
       {/* 토글 버튼 */}
       <button
         onClick={() => setShowInsights(!showInsights)}
@@ -233,6 +246,13 @@ export default function Home() {
                 <PixelIcon name="list" size={16} />
                 기억 관리
               </button>
+              <Link
+                href="/settings/local-first"
+                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors text-xs md:text-sm font-medium flex items-center gap-1"
+              >
+                <PixelIcon name="settings" size={16} />
+                설정
+              </Link>
             </div>
 
             <div className="flex items-center gap-1">
@@ -295,35 +315,34 @@ export default function Home() {
             </div>
           </div>
 
-          {/* 기록하기 영역 */}
-          <div className="mb-8">
-            <MemoryInput onMemoryCreated={handleMemoryCreated} />
-            <GlobalSearch
-              memories={memories}
-              isOpen={isSearchOpen}
-              onClose={() => setIsSearchOpen(false)}
-              onMemoryClick={(memory: Memory) => {
-                const element = document.getElementById(`memory-${memory.id}`);
-                if (element) {
-                  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  element.style.transition = 'box-shadow 0.3s';
-                  element.style.boxShadow = '0 0 0 4px rgba(59, 130, 246, 0.3)';
-                  setTimeout(() => {
-                    element.style.boxShadow = '';
-                  }, 2000);
-                }
-              }}
-            />
-          </div>
+          {/* 전역 검색 */}
+          <MemoryInput onMemoryCreated={handleMemoryCreated} />
+          <GlobalSearch
+            memories={memories}
+            isOpen={isSearchOpen}
+            onClose={() => setIsSearchOpen(false)}
+            onMemoryClick={(memory: Memory) => {
+              const element = document.getElementById(`memory-${memory.id}`);
+              if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                element.style.transition = 'box-shadow 0.3s';
+                element.style.boxShadow = '0 0 0 4px rgba(59, 130, 246, 0.3)';
+                setTimeout(() => {
+                  element.style.boxShadow = '';
+                }, 2000);
+              }
+            }}
+          />
 
           {/* 보관함 영역 */}
           <div className="font-galmuri11">
             {loading ? (
               <div className="py-12 flex items-center justify-center">
-                <ProcessingLoader variant="panel" tone="indigo" label="불러오는 중..." />
+                <ProcessingLoader variant="panel" tone="graphite" label="불러오는 중..." />
               </div>
             ) : (
               <MemoryView
+                key={groupRefreshKey}
                 memories={memories}
                 onMemoryDeleted={() => {
                   fetchDashboardData(true);
@@ -333,6 +352,15 @@ export default function Home() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* 페르소나 플로팅 버튼 */}
+      <div className="fixed bottom-24 right-6 z-[150] md:bottom-8">
+        <PersonaSelector
+          selectedPersonaId={selectedPersonaId}
+          onPersonaChange={setSelectedPersonaId}
+          variant="fab"
+        />
       </div>
 
       {/* 사이드 패널 (인사이트) */}
@@ -361,24 +389,32 @@ export default function Home() {
         )
       }
 
-      {/* 그룹 관리 모달 */}
+      {/* 그룹 관리 토스트 */}
       {
         showModal === 'groups' && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-hidden flex flex-col">
-              <div className="p-6 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-purple-50 to-pink-50">
-                <h2 className="text-2xl font-bold text-gray-800">그룹 관리</h2>
+          <div className="fixed bottom-6 right-6 z-[9000] animate-slide-up font-galmuri11">
+            <div className="w-[400px] h-[500px] bg-white border-3 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] flex flex-col overflow-hidden relative">
+              <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900 z-20" />
+              <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900 z-20" />
+              <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900 z-20" />
+              <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900 z-20" />
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-indigo-50 border-b-3 border-gray-900">
+                <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                  <PixelIcon name="folder" size={20} className="text-indigo-500" />
+                  그룹 관리
+                </h3>
                 <button
                   onClick={() => setShowModal(null)}
-                  className="text-gray-400 hover:text-gray-600 p-2 hover:bg-white rounded-lg transition-colors"
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <PixelIcon name="close" size={16} />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto p-6">
-                <GroupManager onGroupsChanged={() => fetchDashboardData(true)} personaId={selectedPersonaId} />
+              <div className="flex-1 overflow-y-auto p-4">
+                <GroupManager onGroupsChanged={() => {
+                  fetchDashboardData(true);
+                  setGroupRefreshKey(prev => prev + 1);
+                }} personaId={selectedPersonaId} />
               </div>
             </div>
           </div>

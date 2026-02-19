@@ -29,6 +29,7 @@ interface ViewerBlockProps {
   onPointerDown: (e: React.PointerEvent) => void;
   onClick?: () => void;
   zIndex?: number;
+  isSelected?: boolean;
 }
 
 type ViewerState = 'empty' | 'loading' | 'loaded' | 'error';
@@ -48,6 +49,7 @@ export default function ViewerBlock({
   onPointerDown,
   onClick,
   zIndex = 10,
+  isSelected = false,
 }: ViewerBlockProps) {
   const { registerViewer, unregisterViewer, setActiveViewerId } = useViewer();
   const [currentSource, setCurrentSource] = useState<ViewerSource | null>(config.currentSource || null);
@@ -283,7 +285,7 @@ export default function ViewerBlock({
   return (
     <div
       data-viewer-block={blockId}
-      className="absolute select-none"
+      className={`absolute select-none ${isSelected ? 'border-[3px] border-blue-400' : ''}`}
       style={{
         transform: `translate3d(${x}px, ${y}px, 0)`,
         width: `${width}px`,
@@ -336,7 +338,7 @@ export default function ViewerBlock({
 
           {state === 'loading' && currentSource && !isImage && !isPdf && !isOfficeFile && !isText && (
             <div className="flex-1 flex items-center justify-center relative">
-              <ProcessingLoader size={32} tone="indigo" />
+              <ProcessingLoader size={32} tone="graphite" />
             </div>
           )}
 
@@ -366,7 +368,7 @@ export default function ViewerBlock({
               {/* 로딩 오버레이 (이미지나 PDF 등이 로드될 때까지 표시) */}
               {state === 'loading' && (
                 <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 flex items-center justify-center">
-                  <ProcessingLoader size={32} tone="indigo" />
+                  <ProcessingLoader size={32} tone="graphite" />
                 </div>
               )}
 

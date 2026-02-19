@@ -5,6 +5,7 @@ import { CanvasBlock, MeetingRecorderBlockConfig } from '@/types';
 import PixelIcon from './PixelIcon';
 import LottiePlayer from './LottiePlayer';
 import ProcessingLoader from './ProcessingLoader';
+import { WebSpeechRealtimeClient } from '@/lib/webspeech';
 
 interface MeetingRecorderBlockProps {
   blockId: string;
@@ -20,6 +21,7 @@ interface MeetingRecorderBlockProps {
   zIndex?: number;
   onPointerDown?: (e: React.PointerEvent) => void;
   isHighlighted?: boolean;
+  isSelected?: boolean;
 }
 
 export default function MeetingRecorderBlock({
@@ -36,6 +38,7 @@ export default function MeetingRecorderBlock({
   zIndex = 10,
   onPointerDown,
   isHighlighted = false,
+  isSelected = false,
 }: MeetingRecorderBlockProps) {
   const [isRecording, setIsRecording] = useState(config.isRecording || false);
   const [isPaused, setIsPaused] = useState(config.isPaused || false);
@@ -43,9 +46,9 @@ export default function MeetingRecorderBlock({
   const [recordingTime, setRecordingTime] = useState(config.recordingTime || 0);
   const [script, setScript] = useState(config.script || '');
   const [summary, setSummary] = useState(config.summary || '');
+  const [liveScript, setLiveScript] = useState(''); // 실시간 스크립트 (최종 결과만)
+  const [interimScript, setInterimScript] = useState(''); // 중간 결과 (임시)
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const pausedTimeRef = useRef<number>(0);
@@ -55,6 +58,7 @@ export default function MeetingRecorderBlock({
   const animationFrameRef = useRef<number | null>(null);
   const [audioLevels, setAudioLevels] = useState<number[]>(new Array(20).fill(0));
   const [isHovered, setIsHovered] = useState(false);
+  const speechClientRef = useRef<WebSpeechRealtimeClient | null>(null); // Web Speech API 클라이언트
 
   // 녹음 시간 포맷팅
   const formatTime = (seconds: number) => {
@@ -88,7 +92,7 @@ export default function MeetingRecorderBlock({
     animationFrameRef.current = requestAnimationFrame(analyzeAudio);
   }, []);
 
-  // 녹음 시작
+  // 녹음 시작 (Web Speech API 실시간 스트리밍)
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -96,6 +100,11 @@ export default function MeetingRecorderBlock({
 
       // Web Audio API 설정 (파형 시각화용)
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 256;
       const source = audioContext.createMediaStreamSource(stream);
@@ -104,42 +113,28 @@ export default function MeetingRecorderBlock({
       audioContextRef.current = audioContext;
       analyserRef.current = analyser;
 
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
+      // Web Speech API 클라이언트 초기화
+      const client = new WebSpeechRealtimeClient({
+        onTranscript: (text, isFinal) => {
+          console.log(`[WebSpeech ${isFinal ? 'Final' : 'Interim'}]`, text);
+          
+          if (isFinal) {
+            // 최종 결과만 실제 스크립트에 추가
+            setLiveScript((prev) => prev + (prev ? '\n' : '') + text);
+            setInterimScript(''); // 중간 결과 초기화
+          } else {
+            // 중간 결과는 임시로만 표시
+            setInterimScript(text);
+          }
+        },
+        onError: (error) => {
+          console.error('[MeetingRecorder] WebSpeech 오류:', error);
+        },
       });
 
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
+      await client.connect('ko-KR'); // 한국어 설정
+      speechClientRef.current = client;
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        if (audioChunksRef.current.length > 0) {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          await transcribeAudio(audioBlob);
-        }
-
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop());
-          streamRef.current = null;
-        }
-
-        if (audioContextRef.current) {
-          audioContextRef.current.close();
-          audioContextRef.current = null;
-        }
-
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-          animationFrameRef.current = null;
-        }
-      };
-
-      mediaRecorder.start(1000); // 1초마다 데이터 수집
       setIsRecording(true);
       setIsPaused(false);
       setRecordingTime(pausedTimeRef.current);
@@ -158,186 +153,184 @@ export default function MeetingRecorderBlock({
       }, 1000);
     } catch (error) {
       console.error('녹음 시작 실패:', error);
-      alert('마이크 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해주세요.');
+      if (error instanceof Error && error.message.includes('음성 인식')) {
+        alert(error.message);
+      } else {
+        alert('마이크 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해주세요.');
+      }
     }
   }, [blockId, config, onUpdate, analyzeAudio]);
 
-  // 녹음 일시정지
+  // 녹음 일시정지 (Web Speech API 일시 중지)
   const pauseRecording = useCallback(() => {
-    if (mediaRecorderRef.current) {
-      // MediaRecorder의 pause() 메서드가 지원되는지 확인
-      if (typeof mediaRecorderRef.current.pause === 'function') {
-        try {
-          mediaRecorderRef.current.pause();
-        } catch (error) {
-          // pause가 지원되지 않는 경우, 녹음을 중지하고 재개 시 새로 시작
-          console.warn('pause() not supported, using stop/resume workaround');
-          if (mediaRecorderRef.current.state === 'recording') {
-            mediaRecorderRef.current.stop();
-            // 스트림은 유지
-          }
-        }
-      } else {
-        // pause가 없는 경우, 녹음을 중지하고 재개 시 새로 시작
-        if (mediaRecorderRef.current.state === 'recording') {
-          mediaRecorderRef.current.stop();
-        }
-      }
+    setIsPaused(true);
+    pausedTimeRef.current = recordingTime;
 
-      setIsPaused(true);
-      pausedTimeRef.current = recordingTime;
-
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-
-      // 오디오 분석 중지
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-      setAudioLevels(new Array(20).fill(0));
-
-      onUpdate(blockId, {
-        config: { ...config, isRecording: true, isPaused: true, recordingTime },
-      });
+    // Web Speech API 중지
+    if (speechClientRef.current) {
+      speechClientRef.current.disconnect();
     }
+
+    // 타이머 중지
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // 오디오 분석 중지
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    setAudioLevels(new Array(20).fill(0));
+
+    onUpdate(blockId, {
+      config: { ...config, isRecording: true, isPaused: true, recordingTime },
+    });
   }, [blockId, config, recordingTime, onUpdate]);
 
   // 녹음 재개
-  const resumeRecording = useCallback(() => {
-    if (mediaRecorderRef.current && streamRef.current) {
-      // pause/resume이 지원되는 경우
-      if (typeof mediaRecorderRef.current.resume === 'function' && mediaRecorderRef.current.state === 'paused') {
-        try {
-          mediaRecorderRef.current.resume();
-          setIsPaused(false);
-          startTimeRef.current = Date.now() - pausedTimeRef.current * 1000;
+  const resumeRecording = useCallback(async () => {
+    if (!streamRef.current || !audioContextRef.current) return;
 
-          timerRef.current = setInterval(() => {
-            const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-            setRecordingTime(elapsed);
-            onUpdate(blockId, {
-              config: { ...config, isRecording: true, isPaused: false, recordingTime: elapsed },
-            });
-          }, 1000);
+    setIsPaused(false);
+    startTimeRef.current = Date.now() - pausedTimeRef.current * 1000;
 
-          onUpdate(blockId, {
-            config: { ...config, isRecording: true, isPaused: false },
-          });
-          return;
-        } catch (error) {
-          console.warn('resume() failed, restarting recording');
-        }
-      }
-
-      // pause/resume이 지원되지 않는 경우, 새로 녹음 시작
-      // 기존 오디오 청크는 유지하고 계속 추가
-      const mediaRecorder = new MediaRecorder(streamRef.current, {
-        mimeType: 'audio/webm;codecs=opus'
+    // Web Speech API 재시작
+    try {
+      const client = new WebSpeechRealtimeClient({
+        onTranscript: (text, isFinal) => {
+          console.log(`[WebSpeech ${isFinal ? 'Final' : 'Interim'}]`, text);
+          
+          if (isFinal) {
+            // 최종 결과만 실제 스크립트에 추가
+            setLiveScript((prev) => prev + (prev ? '\n' : '') + text);
+            setInterimScript(''); // 중간 결과 초기화
+          } else {
+            // 중간 결과는 임시로만 표시
+            setInterimScript(text);
+          }
+        },
+        onError: (error) => {
+          console.error('[MeetingRecorder] WebSpeech 오류:', error);
+        },
       });
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.onstop = async () => {
-        if (audioChunksRef.current.length > 0) {
-          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          await transcribeAudio(audioBlob);
-        }
-      };
-
-      mediaRecorder.start(1000);
-      mediaRecorderRef.current = mediaRecorder;
-      setIsPaused(false);
-      startTimeRef.current = Date.now() - pausedTimeRef.current * 1000;
-
-      // 오디오 분석 재개
-      analyzeAudio();
-
-      timerRef.current = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-        setRecordingTime(elapsed);
-        onUpdate(blockId, {
-          config: { ...config, isRecording: true, isPaused: false, recordingTime: elapsed },
-        });
-      }, 1000);
-
-      onUpdate(blockId, {
-        config: { ...config, isRecording: true, isPaused: false },
-      });
+      await client.connect('ko-KR');
+      speechClientRef.current = client;
+    } catch (error) {
+      console.error('[MeetingRecorder] 재개 실패:', error);
     }
+
+    // 오디오 분석 재개
+    analyzeAudio();
+
+    // 타이머 재시작
+    timerRef.current = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      setRecordingTime(elapsed);
+      onUpdate(blockId, {
+        config: { ...config, isRecording: true, isPaused: false, recordingTime: elapsed },
+      });
+    }, 1000);
+
+    onUpdate(blockId, {
+      config: { ...config, isRecording: true, isPaused: false },
+    });
   }, [blockId, config, onUpdate, analyzeAudio]);
 
   // 녹음 완료
-  const completeRecording = useCallback(() => {
-    if (mediaRecorderRef.current) {
-      if (mediaRecorderRef.current.state === 'recording' || mediaRecorderRef.current.state === 'paused') {
-        mediaRecorderRef.current.stop();
-      }
-      setIsRecording(false);
-      setIsPaused(false);
+  const completeRecording = useCallback(async () => {
+    setIsRecording(false);
+    setIsPaused(false);
 
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-
-      onUpdate(blockId, {
-        config: { ...config, isRecording: false, isPaused: false, recordingTime: 0 },
-      });
+    // Web Speech API 연결 종료
+    if (speechClientRef.current) {
+      speechClientRef.current.disconnect();
+      speechClientRef.current = null;
     }
-  }, [blockId, config, onUpdate]);
 
-  // 음성 변환
-  const transcribeAudio = async (audioBlob: Blob) => {
-    setIsProcessing(true);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
 
-    try {
-      const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.webm');
+    // 스트림 정리
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
 
-      const res = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData,
-      });
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.script && data.summary) {
-          setScript(data.script);
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    // 요약 생성
+    if (liveScript) {
+      setIsProcessing(true);
+      
+      try {
+        const response = await fetch('/api/summary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ script: liveScript }),
+        });
+
+        const data = await response.json();
+        
+        if (data.summary) {
+          setScript(liveScript);
           setSummary(data.summary);
 
           onUpdate(blockId, {
             config: {
               ...config,
-              script: data.script,
+              script: liveScript,
               summary: data.summary,
+              isRecording: false,
+              isPaused: false,
+              recordingTime: 0,
               createdAt: Date.now(),
             },
           });
-        } else {
-          alert('음성을 텍스트로 변환하지 못했습니다.');
         }
-      } else {
-        const error = await res.json();
-        alert(error.error || '음성 변환 실패');
+      } catch (error) {
+        console.error('[MeetingRecorder] 요약 생성 실패:', error);
+        // 요약 실패해도 스크립트는 저장
+        setScript(liveScript);
+        onUpdate(blockId, {
+          config: {
+            ...config,
+            script: liveScript,
+            isRecording: false,
+            isPaused: false,
+            recordingTime: 0,
+          },
+        });
+      } finally {
+        setIsProcessing(false);
+        setLiveScript(''); // 실시간 스크립트 초기화
+        setInterimScript(''); // 중간 결과 초기화
       }
-    } catch (error) {
-      console.error('음성 변환 실패:', error);
-      alert('음성 변환 중 오류가 발생했습니다.');
-    } finally {
-      setIsProcessing(false);
+    } else {
+      onUpdate(blockId, {
+        config: { ...config, isRecording: false, isPaused: false, recordingTime: 0 },
+      });
     }
-  };
+  }, [blockId, config, onUpdate, liveScript]);
 
   // 컴포넌트 언마운트 시 정리
   useEffect(() => {
     return () => {
+      if (speechClientRef.current) {
+        speechClientRef.current.disconnect();
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
@@ -367,7 +360,7 @@ export default function MeetingRecorderBlock({
   return (
     <div
       data-meeting-recorder-block={blockId}
-      className={`absolute bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black overflow-hidden ${isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
+      className={`absolute bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] overflow-hidden ${isHighlighted || isSelected ? 'border-[3px] border-blue-400' : 'border-[3px] border-black'
         }`}
       style={{
         transform: `translate3d(${x}px, ${y}px, 0) scale(${scale})`,
@@ -382,7 +375,7 @@ export default function MeetingRecorderBlock({
         transformOrigin: 'center center',
         overflow: 'visible',
         ...(isHighlighted
-          ? { backgroundImage: 'linear-gradient(rgba(99, 102, 241, 0.06), rgba(99, 102, 241, 0.06))' }
+          ? { backgroundImage: 'linear-gradient(rgba(96, 165, 250, 0.15), rgba(96, 165, 250, 0.15))' }
           : null),
       }}
       onMouseEnter={() => setIsHovered(true)}
@@ -487,17 +480,32 @@ export default function MeetingRecorderBlock({
                       startRecording();
                     }}
                     className="w-20 h-20 border-[3px] border-black bg-white hover:bg-gray-50 flex items-center justify-center transition-colors"
+                    style={{
+                      clipPath: 'polygon(3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px), 0 3px, 3px 3px)'
+                    }}
                     title="녹음 시작"
                   >
-                    <img
-                      src="/assets/icons/mic_pixel.png"
-                      width={40}
-                      height={40}
-                      alt=""
-                      aria-hidden="true"
-                      draggable={false}
-                      style={{ imageRendering: 'pixelated' }}
-                    />
+                    <svg width="32" height="32" viewBox="0 0 32 32" fill="#000000" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M25.905 10.67h-1.53V3.05h-1.52v13.71H9.145V3.05h-1.53v7.62H6.1V9.14H4.575v12.19H6.1v-9.14h1.52v7.62h1.53v1.52h1.52v1.53h3.05v1.52H9.145v1.52h4.57v1.53h-6.1v1.52h16.76v-1.52h-6.09V25.9h4.57v-1.52h-4.57v-1.52h3.05v-1.53h1.52v-1.52h1.52v-7.62h1.53v9.14h1.52V9.14h-1.52Zm-9.14 16.76h-1.53v-4.57h1.53Z"/>
+                      <path d="M24.375 21.33h1.53v1.53h-1.53Z"/>
+                      <path d="m7.615 30.48 0 -1.53 -1.52 0 0 1.53 -1.52 0 0 1.52 22.85 0 0 -1.52 -1.52 0 0 -1.53 -1.53 0 0 1.53 -16.76 0z"/>
+                      <path d="M22.855 22.86h1.52v1.52h-1.52Z"/>
+                      <path d="M21.335 1.52h1.52v1.53h-1.52Z"/>
+                      <path d="M19.805 10.67h1.53v1.52h-1.53Z"/>
+                      <path d="M19.805 4.57h1.53V6.1h-1.53Z"/>
+                      <path d="M18.285 13.71h1.52v1.53h-1.52Z"/>
+                      <path d="M18.285 7.62h1.52v1.52h-1.52Z"/>
+                      <path d="M15.235 10.67h1.53v1.52h-1.53Z"/>
+                      <path d="M15.235 4.57h1.53V6.1h-1.53Z"/>
+                      <path d="M12.185 13.71h1.53v1.53h-1.53Z"/>
+                      <path d="M12.185 7.62h1.53v1.52h-1.53Z"/>
+                      <path d="M10.665 0h10.67v1.52h-10.67Z"/>
+                      <path d="M10.665 10.67h1.52v1.52h-1.52Z"/>
+                      <path d="M10.665 4.57h1.52V6.1h-1.52Z"/>
+                      <path d="M9.145 1.52h1.52v1.53h-1.52Z"/>
+                      <path d="M7.615 22.86h1.53v1.52h-1.53Z"/>
+                      <path d="M6.095 21.33h1.52v1.53h-1.52Z"/>
+                    </svg>
                   </button>
                 ) : isStateRecording ? (
                   <button
@@ -510,6 +518,9 @@ export default function MeetingRecorderBlock({
                       }
                     }}
                     className="w-20 h-20 border-[3px] border-black bg-white hover:bg-gray-50 flex items-center justify-center transition-colors"
+                    style={{
+                      clipPath: 'polygon(3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px), 0 3px, 3px 3px)'
+                    }}
                     title={isPaused ? '재개' : '일시정지'}
                   >
                     {isPaused ? (
@@ -535,7 +546,7 @@ export default function MeetingRecorderBlock({
                 <ProcessingLoader
                   size={32}
                   variant="panel"
-                  tone="orange"
+                  tone="graphite"
                   label="처리 중..."
                 />
               </div>
@@ -551,7 +562,11 @@ export default function MeetingRecorderBlock({
               }}
               className="absolute bottom-4 right-4 w-[calc(64px/3)] h-[calc(64px/3)] border-[2px] border-black bg-orange-500 hover:bg-orange-600 flex items-center justify-center transition-colors z-20"
               title="녹음 종료"
-              style={{ minWidth: '18px', minHeight: '18px' }}
+              style={{ 
+                minWidth: '18px', 
+                minHeight: '18px',
+                clipPath: 'polygon(2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px)'
+              }}
             >
               <PixelIcon name="stop" size={8} className="text-white" />
             </button>
@@ -561,7 +576,7 @@ export default function MeetingRecorderBlock({
         {/* 노트패드 (스크립트/요약) */}
         <div className="w-1/2 p-4 overflow-y-auto bg-white">
           <div className="h-full">
-            {script || summary ? (
+            {script || summary || liveScript || interimScript ? (
               <div className="space-y-4">
                 {summary && (
                   <div>
@@ -574,14 +589,20 @@ export default function MeetingRecorderBlock({
                     </div>
                   </div>
                 )}
-                {script && (
+                {(script || liveScript || interimScript) && (
                   <div>
                     <h3 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
                       <PixelIcon name="file" size={16} className="text-gray-600" />
-                      전체 스크립트
+                      {script ? '전체 스크립트' : '실시간 스크립트'}
+                      {!script && (liveScript || interimScript) && (
+                        <span className="text-[10px] text-orange-500 font-normal animate-pulse">● 실시간</span>
+                      )}
                     </h3>
                     <div className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap bg-white p-3 border-[2px] border-black max-h-48 overflow-y-auto">
-                      {script}
+                      {script || liveScript}
+                      {interimScript && (
+                        <span className="text-gray-400">{liveScript ? '\n' : ''}{interimScript}</span>
+                      )}
                     </div>
                   </div>
                 )}
@@ -599,7 +620,7 @@ export default function MeetingRecorderBlock({
                   </div>
                 ) : isStateProcessing ? (
                   <div className="text-center">
-                    <ProcessingLoader size={32} variant="panel" tone="orange" label="음성을 텍스트로 변환 중..." />
+                    <ProcessingLoader size={32} variant="panel" tone="graphite" label="음성을 텍스트로 변환 중..." />
                   </div>
                 ) : (
                   <div className="text-center">

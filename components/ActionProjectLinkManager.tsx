@@ -76,7 +76,7 @@ export default function ActionProjectLinkManager({ project, allMemories, onClose
         <>
             {showSuccess && (
                 <div className="fixed bottom-6 right-6 z-[9999] font-galmuri11 animate-slide-up">
-                    <div className="bg-green-500 text-white border-4 border-gray-900 p-4 min-w-[300px] shadow-[6px_6px_0px_0px_rgba(0,0,0,0.3)] relative">
+                    <div className="bg-green-500 text-white border-3 border-gray-900 p-4 min-w-[300px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
                         <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
@@ -91,19 +91,23 @@ export default function ActionProjectLinkManager({ project, allMemories, onClose
 
             {!showSuccess && (
                 <div className="fixed bottom-6 right-6 z-[9999] font-galmuri11 animate-slide-up">
-                    <div className="bg-white border-4 border-gray-900 w-[500px] max-h-[80vh] flex flex-col shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+                    <div className="bg-white border-3 border-gray-900 w-[500px] max-h-[80vh] flex flex-col shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
                         <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
 
-                        <div className="p-4 border-b-4 border-gray-900 flex justify-between items-center">
+                        <div className="p-4 border-b-3 border-gray-900 flex justify-between items-center">
                             <h2 className="text-sm font-black text-gray-800 uppercase tracking-tight">프로젝트에 기록 연결</h2>
                             <button onClick={onClose} className="text-gray-400 hover:text-gray-800 transition-colors text-xl leading-none">×</button>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                            <div className="bg-indigo-50 p-3 border-2 border-indigo-300">
+                            <div className="bg-indigo-50 p-3 border-2 border-indigo-300"
+                              style={{
+                                clipPath: 'polygon(2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px)'
+                              }}
+                            >
                                 <div className="text-[10px] text-indigo-700 font-bold mb-1 uppercase tracking-tighter">TARGET PROJECT</div>
                                 <p className="text-gray-900 text-xs font-bold">{project.title}</p>
                             </div>
@@ -137,6 +141,9 @@ export default function ActionProjectLinkManager({ project, allMemories, onClose
                                             onClick={() => setSelectedMemoryId(m.id)}
                                             className={`w-full p-3 border-2 transition-all text-left ${selectedMemoryId === m.id ? 'border-gray-900 bg-indigo-50' : 'border-gray-200 bg-white hover:border-gray-400'
                                                 }`}
+                                            style={{
+                                              clipPath: 'polygon(2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px)'
+                                            }}
                                         >
                                             {m.title && <p className="text-gray-900 text-xs font-bold mb-1">{m.title}</p>}
                                             <p className="text-gray-600 text-[11px] line-clamp-2">{stripHtmlClient(m.content)}</p>

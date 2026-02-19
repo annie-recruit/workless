@@ -107,7 +107,7 @@ export default function TimelinePage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <ProcessingLoader variant="overlay" tone="indigo" label="로딩 중..." />
+        <ProcessingLoader variant="overlay" tone="graphite" label="로딩 중..." />
       </div>
     );
   }

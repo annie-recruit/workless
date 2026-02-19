@@ -80,9 +80,14 @@ export default function MemoryListPanel({
     const visibleItems = filteredItems.slice(0, visibleCount);
 
     return (
-        <div className="fixed bottom-6 right-6 z-[9000] w-[400px] h-[500px] bg-white border-[3px] border-black flex flex-col overflow-hidden animate-slide-up font-galmuri11">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-indigo-50 border-b-[3px] border-black">
+        <div className="fixed bottom-6 right-6 z-[9000] animate-slide-up font-galmuri11">
+            <div className="w-[400px] h-[500px] bg-white border-3 border-gray-900 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] flex flex-col overflow-hidden relative">
+                <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900 z-20" />
+                <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900 z-20" />
+                <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900 z-20" />
+                <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900 z-20" />
+                {/* Header */}
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-indigo-50 border-b-3 border-gray-900">
                 <h3 className="font-bold text-gray-800 flex items-center gap-2">
                     <PixelIcon name="folder" size={20} className="text-indigo-500" />
                     {t('memory.list.title')}
@@ -96,26 +101,35 @@ export default function MemoryListPanel({
             </div>
 
             {/* Tabs & Search */}
-            <div className="p-3 border-b-[3px] border-black space-y-3 bg-white">
-                <div className="flex border-[2px] border-black">
+            <div className="p-3 border-b-3 border-gray-900 space-y-3 bg-white">
+                <div className="flex gap-2 justify-center">
                     <button
                         onClick={() => { setActiveTab('all'); setVisibleCount(30); }}
-                        className={`flex-1 py-1.5 text-xs font-medium transition-all border-r-[2px] border-black ${activeTab === 'all' ? 'bg-gradient-to-r from-orange-100 to-indigo-100 text-gray-900' : 'bg-white text-gray-500 hover:bg-gray-50'
+                        className={`px-4 py-1.5 text-xs font-medium transition-all border-2 border-black ${activeTab === 'all' ? 'bg-gradient-to-r from-orange-100 to-indigo-100 text-gray-900' : 'bg-white text-gray-500 hover:bg-gray-50'
                             }`}
+                        style={{
+                            clipPath: 'polygon(2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px)'
+                        }}
                     >
                         {t('memory.list.tab.all').replace('{count}', (memories.length + blocks.length).toString())}
                     </button>
                     <button
                         onClick={() => { setActiveTab('memory'); setVisibleCount(30); }}
-                        className={`flex-1 py-1.5 text-xs font-medium transition-all border-r-[2px] border-black ${activeTab === 'memory' ? 'bg-gradient-to-r from-orange-100 to-indigo-100 text-gray-900' : 'bg-white text-gray-500 hover:bg-gray-50'
+                        className={`px-4 py-1.5 text-xs font-medium transition-all border-2 border-black ${activeTab === 'memory' ? 'bg-gradient-to-r from-orange-100 to-indigo-100 text-gray-900' : 'bg-white text-gray-500 hover:bg-gray-50'
                             }`}
+                        style={{
+                            clipPath: 'polygon(2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px)'
+                        }}
                     >
                         {t('memory.list.tab.memory').replace('{count}', memories.length.toString())}
                     </button>
                     <button
                         onClick={() => { setActiveTab('block'); setVisibleCount(30); }}
-                        className={`flex-1 py-1.5 text-xs font-medium transition-all ${activeTab === 'block' ? 'bg-gradient-to-r from-orange-100 to-indigo-100 text-gray-900' : 'bg-white text-gray-500 hover:bg-gray-50'
+                        className={`px-4 py-1.5 text-xs font-medium transition-all border-2 border-black ${activeTab === 'block' ? 'bg-gradient-to-r from-orange-100 to-indigo-100 text-gray-900' : 'bg-white text-gray-500 hover:bg-gray-50'
                             }`}
+                        style={{
+                            clipPath: 'polygon(2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px)'
+                        }}
                     >
                         {t('memory.list.tab.widget').replace('{count}', blocks.length.toString())}
                     </button>
@@ -147,6 +161,9 @@ export default function MemoryListPanel({
                             <div
                                 key={`${item.type}-${item.id}`}
                                 className="bg-white p-3 border-[2px] border-black hover:border-indigo-500 transition-all group flex items-start gap-3"
+                                style={{
+                                    clipPath: 'polygon(2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px), 0 2px, 2px 2px)'
+                                }}
                             >
                                 <div className={`shrink-0 w-8 h-8 border-[2px] border-black flex items-center justify-center ${item.type === 'memory' ? 'bg-indigo-50 text-indigo-500' : 'bg-orange-50 text-orange-500'
                                     }`}>
@@ -188,6 +205,7 @@ export default function MemoryListPanel({
                         ))}
                     </div>
                 )}
+            </div>
             </div>
         </div>
     );

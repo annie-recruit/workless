@@ -18,6 +18,7 @@ interface DatabaseBlockProps {
   zIndex?: number;
   onPointerDown?: (e: React.PointerEvent) => void;
   isHighlighted?: boolean;
+  isSelected?: boolean;
 }
 
 const DEFAULT_PROPERTIES: DatabaseProperty[] = [
@@ -39,6 +40,7 @@ export default function DatabaseBlock({
   zIndex = 10,
   onPointerDown,
   isHighlighted = false,
+  isSelected = false,
 }: DatabaseBlockProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [databaseName, setDatabaseName] = useState(config.name || '데이터베이스');
@@ -252,7 +254,7 @@ export default function DatabaseBlock({
   return (
     <div
       data-database-block={blockId}
-      className={`absolute bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black overflow-hidden flex flex-col ${isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
+      className={`absolute bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] flex flex-col ${isHighlighted || isSelected ? 'border-[3px] border-blue-400' : 'border-[3px] border-black'
         }`}
       style={{
         transform: `translate3d(${x}px, ${y}px, 0) scale(${scale})`,
@@ -267,7 +269,7 @@ export default function DatabaseBlock({
         transformOrigin: 'center center',
         overflow: 'visible',
         ...(isHighlighted
-          ? { backgroundImage: 'linear-gradient(rgba(99, 102, 241, 0.06), rgba(99, 102, 241, 0.06))' }
+          ? { backgroundImage: 'linear-gradient(rgba(96, 165, 250, 0.15), rgba(96, 165, 250, 0.15))' }
           : null),
       }}
       onMouseEnter={() => setIsHovered(true)}

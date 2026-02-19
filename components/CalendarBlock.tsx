@@ -23,6 +23,7 @@ interface CalendarBlockProps {
   isDragging: boolean;
   isClicked: boolean;
   isHighlighted?: boolean;
+  isSelected?: boolean;
   onPointerDown: (e: React.PointerEvent) => void;
   onClick?: () => void;
   zIndex?: number;
@@ -44,6 +45,7 @@ export default function CalendarBlock({
   isDragging,
   isClicked,
   isHighlighted = false,
+  isSelected = false,
   onPointerDown,
   onClick,
   zIndex = 10,
@@ -136,7 +138,7 @@ export default function CalendarBlock({
   return (
     <div
       data-calendar-block={blockId}
-      className={`absolute bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black p-3 pb-1 cursor-move ${isHighlighted ? 'outline outline-2 outline-indigo-500/35' : ''
+      className={`absolute bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.1)] p-3 pb-1 cursor-move ${isHighlighted || isSelected ? 'border-[3px] border-blue-400' : 'border-[3px] border-black'
         }`}
       style={{
         transform: `translate3d(${x}px, ${y}px, 0) scale(${scale})`,
@@ -151,7 +153,7 @@ export default function CalendarBlock({
         transformOrigin: 'center center',
         overflow: 'visible',
         ...(isHighlighted
-          ? { backgroundImage: 'linear-gradient(rgba(99, 102, 241, 0.06), rgba(99, 102, 241, 0.06))' }
+          ? { backgroundImage: 'linear-gradient(rgba(96, 165, 250, 0.15), rgba(96, 165, 250, 0.15))' }
           : null),
       }}
       onMouseEnter={() => setIsHovered(true)}

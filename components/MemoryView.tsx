@@ -36,7 +36,7 @@ import BoardOverlay from './board/BoardOverlay';
 import WidgetMenuBar from './WidgetMenuBar';
 import WidgetCreateButton from './WidgetCreateButton';
 import GroupMenuBar from './GroupMenuBar';
-import { GmailImportButton } from './GmailImportButton';
+// Gmail import removed - CASA verification not required
 import { useBoardFlags } from '@/hooks/flags/useBoardFlags';
 import ActionProjectCard from './ActionProjectCard';
 import WidgetSynergyToast from './WidgetSynergyToast';
@@ -133,7 +133,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     animateCameraTo,
     changeZoom,
     resetZoom,
-  } = useBoardCamera({ storageKey });
+  } = useBoardCamera({ storageKey, initialBoardSize: { width: 3000, height: 6000 } });
 
   const handleFocusMemory = useCallback((memoryId: string) => {
     const pos = positionsRef.current[memoryId];
@@ -146,19 +146,19 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     });
   }, [cardSize, animateCameraTo, zoomRef]);
 
-  // props로부터 localMemories 동기화
+  // props로부터 localMemories 동기화 (memories prop이 실제로 변경될 때만)
   useEffect(() => {
-    // 새로운 메모리가 추가되었는지 확인 (개수 증가로 간단히 판단)
+    setLocalMemories(memories);
+    
+    // 새로운 메모리가 추가되었는지 확인 (개수 증가 시)
     if (memories.length > localMemories.length) {
-      // 새로 추가된 메모리 ID 찾기
       const prevIds = new Set(localMemories.map(m => m.id));
       const added = memories.find(m => !prevIds.has(m.id));
       if (added) {
         setPendingFocusId(added.id);
       }
     }
-    setLocalMemories(memories);
-  }, [memories, localMemories]);
+  }, [memories]); // localMemories 의존성 제거! (이게 원인이었습니다)
 
   // 새로운 메모리 위치가 확보되면 해당 위치로 포커스
   useEffect(() => {
@@ -184,6 +184,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [dragStartPositions, setDragStartPositions] = useState<Record<string, { x: number; y: number }>>({}); // 드래그 시작 시점의 위치
 
+  // 드래그 기반 하이라이팅 (activity tracking과 별개로 관리)
+  const [dragHighlightSet, setDragHighlightSet] = useState<Set<string>>(new Set());
 
   // 메모리 카드로 시야 이동
   const draggingId = draggingEntity?.type === 'memory' ? draggingEntity.id : null;
@@ -202,11 +204,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [cardColor, setCardColor] = useState<'green' | 'pink' | 'purple'>('green');
   const [cardColorMap, setCardColorMap] = useState<Record<string, 'green' | 'pink' | 'purple'>>({});
   const [linkNotes, setLinkNotes] = useState<Record<string, string>>({});
-  const [linkInfo, setLinkInfo] = useState<Record<string, { note?: string; isAIGenerated: boolean }>>({});
+  const [linkInfo, setLinkInfo] = useState<Record<string, { note?: string; isAIGenerated: boolean; linkType?: 'depends-on' | 'derives-from' | 'related'; fromMemoryId?: string }>>({});
   const [isBlobEnabled, setIsBlobEnabled] = useState(true);
   const [isWidgetMenuOpen, setIsWidgetMenuOpen] = useState(false);
   const [isFlagMenuOpen, setIsFlagMenuOpen] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  // 햄버거 메뉴 제거됨 - 모든 기능이 사이드바 아이콘으로 이동
   const [isSynergyModalOpen, setIsSynergyModalOpen] = useState(false);
 
   // 롱프레스 드래그를 위한 타이머
@@ -309,6 +311,11 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const [isHighlightMode, setIsHighlightMode] = useState(false);
   const isHighlightModeRef = useRef(false);
 
+  // 디버깅용 로그
+  useEffect(() => {
+    console.log('[MemoryView] isHighlightMode:', isHighlightMode, 'draggingEntity:', draggingEntity);
+  }, [isHighlightMode, draggingEntity]);
+
 
 
   const {
@@ -329,12 +336,50 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const { blocks, setBlocks, visibleBlocks, fetchBlocks, createBlock, updateBlock: handleBlockUpdate, deleteBlock: handleBlockDelete } =
     useBoardBlocks({ boardSize, viewportBounds });
 
+  // 드래그 시작/종료 시 dragHighlightSet 업데이트
+  useEffect(() => {
+    if (draggingEntity === null) {
+      setDragHighlightSet(new Set());
+      return;
+    }
+
+    const draggedId = draggingEntity.id;
+    const ids = new Set<string>();
+
+    if (draggingEntity.type === 'memory') {
+      localMemories.forEach(memory => {
+        if (memory.id === draggedId) return;
+        const connected = (memory.connectedMemoryIds || []) as string[];
+        if (connected.includes(draggedId)) ids.add(`memory:${memory.id}`);
+      });
+      const currentMemory = localMemories.find(m => m.id === draggedId);
+      (currentMemory?.connectedMemoryIds || []).forEach((id: string) => ids.add(`memory:${id}`));
+      blocks.forEach(block => {
+        const cfg = block.config as any;
+        if (cfg?.linkedMemoryIds?.includes(draggedId)) ids.add(`block:${block.id}`);
+      });
+    } else if (draggingEntity.type === 'block') {
+      const block = blocks.find(b => b.id === draggedId);
+      const cfg = block?.config as any;
+      (cfg?.linkedMemoryIds || []).forEach((id: string) => ids.add(`memory:${id}`));
+    }
+
+    setDragHighlightSet(ids);
+  }, [draggingEntity, localMemories, blocks]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     isHighlightModeRef.current = isHighlightMode;
     if (!isHighlightMode) {
       setHighlightedContentIds([]);
     }
   }, [isHighlightMode]);
+
+  // 디버깅용 로그
+  useEffect(() => {
+    if (highlightedContentIds.length > 0) {
+      console.log('[MemoryView] Highlighted content IDs:', highlightedContentIds);
+    }
+  }, [highlightedContentIds]);
 
 
   // 연결 삭제 핸들러
@@ -350,23 +395,32 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
       if (res.ok) {
         const data = await res.json();
-        // 로컬 상태 즉시 업데이트 (페이지 리로드 없이)
-        if (data.memory1 && data.memory2) {
-          setLocalMemories(prev => {
-            const updated = [...prev];
-            const index1 = updated.findIndex(m => m.id === data.memory1.id);
-            const index2 = updated.findIndex(m => m.id === data.memory2.id);
-
-            if (index1 !== -1) {
-              updated[index1] = data.memory1;
+        
+        // 메모리 상태 한 번에 업데이트 (불변성 보장)
+        setLocalMemories(prev => {
+          return prev.map(m => {
+            if (data.memory1 && m.id === data.memory1.id) {
+              return { ...data.memory1 };
             }
-            if (index2 !== -1) {
-              updated[index2] = data.memory2;
+            if (data.memory2 && m.id === data.memory2.id) {
+              return { ...data.memory2 };
             }
-
-            return updated;
+            return m;
           });
-        }
+        });
+
+        // 프로젝트 상태도 업데이트
+        setLocalProjects(prev => prev.map(p => {
+          if (p.id === memoryId1 || p.id === memoryId2) {
+            const sourceIds = p.sourceMemoryIds || [];
+            return {
+              ...p,
+              sourceMemoryIds: sourceIds.filter(id => id !== memoryId1 && id !== memoryId2)
+            };
+          }
+          return p;
+        }));
+
         setToast({ type: null });
       } else {
         setToast({ type: null });
@@ -478,10 +532,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   }, [selectionBox]);
 
 
-  // memories prop이 변경되면 로컬 상태도 업데이트
-  useEffect(() => {
-    setLocalMemories(memories);
-  }, [memories]);
+  // memories prop이 변경되면 로컬 상태도 업데이트 (제거됨 - 상단에서 통합 관리)
+
 
   useEffect(() => {
     const storedSize = localStorage.getItem('workless.board.cardSize');
@@ -533,8 +585,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
   const ensureBoardBounds = (x: number, y: number) => {
     const { width: cardWidth, height: cardHeight } = CARD_DIMENSIONS[cardSize];
     setBoardSize(prev => {
-      const requiredWidth = Math.max(prev.width, x + cardWidth + BOARD_PADDING / 2);
-      const requiredHeight = Math.max(prev.height, y + cardHeight + BOARD_PADDING / 2);
+      const requiredWidth = Math.max(3000, x + cardWidth + BOARD_PADDING / 2);
+      const requiredHeight = Math.max(6000, y + cardHeight + BOARD_PADDING / 2);
 
       if (requiredWidth === prev.width && requiredHeight === prev.height) {
         return prev;
@@ -678,35 +730,41 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     return id1 < id2 ? `${id1}:${id2}` : `${id2}:${id1}`;
   };
 
-  // 그룹별 필터링 및 순서 적용
-  const filteredMemories = useMemo(() => {
-    let memories = localMemories;
+  // 그룹별 필터링 및 순서 적용 - ID 배열만 반환 (객체 참조 문제 해결)
+  const filteredMemoryIds = useMemo(() => {
+    let memoryIds = localMemories.map(m => m.id);
     if (selectedGroupId) {
       const group = groups.find(g => g.id === selectedGroupId);
       if (!group) return [];
-      memories = localMemories.filter(m => group.memoryIds.includes(m.id));
+      memoryIds = memoryIds.filter(id => group.memoryIds.includes(id));
     }
 
     // 순서에 따라 정렬 (memoryOrder에 있는 것만, 나머지는 뒤에)
-    const orderedMemories: Memory[] = [];
-    const unorderedMemories: Memory[] = [];
+    const orderedIds: string[] = [];
+    const unorderedIds: string[] = [];
     const orderSet = new Set(memoryOrder);
 
     // 순서가 있는 메모리들
     memoryOrder.forEach(id => {
-      const memory = memories.find(m => m.id === id);
-      if (memory) orderedMemories.push(memory);
-    });
-
-    // 순서가 없는 메모리들 (새로 추가된 것 등)
-    memories.forEach(memory => {
-      if (!orderSet.has(memory.id)) {
-        unorderedMemories.push(memory);
+      if (memoryIds.includes(id)) {
+        orderedIds.push(id);
       }
     });
 
-    return [...orderedMemories, ...unorderedMemories];
+    // 순서가 없는 메모리들 (새로 추가된 것 등)
+    memoryIds.forEach(id => {
+      if (!orderSet.has(id)) {
+        unorderedIds.push(id);
+      }
+    });
+
+    return [...orderedIds, ...unorderedIds];
   }, [localMemories, selectedGroupId, groups, memoryOrder]);
+
+  // ID를 실제 메모리 객체로 변환 (항상 localMemories에서 최신 상태 가져옴)
+  const filteredMemories = useMemo(() => {
+    return filteredMemoryIds.map(id => localMemories.find(m => m.id === id)).filter(Boolean) as Memory[];
+  }, [filteredMemoryIds, localMemories]);
 
   const { positionsLoaded } = useBoardPersistence({
     storageKey,
@@ -787,8 +845,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       });
       const padding = 40; // 그룹 모드 여백
       setBoardSize({
-        width: Math.max(1200, maxX + padding),
-        height: Math.max(3600, (maxY + padding) * 3),
+        width: Math.max(3000, maxX + padding),
+        height: Math.max(6000, (maxY + padding) * 3),
       });
     }, 100); // 100ms 지연으로 DOM 준비 대기
 
@@ -828,48 +886,61 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     });
     // 그룹 모드일 때는 여백을 줄임
     const padding = selectedGroupId ? 80 : BOARD_PADDING;
-    const width = Math.max(1400, maxX + padding);
-    const height = Math.max(3600, (maxY + padding) * 3);
+    const width = Math.max(3000, maxX + padding);
+    const height = Math.max(6000, (maxY + padding) * 3);
     setBoardSize({ width, height });
   }, [positions, cardSize, selectedGroupId]);
 
+  // 링크 노트 fetch를 위한 ref (filteredMemories 의존성 제거)
+  const filteredMemoriesRef = useRef(filteredMemories);
   useEffect(() => {
-    const fetchLinkNotes = async () => {
-      try {
-        const res = await fetch('/api/memories/links', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            memoryIds: filteredMemories.map(m => m.id),
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const notes: Record<string, string> = {};
-          const info: Record<string, { note?: string; isAIGenerated: boolean }> = {};
-          (data.links || []).forEach((link: any) => {
-            const key = getLinkKey(link.memoryId1, link.memoryId2);
-            if (link.note) {
-              notes[key] = link.note;
-            }
-            info[key] = {
-              note: link.note || undefined,
-              isAIGenerated: link.isAIGenerated === 1 || link.isAIGenerated === true,
-            };
-          });
-          setLinkNotes(notes);
-          setLinkInfo(info);
-        }
-      } catch (error) {
-        console.error('Failed to fetch link notes:', error);
-      }
-    };
-    if (filteredMemories.length > 0) {
-      fetchLinkNotes();
-    } else {
-      setLinkNotes({});
-    }
+    filteredMemoriesRef.current = filteredMemories;
   }, [filteredMemories]);
+
+  // 링크 노트를 가져오는 함수
+  const fetchLinkNotesCallback = useCallback(async () => {
+    const memories = filteredMemoriesRef.current;
+    if (memories.length === 0) {
+      setLinkNotes({});
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/memories/links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          memoryIds: memories.map(m => m.id),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const notes: Record<string, string> = {};
+        const info: Record<string, { note?: string; isAIGenerated: boolean; linkType?: 'depends-on' | 'derives-from' | 'related'; fromMemoryId?: string }> = {};
+        (data.links || []).forEach((link: any) => {
+          const key = getLinkKey(link.memoryId1, link.memoryId2);
+          if (link.note) {
+            notes[key] = link.note;
+          }
+          info[key] = {
+            note: link.note || undefined,
+            isAIGenerated: link.isAIGenerated === 1 || link.isAIGenerated === true,
+            linkType: link.linkType || 'related',
+            fromMemoryId: link.fromMemoryId || undefined,
+          };
+        });
+        setLinkNotes(notes);
+        setLinkInfo(info);
+      }
+    } catch (error) {
+      console.error('Failed to fetch link notes:', error);
+    }
+  }, []);
+
+  // 초기 로드 시에만 링크 노트 가져오기 (selectedGroupId나 memories 개수가 변경될 때만)
+  useEffect(() => {
+    fetchLinkNotesCallback();
+  }, [selectedGroupId, localMemories.length, fetchLinkNotesCallback]);
 
   // positions와 dragStartPositions를 ref와 동기화 (무한 루프 방지)
   useEffect(() => {
@@ -1010,8 +1081,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         });
 
         setBoardSize({
-          width: Math.max(1200, maxX + BOARD_PADDING),
-          height: Math.max(3600, (maxY + BOARD_PADDING) * 3),
+          width: Math.max(3000, maxX + BOARD_PADDING),
+          height: Math.max(6000, (maxY + BOARD_PADDING) * 3),
         });
       } else {
         alert('자동 배열에 실패했습니다');
@@ -1038,8 +1109,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         maxY = Math.max(maxY, pos.y + cardHeight);
       });
       setBoardSize({
-        width: Math.max(1200, maxX + BOARD_PADDING),
-        height: Math.max(3600, (maxY + BOARD_PADDING) * 3),
+        width: Math.max(3000, maxX + BOARD_PADDING),
+        height: Math.max(6000, (maxY + BOARD_PADDING) * 3),
       });
     }
   };
@@ -1278,6 +1349,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
     getLinkKey,
     positions,
     cardSize,
+    localProjects,
   });
 
   const connectionPairsArray = connectionPairsWithColor.pairsWithColor;
@@ -1418,7 +1490,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
         <div className="mb-4 p-4 bg-gradient-to-r from-orange-50 to-indigo-50 border border-indigo-300">
           {isLoadingGroupDescription ? (
             <div className="flex items-center gap-2 text-sm text-gray-600">
-              <ProcessingLoader size={16} variant="inline" tone="indigo" />
+              <ProcessingLoader size={16} variant="inline" tone="graphite" />
               <span>{t('memory.view.ai.analyzing')}</span>
             </div>
           ) : groupDescription ? (
@@ -1466,62 +1538,157 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
       <div data-tutorial-target="board-view" className="h-[calc(300vh-280px)] min-h-[1500px]">
         <div className="w-full h-full bg-white border-y border-gray-300 font-galmuri11 flex overflow-hidden relative">
           {/* Vertical Side Bar (Minimal) */}
-          <div className="shrink-0 z-[60] bg-white border-r border-gray-100 flex flex-col items-center py-4 px-2.5 gap-6 w-14 shadow-sm h-full overflow-hidden transition-all duration-300">
-            {/* Hamburger Menu Toggle */}
+          <div className="shrink-0 z-[60] bg-white border-r border-gray-100 shadow-sm flex flex-col items-center py-4 px-2.5 gap-5 w-14 h-full overflow-hidden transition-all duration-300">
+            {/* 맞춤 배열 */}
+            <button
+              onClick={handleAutoArrange}
+              disabled={isAutoArranging}
+              className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all active:scale-90 disabled:opacity-40 ${isAutoArranging ? 'bg-indigo-100 text-indigo-600 animate-pulse' : 'bg-gray-50 text-gray-800 hover:bg-indigo-50 hover:text-indigo-600'}`}
+              title={isAutoArranging ? t('memory.view.board.arranging') : t('memory.view.board.arrange')}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Magic Sparkle - 큰 별 */}
+                <rect x="9" y="2" width="2" height="2" fill="currentColor"/>
+                <rect x="9" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="7" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="9" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="11" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="5" y="8" width="2" height="2" fill="currentColor"/>
+                <rect x="7" y="8" width="2" height="2" fill="currentColor"/>
+                <rect x="9" y="8" width="2" height="2" fill="currentColor"/>
+                <rect x="11" y="8" width="2" height="2" fill="currentColor"/>
+                <rect x="13" y="8" width="2" height="2" fill="currentColor"/>
+                <rect x="7" y="10" width="2" height="2" fill="currentColor"/>
+                <rect x="9" y="10" width="2" height="2" fill="currentColor"/>
+                <rect x="11" y="10" width="2" height="2" fill="currentColor"/>
+                <rect x="9" y="12" width="2" height="2" fill="currentColor"/>
+                <rect x="9" y="14" width="2" height="2" fill="currentColor"/>
+                {/* 작은 반짝이 */}
+                <rect x="3" y="3" width="2" height="2" fill="currentColor"/>
+                <rect x="15" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="4" y="15" width="2" height="2" fill="currentColor"/>
+                <rect x="15" y="14" width="2" height="2" fill="currentColor"/>
+              </svg>
+            </button>
+            {/* 위젯 */}
             <button
               onClick={() => {
-                setIsMenuOpen(!isMenuOpen);
-                if (!isMenuOpen) {
-                  setIsWidgetMenuOpen(false);
-                  setIsGroupMenuOpen(false);
-                  setIsFlagMenuOpen(false);
-                }
+                setIsWidgetMenuOpen(!isWidgetMenuOpen);
+                setIsGroupMenuOpen(false);
+                setIsFlagMenuOpen(false);
               }}
-              className={`p-2 transition-all active:scale-90 hover:bg-indigo-50 rounded-lg ${isMenuOpen ? 'text-indigo-600 bg-indigo-50' : 'text-gray-500'}`}
-              title={isMenuOpen ? t('common.close') : t('dashboard.menu.settings')}
+              className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all active:scale-90 ${isWidgetMenuOpen ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-50 text-gray-800 hover:bg-indigo-50 hover:text-indigo-600'}`}
+              title={t('memory.view.board.widget')}
             >
-              <PixelIcon name={isMenuOpen ? "close" : "menu"} size={22} />
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="2" width="2" height="2" fill="currentColor"/>
+                <rect x="4" y="2" width="2" height="2" fill="currentColor"/>
+                <rect x="6" y="2" width="2" height="2" fill="currentColor"/>
+                <rect x="2" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="6" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="2" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="4" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="6" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="12" y="2" width="2" height="2" fill="currentColor"/>
+                <rect x="14" y="2" width="2" height="2" fill="currentColor"/>
+                <rect x="16" y="2" width="2" height="2" fill="currentColor"/>
+                <rect x="12" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="16" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="12" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="14" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="16" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="2" y="12" width="2" height="2" fill="currentColor"/>
+                <rect x="4" y="12" width="2" height="2" fill="currentColor"/>
+                <rect x="6" y="12" width="2" height="2" fill="currentColor"/>
+                <rect x="2" y="14" width="2" height="2" fill="currentColor"/>
+                <rect x="6" y="14" width="2" height="2" fill="currentColor"/>
+                <rect x="2" y="16" width="2" height="2" fill="currentColor"/>
+                <rect x="4" y="16" width="2" height="2" fill="currentColor"/>
+                <rect x="6" y="16" width="2" height="2" fill="currentColor"/>
+                <rect x="12" y="12" width="2" height="2" fill="currentColor"/>
+                <rect x="14" y="12" width="2" height="2" fill="currentColor"/>
+                <rect x="16" y="12" width="2" height="2" fill="currentColor"/>
+                <rect x="12" y="14" width="2" height="2" fill="currentColor"/>
+                <rect x="16" y="14" width="2" height="2" fill="currentColor"/>
+                <rect x="12" y="16" width="2" height="2" fill="currentColor"/>
+                <rect x="14" y="16" width="2" height="2" fill="currentColor"/>
+                <rect x="16" y="16" width="2" height="2" fill="currentColor"/>
+              </svg>
             </button>
-
-            {/* Icons representing active states or shortcuts */}
-            <div className="flex flex-col gap-4 items-center">
-              <button
-                onClick={() => {
-                  setIsWidgetMenuOpen(!isWidgetMenuOpen);
-                  setIsGroupMenuOpen(false);
-                  setIsFlagMenuOpen(false);
-                  setIsMenuOpen(false);
-                }}
-                className={`p-1.5 rounded-md transition-all active:scale-90 ${isWidgetMenuOpen ? 'bg-indigo-100 text-indigo-600' : 'text-gray-300 hover:bg-gray-50 hover:text-gray-400'}`}
-                title={t('onboarding.widget')}
-              >
-                <PixelIcon name="apps" size={18} />
-              </button>
-              <button
-                onClick={() => {
-                  setIsGroupMenuOpen(!isGroupMenuOpen);
-                  setIsWidgetMenuOpen(false);
-                  setIsFlagMenuOpen(false);
-                  setIsMenuOpen(false);
-                }}
-                className={`p-1.5 rounded-md transition-all active:scale-90 ${isGroupMenuOpen ? 'bg-indigo-100 text-indigo-600' : 'text-gray-300 hover:bg-gray-50 hover:text-gray-400'}`}
-                title={t('dashboard.menu.groups')}
-              >
-                <PixelIcon name="folder" size={18} />
-              </button>
-              <button
-                onClick={() => {
-                  setIsFlagMenuOpen(!isFlagMenuOpen);
-                  setIsWidgetMenuOpen(false);
-                  setIsGroupMenuOpen(false);
-                  setIsMenuOpen(false);
-                }}
-                className={`p-1.5 rounded-md transition-all active:scale-90 ${isFlagMenuOpen ? 'bg-indigo-100 text-indigo-600' : 'text-gray-300 hover:bg-gray-50 hover:text-gray-400'}`}
-                title={t('flag.manage.title')}
-              >
-                <PixelIcon name="flag" size={18} />
-              </button>
-            </div>
+            {/* 그룹 */}
+            <button
+              onClick={() => {
+                setIsGroupMenuOpen(!isGroupMenuOpen);
+                setIsWidgetMenuOpen(false);
+                setIsFlagMenuOpen(false);
+              }}
+              className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all active:scale-90 ${isGroupMenuOpen ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-50 text-gray-800 hover:bg-indigo-50 hover:text-indigo-600'}`}
+              title={t('dashboard.menu.groups')}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="4" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="6" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="8" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="2" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="10" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="12" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="14" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="16" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="2" y="8" width="2" height="2" fill="currentColor"/>
+                <rect x="16" y="8" width="2" height="2" fill="currentColor"/>
+                <rect x="2" y="10" width="2" height="2" fill="currentColor"/>
+                <rect x="16" y="10" width="2" height="2" fill="currentColor"/>
+                <rect x="2" y="12" width="2" height="2" fill="currentColor"/>
+                <rect x="16" y="12" width="2" height="2" fill="currentColor"/>
+                <rect x="2" y="14" width="2" height="2" fill="currentColor"/>
+                <rect x="4" y="14" width="2" height="2" fill="currentColor"/>
+                <rect x="6" y="14" width="2" height="2" fill="currentColor"/>
+                <rect x="8" y="14" width="2" height="2" fill="currentColor"/>
+                <rect x="10" y="14" width="2" height="2" fill="currentColor"/>
+                <rect x="12" y="14" width="2" height="2" fill="currentColor"/>
+                <rect x="14" y="14" width="2" height="2" fill="currentColor"/>
+                <rect x="16" y="14" width="2" height="2" fill="currentColor"/>
+              </svg>
+            </button>
+            {/* 깃발 */}
+            <button
+              onClick={() => {
+                setIsFlagMenuOpen(!isFlagMenuOpen);
+                setIsWidgetMenuOpen(false);
+                setIsGroupMenuOpen(false);
+              }}
+              className={`w-10 h-10 flex items-center justify-center rounded-lg transition-all active:scale-90 ${isFlagMenuOpen ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-50 text-gray-800 hover:bg-indigo-50 hover:text-indigo-600'}`}
+              title={t('flag.manage.title')}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="2" width="2" height="2" fill="currentColor"/>
+                <rect x="4" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="4" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="4" y="8" width="2" height="2" fill="currentColor"/>
+                <rect x="4" y="10" width="2" height="2" fill="currentColor"/>
+                <rect x="4" y="12" width="2" height="2" fill="currentColor"/>
+                <rect x="4" y="14" width="2" height="2" fill="currentColor"/>
+                <rect x="4" y="16" width="2" height="2" fill="currentColor"/>
+                <rect x="6" y="2" width="2" height="2" fill="currentColor"/>
+                <rect x="8" y="2" width="2" height="2" fill="currentColor"/>
+                <rect x="10" y="2" width="2" height="2" fill="currentColor"/>
+                <rect x="12" y="2" width="2" height="2" fill="currentColor"/>
+                <rect x="14" y="2" width="2" height="2" fill="currentColor"/>
+                <rect x="14" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="12" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="10" y="8" width="2" height="2" fill="currentColor"/>
+                <rect x="6" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="8" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="10" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="12" y="4" width="2" height="2" fill="currentColor"/>
+                <rect x="6" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="8" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="10" y="6" width="2" height="2" fill="currentColor"/>
+                <rect x="6" y="8" width="2" height="2" fill="currentColor"/>
+                <rect x="8" y="8" width="2" height="2" fill="currentColor"/>
+              </svg>
+            </button>
 
             {/* Zoom controls at the bottom */}
             <div className="mt-auto flex flex-col gap-3 items-center pb-2">
@@ -1555,128 +1722,9 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
           </div>
 
           <div className="flex-1 relative flex flex-col min-w-0 overflow-hidden">
-            {/* Overlay Menu Panel */}
-            {isMenuOpen && (
-              <>
-                <div className="absolute left-0 top-0 bottom-0 z-[52] w-72 bg-white/95 backdrop-blur-2xl border-r border-indigo-50 shadow-2xl flex flex-col p-6 overflow-y-auto no-scrollbar animate-slide-in-left">
-                  <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-sm font-black text-indigo-900 tracking-tight flex items-center gap-2">
-                      <PixelIcon name="sparkles" size={18} className="text-indigo-500" />
-                      {t('memory.view.board.title')}
-                    </h2>
-                    <span className="text-[10px] font-bold text-gray-300 bg-gray-50 px-2 py-0.5 rounded">
-                      {Math.round(boardSize.width)}×{Math.round(boardSize.height)}
-                    </span>
-                  </div>
 
-                  <div className="space-y-8 flex-1">
-                    {/* View Controls Section */}
-                    <div className="space-y-4">
-                      <p className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">{t('dashboard.menu.settings')}</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={handleAutoArrange}
-                          disabled={isAutoArranging}
-                          className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 border-indigo-50 bg-white hover:border-indigo-200 text-indigo-700 transition-all disabled:opacity-50 group"
-                        >
-                          <PixelIcon name="magic" size={24} className="group-hover:rotate-12 transition-transform" />
-                          <span className="text-[10px] font-bold text-center leading-tight">
-                            {isAutoArranging ? t('memory.view.board.arranging') : t('memory.view.board.arrange')}
-                          </span>
-                        </button>
-                        {previousPositions && (
-                          <button
-                            onClick={handleRestoreLayout}
-                            className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 border-orange-50 bg-white hover:border-orange-200 text-orange-700 transition-all group"
-                          >
-                            <PixelIcon name="refresh" size={24} className="group-hover:-rotate-45 transition-transform" />
-                            <span className="text-[10px] font-bold text-center leading-tight">
-                              {t('memory.view.board.restore')}
-                            </span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Tools & Layers Section */}
-                    <div className="space-y-4">
-                      <p className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">Tools & Layers</p>
-                      <div className="space-y-1.5">
-                        <button
-                          onClick={() => {
-                            setIsWidgetMenuOpen(!isWidgetMenuOpen);
-                            setIsMenuOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${isWidgetMenuOpen ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-gray-50 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <PixelIcon name="apps" size={18} />
-                            <span className="text-xs font-bold">{t('memory.view.board.widget')}</span>
-                          </div>
-                          <PixelIcon name="arrow" size={14} className={isWidgetMenuOpen ? 'rotate-90' : ''} />
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setIsGroupMenuOpen(!isGroupMenuOpen);
-                            setIsMenuOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${isGroupMenuOpen ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-gray-50 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <PixelIcon name="folder" size={18} />
-                            <span className="text-xs font-bold">{t('memory.view.board.group')}</span>
-                          </div>
-                          <PixelIcon name="arrow" size={14} className={isGroupMenuOpen ? 'rotate-90' : ''} />
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setIsFlagMenuOpen(!isFlagMenuOpen);
-                            setIsMenuOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${isFlagMenuOpen ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'bg-gray-50 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <PixelIcon name="flag" size={18} />
-                            <span className="text-xs font-bold">{t('memory.view.board.flag')}</span>
-                          </div>
-                          <PixelIcon name="arrow" size={14} className={isFlagMenuOpen ? 'rotate-90' : ''} />
-                        </button>
-
-                        <div className="pt-2 flex flex-col gap-1.5">
-                          <GmailImportButton
-                            variant="minimal"
-                            onImportComplete={(count) => {
-                              if (onMemoryDeleted) onMemoryDeleted();
-                            }}
-                          />
-                          {(selectedMemoryIds.size + selectedBlockIds.size) >= 2 && (
-                            <button
-                              onClick={() => {
-                                setIsSynergyModalOpen(true);
-                                setIsMenuOpen(false);
-                              }}
-                              className="w-full flex items-center gap-3 p-3 rounded-xl bg-purple-50 text-purple-700 hover:bg-purple-100 transition-all font-bold border-2 border-purple-100"
-                            >
-                              <PixelIcon name="link" size={18} />
-                              <span className="text-xs">{t('memory.view.board.widget.synergy')}</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-6 border-t border-gray-100 mt-auto">
-                    <p className="text-[9px] text-gray-400 text-center font-bold">WORKLESS Whiteboard v2.0</p>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* 깃발 메뉴 바 */}
-            {isFlagMenuOpen && (
+            {/* 메뉴 바들 - 항상 마운트, CSS로 표시/숨김 (아이콘 로딩 지연 방지) */}
+            <div className={isFlagMenuOpen ? '' : 'hidden'}>
               <FlagMenuBar
                 flags={flags}
                 selectedFlagId={selectedFlagId}
@@ -1687,10 +1735,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 onGoToFlag={handleGoToFlag}
                 onHoverFlag={(id) => flagsStore.hoverFlag(storageKey, id)}
               />
-            )}
-
-            {/* 위젯 생성 메뉴 바 */}
-            {isWidgetMenuOpen && (
+            </div>
+            <div className={isWidgetMenuOpen ? '' : 'hidden'}>
               <WidgetMenuBar
                 blocks={blocks}
                 selectedMemoryIds={selectedMemoryIds}
@@ -1703,10 +1749,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 onCreateProject={() => setToast({ type: 'confirm', data: { type: 'create-project' } })}
                 onToggleBlob={toggleBlob}
               />
-            )}
-
-            {/* 그룹 메뉴 바 */}
-            {isGroupMenuOpen && (
+            </div>
+            <div className={isGroupMenuOpen ? '' : 'hidden'}>
               <GroupMenuBar
                 groups={groups}
                 selectedGroupId={selectedGroupId}
@@ -1717,7 +1761,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                 onDrop={handleDrop}
                 dropTargetGroupId={dropTargetGroupId}
               />
-            )}
+            </div>
 
             <div
               className={`flex-1 min-h-0 overflow-auto relative transition-colors duration-200 ${isBoardDragging ? 'bg-indigo-50/50' : ''}`}
@@ -1893,8 +1937,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       key={minimapBlock.id}
                       data-block-id={minimapBlock.id}
                       data-minimap-block={minimapBlock.id}
-                      className={`absolute bg-white border-[3px] border-black rounded-lg shadow-xl ${isHighlightMode && highlightedContentIdSet.has(`block:${minimapBlock.id}`)
-                        ? 'outline outline-2 outline-indigo-500/35'
+                      className={`absolute bg-white border-[3px] border-black rounded-lg shadow-xl ${dragHighlightSet.has(`block:${minimapBlock.id}`)
+                        ? 'ring-[3px] ring-blue-400 ring-offset-0'
                         : ''
                         }`}
                       style={{
@@ -2095,7 +2139,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       zIndex: blockZIndex,
                     };
                     return (
-                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-purple-400 rounded-lg' : ''}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }}>
                         <CalendarBlock
                           blockId={block.id}
                           x={block.x}
@@ -2106,7 +2150,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                           memories={localMemories}
                           onUpdate={handleBlockUpdate}
                           onDelete={handleBlockDelete}
-                          isHighlighted={isHighlightMode && highlightedContentIdSet.has(`block:${block.id}`)}
+                          isHighlighted={draggingBlockId === block.id || dragHighlightSet.has(`block:${block.id}`)}
+                          isSelected={selectedBlockIds.has(block.id)}
                           onMemoryClick={(memoryId) => {
                             // 캘린더 위젯에서 @ 태그 클릭 시 토스트 표시
                             handleMentionClick(block.id, memoryId, true);
@@ -2211,7 +2256,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       zIndex: blockZIndex,
                     };
                     return (
-                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-purple-400 rounded-lg' : ''}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }}>
                         <ViewerBlock
                           blockId={block.id}
                           x={block.x}
@@ -2225,6 +2270,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                           isDragging={draggingBlockId === block.id}
                           isClicked={clickedBlockId === block.id}
                           zIndex={blockZIndex}
+                          isSelected={selectedBlockIds.has(block.id)}
                           onPointerDown={(e) => {
                             const target = e.target as HTMLElement;
                             if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('canvas')) {
@@ -2295,7 +2341,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                       zIndex: blockZIndex,
                     };
                     return (
-                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-purple-400 rounded-lg' : ''}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }}>
                         <MeetingRecorderBlock
                           blockId={block.id}
                           x={block.x}
@@ -2308,7 +2354,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                           isDragging={draggingBlockId === block.id}
                           isClicked={clickedBlockId === block.id}
                           zIndex={blockZIndex}
-                          isHighlighted={isHighlightMode && highlightedContentIdSet.has(`block:${block.id}`)}
+                          isHighlighted={draggingBlockId === block.id || dragHighlightSet.has(`block:${block.id}`)}
+                          isSelected={selectedBlockIds.has(block.id)}
                           onPointerDown={(e) => {
                             const target = e.target as HTMLElement;
                             const isInteractiveElement = target.closest('button') ||
@@ -2361,7 +2408,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                     };
 
                     return (
-                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }} className={selectedBlockIds.has(block.id) ? 'ring-4 ring-purple-400 rounded-lg' : ''}>
+                      <div key={block.id} data-block-id={block.id} style={{ touchAction: 'none' }}>
                         <DatabaseBlock
                           blockId={block.id}
                           x={block.x}
@@ -2374,7 +2421,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                           isDragging={draggingBlockId === block.id}
                           isClicked={clickedBlockId === block.id}
                           zIndex={blockZIndex}
-                          isHighlighted={isHighlightMode && highlightedContentIdSet.has(`block:${block.id}`)}
+                          isHighlighted={draggingBlockId === block.id || dragHighlightSet.has(`block:${block.id}`)}
+                          isSelected={selectedBlockIds.has(block.id)}
                           onPointerDown={(e) => {
                             const target = e.target as HTMLElement;
                             const isInteractiveElement = target.closest('button') ||
@@ -2511,6 +2559,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
                 {/* 메모리 카드들 (가상화 적용) */}
                 {visibleMemories.map((memory, memoryIndex) => {
+                  
                   const position = positions[memory.id] || { x: 0, y: 0 };
                   const memoryColor = cardColorMap[memory.id] || cardColor;
                   const memoryColorClass = 'bg-gray-50';
@@ -2541,7 +2590,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
 
                   return (
                     <div
-                      key={`${memory.id}-${memoryIndex}`}
+                      key={memory.id}
                       data-memory-card={memory.id}
                       onMouseEnter={() => setHoveredMemoryId(memory.id)}
                       onMouseLeave={() => setHoveredMemoryId(null)}
@@ -2588,8 +2637,8 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         transformOrigin: 'center center',
                         overflow: 'visible',
                       }}
-                      className={`absolute select-none touch-none cursor-grab active:cursor-grabbing ${isDragging ? 'cursor-grabbing border border-indigo-500' : ''
-                        } ${isSelected ? 'ring-2 ring-blue-300/50 ring-offset-1' : ''} ${isBlobHovered ? 'ring-2 ring-blue-200/60 ring-offset-1' : ''
+                      className={`absolute select-none touch-none cursor-grab active:cursor-grabbing ${isDragging ? 'cursor-grabbing ring-[3px] ring-blue-400 ring-offset-1' : ''
+                        } ${isSelected ? 'ring-[3px] ring-blue-400 ring-offset-1' : ''} ${isBlobHovered ? 'ring-2 ring-blue-200/60 ring-offset-1' : ''
                         }`}
                     >
                       <MemoryCard
@@ -2597,7 +2646,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         memory={memory}
                         onDelete={onMemoryDeleted}
                         allMemories={localMemories}
-                        isHighlighted={isHighlightMode && highlightedContentIdSet.has(`memory:${memory.id}`)}
+                        isHighlighted={dragHighlightSet.has(`memory:${memory.id}`)}
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
                         onOpenLinkManager={setLinkManagerMemory}
@@ -2656,7 +2705,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         transition: isDragging ? 'none' : 'transform 0.2s ease-out',
                         transformOrigin: 'center center',
                       }}
-                      className={`absolute cursor-grab active:cursor-grabbing ${isSelected ? 'ring-2 ring-blue-300/50 ring-offset-1' : ''}`}
+                      className={`absolute cursor-grab active:cursor-grabbing ${isSelected ? 'ring-[3px] ring-blue-400 ring-offset-1' : ''}`}
                       onPointerDown={(e) => {
                         const target = e.target as HTMLElement;
                         if (
@@ -2703,7 +2752,7 @@ export default function MemoryView({ memories, onMemoryDeleted, personaId }: Mem
                         allMemories={localMemories}
                         isDragging={isDragging}
                         isSelected={isSelected}
-                        isHighlighted={isHighlightMode && highlightedContentIdSet.has(`project:${project.id}`)}
+                        isHighlighted={dragHighlightSet.has(`project:${project.id}`)}
                         onUpdate={(id: string, updates: Partial<ActionProject>) => {
                           setLocalProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
                           fetch('/api/projects', {

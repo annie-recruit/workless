@@ -93,7 +93,7 @@ export default function IntegrationsPage() {
   if (status === 'loading' || loading) {
     return (
       <main className="min-h-screen bg-white flex items-center justify-center">
-        <ProcessingLoader size={32} variant="overlay" tone="indigo" label="로딩 중..." />
+        <ProcessingLoader size={32} variant="overlay" tone="graphite" label="로딩 중..." />
       </main>
     );
   }
@@ -156,7 +156,7 @@ export default function IntegrationsPage() {
               >
                 {generating ? (
                   <>
-                    <ProcessingLoader size={20} variant="inline" tone="indigo" />
+                    <ProcessingLoader size={20} variant="inline" tone="graphite" />
                     <span>생성 중...</span>
                   </>
                 ) : (

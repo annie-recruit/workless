@@ -210,7 +210,7 @@ export default function PixelLabGenerator({ onImageGenerated }: PixelLabGenerato
       >
         {loading ? (
           <>
-            <ProcessingLoader size={16} variant="inline" tone="indigo" />
+            <ProcessingLoader size={16} variant="inline" tone="graphite" />
             생성 중...
           </>
         ) : (

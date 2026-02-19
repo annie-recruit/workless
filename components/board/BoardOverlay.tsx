@@ -92,19 +92,29 @@ export default function BoardOverlay({
                         allMemories={localMemories}
                         onClose={() => setLinkManagerMemory(null)}
                         onLinked={async (updatedMemory1, updatedMemory2) => {
+                            console.log('🔗 Link added, response:', {
+                                memory1: updatedMemory1.id,
+                                memory1_relatedIds: updatedMemory1.relatedMemoryIds,
+                                memory2: updatedMemory2.id,
+                                memory2_relatedIds: updatedMemory2.relatedMemoryIds
+                            });
+
                             setLocalMemories(prev => {
-                                const updated = [...prev];
-                                const index1 = updated.findIndex(m => m.id === updatedMemory1.id);
-                                const index2 = updated.findIndex(m => m.id === updatedMemory2.id);
-                                if (index1 !== -1) updated[index1] = updatedMemory1;
-                                if (index2 !== -1) updated[index2] = updatedMemory2;
-                                return updated;
+                                return prev.map(m => {
+                                    if (m.id === updatedMemory1.id) {
+                                        return JSON.parse(JSON.stringify(updatedMemory1));
+                                    }
+                                    if (m.id === updatedMemory2.id) {
+                                        return JSON.parse(JSON.stringify(updatedMemory2));
+                                    }
+                                    return m;
+                                });
                             });
 
                             if (linkManagerMemory.id === updatedMemory1.id) {
-                                setLinkManagerMemory(updatedMemory1);
+                                setLinkManagerMemory(JSON.parse(JSON.stringify(updatedMemory1)));
                             } else if (linkManagerMemory.id === updatedMemory2.id) {
-                                setLinkManagerMemory(updatedMemory2);
+                                setLinkManagerMemory(JSON.parse(JSON.stringify(updatedMemory2)));
                             }
                         }}
                     />
@@ -148,7 +158,7 @@ export default function BoardOverlay({
 
             {toast.type === 'success' && (
                 <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-                    <div className="bg-green-500 text-white border-4 border-gray-900 p-5 min-w-[300px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+                    <div className="bg-green-500 text-white border-3 border-gray-900 p-5 min-w-[300px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
                         <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
@@ -168,7 +178,7 @@ export default function BoardOverlay({
 
             {toast.type === 'delete-link' && (
                 <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-                    <div className="bg-white border-4 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+                    <div className="bg-white border-3 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
                         <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
@@ -193,7 +203,7 @@ export default function BoardOverlay({
 
             {toast.type === 'delete-memory' && (
                 <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-                    <div className="bg-white border-4 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+                    <div className="bg-white border-3 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
                         <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
@@ -218,7 +228,7 @@ export default function BoardOverlay({
 
             {toast.type === 'delete-project' && (
                 <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-                    <div className="bg-white border-4 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+                    <div className="bg-white border-3 border-gray-900 p-5 min-w-[350px] max-w-[450px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
                         <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
@@ -244,7 +254,7 @@ export default function BoardOverlay({
 
             {toast.type === 'confirm' && toast.data?.type === 'create-project' && (
                 <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-                    <div className="bg-white border-4 border-gray-900 p-6 min-w-[400px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+                    <div className="bg-white border-3 border-gray-900 p-6 min-w-[400px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
                         <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
@@ -309,7 +319,7 @@ export default function BoardOverlay({
 
             {toast.type === 'error' && (
                 <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-                    <div className="bg-red-500 text-white border-4 border-gray-900 p-5 min-w-[300px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
+                    <div className="bg-red-500 text-white border-3 border-gray-900 p-5 min-w-[300px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
                         <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
                         <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />

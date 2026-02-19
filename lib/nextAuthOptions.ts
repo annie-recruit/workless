@@ -25,7 +25,7 @@ export const nextAuthOptions: NextAuthOptions & { trustHost?: boolean } = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'dummy',
       authorization: {
         params: {
-          scope: 'openid email profile https://www.googleapis.com/auth/gmail.readonly',
+          scope: 'openid email profile',
           access_type: 'offline',
           prompt: 'consent',
         },

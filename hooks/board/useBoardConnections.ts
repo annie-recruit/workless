@@ -7,10 +7,11 @@ import { CARD_DIMENSIONS } from '@/board/boardUtils';
 interface UseBoardConnectionsProps {
     localMemories: Memory[];
     filteredMemories: Memory[];
-    linkInfo: Record<string, { note?: string; isAIGenerated: boolean }>;
+    linkInfo: Record<string, { note?: string; isAIGenerated: boolean; linkType?: 'depends-on' | 'derives-from' | 'related'; fromMemoryId?: string }>;
     getLinkKey: (id1: string, id2: string) => string;
     positions: Record<string, { x: number; y: number }>;
     cardSize: 's' | 'm' | 'l';
+    localProjects?: Array<{ id: string; sourceMemoryIds?: string[] }>;
 }
 
 export function useBoardConnections({
@@ -20,6 +21,7 @@ export function useBoardConnections({
     getLinkKey,
     positions,
     cardSize,
+    localProjects = [],
 }: UseBoardConnectionsProps) {
     // 간단한 시드 기반 랜덤 함수 (groupId 기반 고정 랜덤)
     const seededRandom = useCallback((seed: number) => {
@@ -30,8 +32,11 @@ export function useBoardConnections({
     // 연결 그룹을 찾아서 색상 할당
     const connectionPairsWithColor = useMemo(() => {
         const set = new Set<string>();
-        const pairs: Array<{ from: string; to: string }> = [];
-        const visibleIds = new Set(filteredMemories.map(m => m.id));
+        const pairs: Array<{ from: string; to: string; linkType: 'depends-on' | 'derives-from' | 'related' }> = [];
+        const visibleIds = new Set([
+            ...filteredMemories.map(m => m.id),
+            ...localProjects.map(p => p.id)
+        ]);
         const allMemoryIds = new Set(localMemories.map(m => m.id));
         const invalidConnections: Array<{ memoryId: string; invalidRelatedId: string }> = [];
 
@@ -48,7 +53,50 @@ export function useBoardConnections({
                 const key = [memory.id, relatedId].sort().join(':');
                 if (set.has(key)) return;
                 set.add(key);
-                pairs.push({ from: memory.id, to: relatedId });
+
+                // linkInfo로부터 타입과 방향 결정
+                const info = linkInfo[key];
+                const linkType = info?.linkType || 'related';
+                // fromMemoryId가 있으면 해당 방향으로, 없으면 iteration 순서 사용
+                const fromId = info?.fromMemoryId || memory.id;
+                const toId = fromId === memory.id ? relatedId : memory.id;
+
+                pairs.push({ from: fromId, to: toId, linkType });
+            });
+        });
+
+        // 액션 프로젝트의 연결된 기록들도 연결선 추가
+        localProjects.forEach(project => {
+            const sourceMemoryIds = project.sourceMemoryIds || [];
+            console.log(`📊 프로젝트 ${project.id} 연결 확인:`, {
+                sourceMemoryIds,
+                projectVisible: visibleIds.has(project.id),
+                projectInPositions: !!positions[project.id]
+            });
+            sourceMemoryIds.forEach(memoryId => {
+                // 메모리가 존재하는지 확인
+                if (!allMemoryIds.has(memoryId)) {
+                    console.log(`⚠️ 메모리 ${memoryId}가 존재하지 않음`);
+                    return;
+                }
+                // 프로젝트와 메모리가 모두 표시되는지 확인
+                if (!visibleIds.has(project.id)) {
+                    console.log(`⚠️ 프로젝트 ${project.id}가 표시되지 않음`);
+                    return;
+                }
+                if (!visibleIds.has(memoryId)) {
+                    console.log(`⚠️ 메모리 ${memoryId}가 표시되지 않음`);
+                    return;
+                }
+                const key = [project.id, memoryId].sort().join(':');
+                if (set.has(key)) return;
+                set.add(key);
+                const projInfo = linkInfo[key];
+                const projLinkType = projInfo?.linkType || 'related';
+                const projFrom = projInfo?.fromMemoryId || project.id;
+                const projTo = projFrom === project.id ? memoryId : project.id;
+                pairs.push({ from: projFrom, to: projTo, linkType: projLinkType });
+                console.log(`✅ 연결선 추가: ${project.id} -> ${memoryId}`);
             });
         });
 
@@ -88,10 +136,14 @@ export function useBoardConnections({
             const toGroup = nodeToGroup.get(pair.to);
             const groupIndex = fromGroup !== undefined ? fromGroup : (toGroup !== undefined ? toGroup : -1);
             const colorIndex = groupIndex >= 0 ? groupIndex % colors.length : 0;
+            // depends-on, derives-from은 자체 고정 색상 사용
+            const color = (pair.linkType === 'depends-on' || pair.linkType === 'derives-from')
+                ? colors[colorIndex]
+                : colors[colorIndex];
             return {
                 ...pair,
-                color: colors[colorIndex],
-                groupIndex: groupIndex,
+                color,
+                groupIndex,
             };
         });
 

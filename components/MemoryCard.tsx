@@ -1,15 +1,15 @@
 'use client';
 
-import { memo, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Memory } from '@/types';
-import { formatDistanceToNow } from 'date-fns';
-import { ko, enUS } from 'date-fns/locale';
 import { useViewer } from './ViewerContext';
 import PixelIcon from './PixelIcon';
 import { useLanguage } from './LanguageContext';
 import { sanitizeHtml, stripHtmlClient } from './memory/html';
-import { useLocalMemorySync } from './memory/hooks/useLocalMemorySync';
 import { useMentionLinkClick } from './memory/hooks/useMentionLinkClick';
+import { formatTimeAgo } from '@/lib/dateUtils';
+import { apiPost, apiPut } from '@/lib/apiClient';
+import { API } from '@/lib/constants';
 
 type SuggestionResource = {
   name: string;
@@ -76,8 +76,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-const MemoryCard = memo(
-  function MemoryCard(props: MemoryCardProps) {
+function MemoryCard(props: MemoryCardProps) {
     const {
       memory,
       allMemories,
@@ -100,7 +99,6 @@ const MemoryCard = memo(
     } = props;
     const { t, language } = useLanguage();
     const { viewerExists, openInViewer } = useViewer();
-    const [localMemory, setLocalMemory] = useLocalMemorySync(memory);
 
     const [isExpanded, setIsExpanded] = useState(false);
     const [showSummary, setShowSummary] = useState(false);
@@ -110,14 +108,20 @@ const MemoryCard = memo(
     const [suggestions, setSuggestions] = useState<Suggestions | null>(null);
     const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [editTitle, setEditTitle] = useState(localMemory.title || '');
-    const [editContent, setEditContent] = useState(localMemory.content);
+    const [editTitle, setEditTitle] = useState(memory.title || '');
+    const [editContent, setEditContent] = useState(memory.content);
+    
+    // memory prop이 변경되면 즉시 반영
+    useEffect(() => {
+      // 편집 모드가 아닐 때만 업데이트
+      if (!isEditing) {
+        setEditTitle(memory.title || '');
+        setEditContent(memory.content);
+      }
+    }, [memory.id, memory.title, memory.content, memory.relatedMemoryIds, isEditing]);
     const editRef = useRef<HTMLDivElement>(null);
     const prevIsEditingRef = useRef(false);
-    const timeAgo = formatDistanceToNow(resolveTimestamp(localMemory.createdAt), {
-      addSuffix: true,
-      locale: language === 'ko' ? ko : enUS,
-    });
+    const timeAgo = formatTimeAgo(resolveTimestamp(memory.createdAt), language);
 
     // 편집 모드로 전환할 때 초기 내용 설정
     useEffect(() => {
@@ -135,33 +139,22 @@ const MemoryCard = memo(
         try {
           console.log('📝 요약 요청 - personaId:', personaId);
           const url = personaId
-            ? `/api/memories/${localMemory.id}/summarize?personaId=${personaId}`
-            : `/api/memories/${localMemory.id}/summarize`;
+            ? `/api/memories/${memory.id}/summarize?personaId=${personaId}`
+            : `/api/memories/${memory.id}/summarize`;
           console.log('📝 요약 API URL:', url);
 
-          // 로컬 우선: 메모리가 서버에 없을 수 있으므로 POST로 내용을 함께 보냄
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              content: localMemory.content,
-              title: localMemory.title,
-              attachments: localMemory.attachments,
-              createdAt: localMemory.createdAt
-            })
+          const data: unknown = await apiPost(url, {
+            content: memory.content,
+            title: memory.title,
+            attachments: memory.attachments,
+            createdAt: memory.createdAt,
           });
+          const nextSummary =
+            isRecord(data) && typeof data.summary === 'string' ? data.summary : null;
 
-          if (res.ok) {
-            const data: unknown = await res.json();
-            const nextSummary =
-              isRecord(data) && typeof data.summary === 'string' ? data.summary : null;
-
-            if (nextSummary) {
-              setSummary(nextSummary);
-              setShowSummary(true);
-            } else {
-              alert(t('memory.card.ai.summarizing') + ' 실패');
-            }
+          if (nextSummary) {
+            setSummary(nextSummary);
+            setShowSummary(true);
           } else {
             alert(t('memory.card.ai.summarizing') + ' 실패');
           }
@@ -184,36 +177,25 @@ const MemoryCard = memo(
         try {
           console.log('💡 제안 요청 - personaId:', personaId);
           const url = personaId
-            ? `/api/memories/${localMemory.id}/suggestions?personaId=${personaId}`
-            : `/api/memories/${localMemory.id}/suggestions`;
+            ? `/api/memories/${memory.id}/suggestions?personaId=${personaId}`
+            : `/api/memories/${memory.id}/suggestions`;
           console.log('💡 제안 API URL:', url);
 
-          // 로컬 우선: 메모리가 서버에 없을 수 있으므로 POST로 내용을 함께 보냄
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              content: localMemory.content,
-              title: localMemory.title,
-              attachments: localMemory.attachments,
-              createdAt: localMemory.createdAt,
-              topic: localMemory.topic,
-              nature: localMemory.nature,
-              clusterTag: localMemory.clusterTag
-            })
+          const data: unknown = await apiPost(url, {
+            content: memory.content,
+            title: memory.title,
+            attachments: memory.attachments,
+            createdAt: memory.createdAt,
+            topic: memory.topic,
+            nature: memory.nature,
+            clusterTag: memory.clusterTag,
           });
+          const nextSuggestions =
+            isRecord(data) && isRecord(data.suggestions) ? (data.suggestions as Suggestions) : null;
 
-          if (res.ok) {
-            const data: unknown = await res.json();
-            const nextSuggestions =
-              isRecord(data) && isRecord(data.suggestions) ? (data.suggestions as Suggestions) : null;
-
-            if (nextSuggestions) {
-              setSuggestions(nextSuggestions);
-              setShowSuggestions(true);
-            } else {
-              alert(t('memory.card.ai.suggesting') + ' 실패');
-            }
+          if (nextSuggestions) {
+            setSuggestions(nextSuggestions);
+            setShowSuggestions(true);
           } else {
             alert(t('memory.card.ai.suggesting') + ' 실패');
           }
@@ -231,7 +213,7 @@ const MemoryCard = memo(
 
     const handleDelete = () => {
       if (onRequestDelete) {
-        onRequestDelete(localMemory.id);
+        onRequestDelete(memory.id);
       }
     };
 
@@ -242,39 +224,25 @@ const MemoryCard = memo(
           const updatedHtml = editRef.current?.innerHTML || editContent;
           const titleToSave = editTitle.trim() || null;
 
-          const res = await fetch(`/api/memories?id=${localMemory.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: titleToSave, content: updatedHtml }),
+          await apiPut(`${API.MEMORIES}?id=${memory.id}`, {
+            title: titleToSave,
+            content: updatedHtml,
           });
 
-          if (res.ok) {
-            // 로컬 상태 즉시 업데이트 (새로고침 없이)
-            setLocalMemory((prev) => ({
-              ...prev,
-              title: titleToSave || undefined,
-              content: updatedHtml,
-            }));
-            setIsEditing(false);
-            onActivityEditCommit?.(localMemory.id);
-            onActivityEditEnd?.(localMemory.id);
-            // 편집 모드 종료 시 상태 초기화
-            setEditTitle(titleToSave || '');
-            setEditContent(updatedHtml);
-          } else {
-            const errorData = await res.json();
-            console.error('Edit error response:', errorData);
-            alert(`${t('memory.card.edit.failed')}: ${errorData.error || '알 수 없는 오류'}`);
-          }
+          setIsEditing(false);
+          onActivityEditCommit?.(memory.id);
+          onActivityEditEnd?.(memory.id);
+          setEditTitle(titleToSave || '');
+          setEditContent(updatedHtml);
         } catch (error) {
           console.error('Edit error:', error);
           alert(t('memory.card.edit.failed'));
         }
       } else {
         // 편집 모드로 전환
-        setEditTitle(localMemory.title || '');
-        setEditContent(localMemory.content);
-        onActivityEditStart?.(localMemory.id);
+        setEditTitle(memory.title || '');
+        setEditContent(memory.content);
+        onActivityEditStart?.(memory.id);
         setIsEditing(true);
       }
     };
@@ -288,7 +256,7 @@ const MemoryCard = memo(
 
     const handleAutoGroup = () => {
       if (onOpenGroupModal) {
-        onOpenGroupModal(localMemory);
+        onOpenGroupModal(memory);
       }
     };
 
@@ -296,16 +264,16 @@ const MemoryCard = memo(
       if (!confirm(t('memory.card.ai.convertToGoal.confirm'))) return;
 
       try {
-        const res = await fetch(`/api/memories/${localMemory.id}/convert-to-goal`, {
+        const res = await fetch(`/api/memories/${memory.id}/convert-to-goal`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             suggestions,
             memory: {
-              content: localMemory.content,
-              title: localMemory.title,
-              topic: localMemory.topic,
-              createdAt: localMemory.createdAt
+              content: memory.content,
+              title: memory.title,
+              topic: memory.topic,
+              createdAt: memory.createdAt
             }
           }),
         });
@@ -333,9 +301,9 @@ const MemoryCard = memo(
 
     // 텍스트가 200자 이상이면 접기 기능 활성화
     const MAX_LENGTH = 200;
-    const plainContent = stripHtmlClient(localMemory.content);
+    const plainContent = stripHtmlClient(memory.content);
     const isLong = plainContent.length > MAX_LENGTH;
-    const safeHtml = sanitizeHtml(localMemory.content);
+    const safeHtml = sanitizeHtml(memory.content);
 
     useMentionLinkClick(contentRef, onMentionClick, safeHtml);
 
@@ -344,7 +312,7 @@ const MemoryCard = memo(
 
     return (
       <div
-        id={`memory-${localMemory.id}`}
+        id={`memory-${memory.id}`}
         data-editing={isEditing ? 'true' : 'false'}
         draggable={!isEditing}
         onDragStart={(e) => {
@@ -352,15 +320,15 @@ const MemoryCard = memo(
             e.preventDefault();
             return;
           }
-          onDragStart?.(localMemory.id);
+          onDragStart?.(memory.id);
         }}
         onDragEnd={() => {
           if (isEditing) return;
           onDragEnd?.();
         }}
         style={{ touchAction: 'none' }}
-        className={`group relative p-3 md:p-5 border-2 border-gray-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-transform scroll-mt-4 h-full flex flex-col hover:scale-105 ${isEditing ? 'cursor-default' : 'cursor-move'
-          } ${cardClassName} ${isHighlighted ? 'ring-4 ring-indigo-400 ring-offset-2' : ''}`}
+        className={`group relative p-3 md:p-5 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-transform scroll-mt-4 h-full flex flex-col hover:scale-105 ${isEditing ? 'cursor-default' : 'cursor-move'
+          } ${cardClassName} ${isHighlighted ? 'border-[3px] border-blue-400' : 'border-2 border-gray-800'}`}
         onPointerDown={(e) => {
           if (isEditing) {
             // 편집 모드에서는 드래그 시작 방지
@@ -440,7 +408,7 @@ const MemoryCard = memo(
               onPointerDown={(e) => e.stopPropagation()}
               onDragStart={(e) => e.preventDefault()}
               placeholder={t('memory.input.placeholder.title')}
-              className="w-full px-2 py-1 mb-1.5 text-[11px] md:text-xs font-semibold text-gray-900 border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-2 py-1 mb-1.5 text-[11px] md:text-xs font-semibold text-black border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <div className="flex items-center gap-1 px-2 py-1 border border-indigo-300 bg-indigo-50/60">
               <button
@@ -489,7 +457,7 @@ const MemoryCard = memo(
               onMouseDown={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
               onDragStart={(e) => e.preventDefault()}
-              className="w-full p-2 border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[10px] md:text-[11px] text-gray-800 whitespace-pre-wrap"
+              className="w-full p-2 border border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[10px] md:text-[11px] text-black whitespace-pre-wrap"
               onInput={() => setEditContent(editRef.current?.innerHTML || '')}
               suppressContentEditableWarning
             />
@@ -497,15 +465,15 @@ const MemoryCard = memo(
         ) : (
           <div className="mb-1">
             {/* 제목 */}
-            {localMemory.title && (
+            {memory.title && (
               <h3 className="text-[11px] md:text-xs font-semibold text-gray-900 mb-1">
-                {stripHtmlClient(localMemory.title)}
+                {stripHtmlClient(memory.title)}
               </h3>
             )}
             {/* 내용 */}
             <div
               ref={contentRef}
-              className={`text-[10px] md:text-[11px] text-gray-800 leading-relaxed whitespace-pre-wrap ${!isExpanded && isLong ? 'line-clamp-3' : ''}`}
+              className={`text-[10px] md:text-[11px] text-black leading-relaxed whitespace-pre-wrap ${!isExpanded && isLong ? 'line-clamp-3' : ''}`}
               dangerouslySetInnerHTML={{ __html: safeHtml }}
               onPointerDown={(e) => {
                 // 텍스트 선택을 위해 버블링 막기 (드래그 시작 방지)
@@ -588,7 +556,7 @@ const MemoryCard = memo(
               </svg>
               <div className="flex-1">
                 <div className="text-[10px] font-semibold text-indigo-700 mb-0.5">{t('memory.card.ai.summary.title')}</div>
-                <p className="text-[10px] text-gray-700 leading-relaxed">{summary}</p>
+                <p className="text-[10px] text-black leading-relaxed">{summary}</p>
               </div>
             </div>
           </div>
@@ -608,7 +576,7 @@ const MemoryCard = memo(
                 </div>
                 <ul className="space-y-0.5 ml-2">
                   {suggestions.nextSteps.map((step: string, idx: number) => (
-                    <li key={idx} className="text-[10px] text-gray-700 flex items-start gap-1">
+                    <li key={idx} className="text-[10px] text-black flex items-start gap-1">
                       <span className="text-indigo-500 font-bold">•</span>
                       <span>{step}</span>
                     </li>
@@ -628,7 +596,7 @@ const MemoryCard = memo(
                 </div>
                 <ul className="space-y-0.5 ml-2">
                   {suggestions.resources.map((resource, idx) => (
-                    <li key={idx} className="text-[10px] text-gray-700 cursor-default">
+                    <li key={idx} className="text-[10px] text-black cursor-default">
                       {resource.url ? (
                         <a
                           href={resource.url}
@@ -668,7 +636,7 @@ const MemoryCard = memo(
                 </div>
                 <ul className="space-y-0.5 ml-2">
                   {suggestions.actionPlan.map((plan, idx) => (
-                    <li key={idx} className="text-[10px] text-gray-700 flex items-start gap-1">
+                    <li key={idx} className="text-[10px] text-black flex items-start gap-1">
                       <span className="font-bold text-orange-600">{plan.step}.</span>
                       <div>
                         <span>{plan.action}</span>
@@ -683,9 +651,9 @@ const MemoryCard = memo(
         )}
 
         {/* 첨부 파일 표시 */}
-        {localMemory.attachments && localMemory.attachments.length > 0 && (
+        {memory.attachments && memory.attachments.length > 0 && (
           <div className="mb-1.5 space-y-1.5">
-            {localMemory.attachments.map((attachment) => {
+            {memory.attachments.map((attachment) => {
               const isImage = attachment.mimetype.startsWith('image/');
               const isPdf = attachment.mimetype === 'application/pdf';
               const isDocx =
@@ -781,7 +749,7 @@ const MemoryCard = memo(
                         size={16}
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[10px] text-gray-700 truncate">{attachment.filename}</p>
+                        <p className="text-[10px] text-black truncate">{attachment.filename}</p>
                         <p className="text-[9px] text-gray-500">{(attachment.size / 1024).toFixed(1)} KB</p>
                       </div>
                       {!isSupported ? (
@@ -813,21 +781,21 @@ const MemoryCard = memo(
         <div className="flex items-center gap-1.5 text-[10px] text-gray-500 flex-wrap">
           <span className="flex-shrink-0 whitespace-nowrap">{timeAgo}</span>
 
-          {localMemory.topic && (
+          {memory.topic && (
             <span className="px-1 py-0.5 bg-indigo-50 text-indigo-600 text-[10px] border border-indigo-200">
-              {localMemory.topic}
+              {memory.topic}
             </span>
           )}
 
-          {localMemory.nature && (
+          {memory.nature && (
             <span className="px-1 py-0.5 bg-orange-50 text-orange-600 text-[10px] border border-orange-200">
-              {localMemory.nature}
+              {memory.nature}
             </span>
           )}
 
-          {localMemory.repeatCount !== undefined && localMemory.repeatCount > 1 && (
+          {memory.repeatCount !== undefined && memory.repeatCount > 1 && (
             <span className="px-1 py-0.5 bg-amber-50 text-amber-600 rounded text-[10px]">
-              🔁 {localMemory.repeatCount}
+              🔁 {memory.repeatCount}
             </span>
           )}
 
@@ -843,21 +811,21 @@ const MemoryCard = memo(
               <div className="text-[10px] text-gray-500 mb-0.5 flex items-center justify-between">
                 <span>{t('memory.card.related.title')}</span>
                 <button
-                  onClick={() => onOpenLinkManager?.(localMemory)}
+                  onClick={() => onOpenLinkManager?.(memory)}
                   className="text-[10px] text-indigo-500 hover:text-indigo-600"
                 >
                   {t('memory.card.related.add')}
                 </button>
               </div>
-              {localMemory.relatedMemoryIds && localMemory.relatedMemoryIds.length > 0 ? (
+              {memory.relatedMemoryIds && memory.relatedMemoryIds.length > 0 ? (
                 <div className="flex flex-wrap gap-1">
-                  {localMemory.relatedMemoryIds.slice(0, 3).map((relatedId) => {
+                  {memory.relatedMemoryIds.slice(0, 3).map((relatedId) => {
                     const relatedMemory = allMemories.find((m) => m.id === relatedId);
                     if (!relatedMemory) return null;
                     const noteKey =
-                      relatedMemory.id < localMemory.id
-                        ? `${relatedMemory.id}:${localMemory.id}`
-                        : `${localMemory.id}:${relatedMemory.id}`;
+                      relatedMemory.id < memory.id
+                        ? `${relatedMemory.id}:${memory.id}`
+                        : `${memory.id}:${relatedMemory.id}`;
                     const note = linkNotes?.[noteKey];
 
                     return (
@@ -879,25 +847,25 @@ const MemoryCard = memo(
                           <div className="mt-0.5 text-[9px] text-gray-500 line-clamp-1">{t('common.note')}: {note}</div>
                         )}
                         {/* 링크 삭제 버튼 */}
-                        {isEditing && (
-                          <button
-                            onClick={() => {
-                              if (onRequestDeleteLink) {
-                                onRequestDeleteLink(localMemory.id, relatedId);
-                              }
-                            }}
-                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-red-600 transition-all"
-                            title={t('memory.card.related.unlink')}
-                          >
-                            ×
-                          </button>
-                        )}
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (onRequestDeleteLink) {
+                              onRequestDeleteLink(memory.id, relatedId);
+                            }
+                          }}
+                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs hover:bg-red-600 transition-all opacity-0 group-hover:opacity-100"
+                          title={t('memory.card.related.unlink')}
+                        >
+                          ×
+                        </button>
                       </div>
                     );
                   })}
-                  {localMemory.relatedMemoryIds.length > 3 && (
+                  {memory.relatedMemoryIds.length > 3 && (
                     <span className="text-[10px] text-gray-400 self-center">
-                      {t('memory.card.related.more').replace('{count}', (localMemory.relatedMemoryIds.length - 3).toString())}
+                      {t('memory.card.related.more').replace('{count}', (memory.relatedMemoryIds.length - 3).toString())}
                     </span>
                   )}
                 </div>
@@ -908,37 +876,37 @@ const MemoryCard = memo(
           </div>
 
           {/* 출처 정보 */}
-          {localMemory.source && localMemory.source !== 'manual' && (
+          {memory.source && memory.source !== 'manual' && (
             <div className="mt-2 pt-2 border-t border-gray-100 flex flex-col gap-0.5 select-none">
               <div className="flex items-center gap-1 text-[9px] text-gray-400 uppercase tracking-tight font-bold">
-                <PixelIcon name={localMemory.source === 'gmail' ? 'mail' : 'info'} size={10} />
+                <PixelIcon name={memory.source === 'gmail' ? 'mail' : 'info'} size={10} />
                 <span>
-                  {localMemory.source === 'gmail' && t('memory.card.source.gmail')}
-                  {localMemory.source === 'ios-shortcut' && t('memory.card.source.ios')}
-                  {localMemory.source === 'workless-web' && t('memory.card.source.quickAdd')}
-                  {!['gmail', 'ios-shortcut', 'workless-web'].includes(localMemory.source) && localMemory.source}
+                  {memory.source === 'gmail' && t('memory.card.source.gmail')}
+                  {memory.source === 'ios-shortcut' && t('memory.card.source.ios')}
+                  {memory.source === 'workless-web' && t('memory.card.source.quickAdd')}
+                  {!['gmail', 'ios-shortcut', 'workless-web'].includes(memory.source) && memory.source}
                 </span>
               </div>
-              {localMemory.sourceSender && (
-                <div className="text-[10px] text-gray-600 truncate">
+              {memory.sourceSender && (
+                <div className="text-[10px] text-black truncate">
                   <span className="text-gray-400 mr-1">From:</span>
-                  {localMemory.sourceSender}
+                  {memory.sourceSender}
                 </div>
               )}
-              {localMemory.sourceSubject && (
-                <div className="text-[10px] text-gray-800 font-medium truncate leading-snug">
+              {memory.sourceSubject && (
+                <div className="text-[10px] text-black font-medium truncate leading-snug">
                   <span className="text-gray-400 mr-1">Subject:</span>
-                  {localMemory.sourceSubject}
+                  {memory.sourceSubject}
                 </div>
               )}
-              {localMemory.sourceLink && (
+              {memory.sourceLink && (
                 <a
-                  href={localMemory.sourceLink}
+                  href={memory.sourceLink}
                   target="_blank"
                   rel="noreferrer"
                   className="mt-1 text-[9px] text-indigo-500 hover:text-indigo-600 hover:underline inline-flex items-center gap-0.5 cursor-pointer"
                 >
-                  <span>{localMemory.source === 'gmail' ? t('memory.card.source.openOriginal') : t('memory.card.source.openLink')}</span>
+                  <span>{memory.source === 'gmail' ? t('memory.card.source.openOriginal') : t('memory.card.source.openLink')}</span>
                   <PixelIcon name="arrow" size={8} />
                 </a>
               )}
@@ -947,21 +915,6 @@ const MemoryCard = memo(
         </div>
       </div>
     );
-  },
-  (prevProps, nextProps) => {
-    // 커스텀 비교 함수: memory와 주요 props만 비교
-    return (
-      prevProps.memory.id === nextProps.memory.id &&
-      prevProps.memory.content === nextProps.memory.content &&
-      prevProps.memory.title === nextProps.memory.title &&
-      prevProps.memory.relatedMemoryIds?.length === nextProps.memory.relatedMemoryIds?.length &&
-      prevProps.colorClass === nextProps.colorClass &&
-      prevProps.variant === nextProps.variant &&
-      prevProps.personaId === nextProps.personaId &&
-      prevProps.isHighlighted === nextProps.isHighlighted &&
-      Object.keys(prevProps.linkNotes || {}).length === Object.keys(nextProps.linkNotes || {}).length
-    );
   }
-);
 
 export default MemoryCard;

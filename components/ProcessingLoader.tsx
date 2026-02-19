@@ -4,7 +4,7 @@ import type { CSSProperties } from 'react';
 import LottiePlayer from './LottiePlayer';
 
 export type ProcessingLoaderVariant = 'inline' | 'panel' | 'overlay';
-export type ProcessingLoaderTone = 'black' | 'indigo' | 'orange' | 'muted' | 'white';
+export type ProcessingLoaderTone = 'graphite' | 'black' | 'indigo' | 'orange' | 'muted' | 'white';
 
 interface ProcessingLoaderProps {
   /** 로더 크기 (픽셀) */
@@ -40,7 +40,7 @@ export default function ProcessingLoader({
   size,
   scale = 2,
   variant = 'inline',
-  tone = 'indigo',
+  tone = 'graphite',
   label,
   className = '',
   style = {},
@@ -48,31 +48,27 @@ export default function ProcessingLoader({
   // variant별 기본 사이즈
   const defaultSizes: Record<ProcessingLoaderVariant, number> = {
     inline: 16,
-    panel: 14,
-    overlay: 24,
+    panel: 18,
+    overlay: 28,
   };
 
-  const baseHeight = Math.max(1, Math.round(size ?? defaultSizes[variant]));
+  const baseSize = Math.max(1, Math.round(size ?? defaultSizes[variant]));
   const clampedScale = Math.max(1, Math.round(scale));
 
-  const minBarHeight = variant === 'panel' || variant === 'overlay' ? 35 : 0; // 기본 존재감 확보
-  const barHeight = Math.max(minBarHeight, baseHeight * clampedScale);
-  const barWidth = Math.round((barHeight * 100) / 35); // 원본 비율(100x35) 유지
+  const minSize = variant === 'panel' || variant === 'overlay' ? 36 : 0; // 기본 존재감 확보
+  const pixelSize = Math.max(minSize, baseSize * clampedScale);
 
   // tone별 필터 스타일
   const toneFilters: Record<ProcessingLoaderTone, CSSProperties> = {
+    // 찐회색(그래파이트) 느낌: 모든 색을 회색으로 눌러서 통일
+    // NOTE: "더 찐한 회색"을 위해 색상을 단일 다크그레이로 눌러 통일합니다.
+    // brightness(0)로 전부 검정으로 만든 뒤, invert(0.22)로 #383838 정도의 찐회색으로 올립니다.
+    graphite: { filter: 'grayscale(1) brightness(0) invert(0.22)' },
     black: { filter: 'brightness(0)' },
     muted: { filter: 'brightness(0)', opacity: 0.35 },
-    indigo: {
-      // Approx. Tailwind indigo-600 (#4F46E5)
-      filter:
-        'brightness(0) saturate(100%) invert(24%) sepia(86%) saturate(2942%) hue-rotate(233deg) brightness(96%) contrast(98%)',
-    },
-    orange: {
-      // Approx. Tailwind orange-500 (#F97316)
-      filter:
-        'brightness(0) saturate(100%) invert(55%) sepia(70%) saturate(2382%) hue-rotate(353deg) brightness(98%) contrast(98%)',
-    },
+    // 기존 컬러 톤은 요청에 맞춰 찐회색으로 통일(호환성 유지용 키)
+    indigo: { filter: 'grayscale(1) brightness(0) invert(0.22)' },
+    orange: { filter: 'grayscale(1) brightness(0) invert(0.22)' },
     white: {
       filter: 'brightness(0) invert(1)',
     },
@@ -87,8 +83,8 @@ export default function ProcessingLoader({
 
   const containerClass = containerStyles[variant];
 
-  // Lottie 파일 경로
-  const lottiePath = '/lottie/loading-bar.json';
+  // Lottie JSON 파일 경로 (dotLottie에서 추출)
+  const lottiePath = '/lottie/pixel-stickman-running.json';
 
   return (
     <div
@@ -100,17 +96,13 @@ export default function ProcessingLoader({
       <div
         className="relative"
         style={{
-          width: `${barWidth}px`,
-          height: `${barHeight}px`,
+          width: `${pixelSize}px`,
+          height: `${pixelSize}px`,
+          imageRendering: 'pixelated',
           ...toneFilters[tone],
         }}
       >
-        <LottiePlayer
-          path={lottiePath}
-          loop={true}
-          autoplay={true}
-          className="w-full h-full"
-        />
+        <LottiePlayer path={lottiePath} loop={true} autoplay={true} renderer="canvas" className="w-full h-full" />
       </div>
       {label && variant === 'inline' && (
         <div className="text-xs text-gray-500 ml-2">{label}</div>

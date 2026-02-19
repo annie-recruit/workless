@@ -30,6 +30,17 @@ export default function ConsoleLogger() {
 
     // 로그 수집 함수
     const collectLog = (level: string, ...args: any[]) => {
+      // Next.js 동적 API 경고 필터링
+      const message = args.map(arg => String(arg)).join(' ');
+      if (
+        message.includes('params are being enumerated') ||
+        message.includes('searchParam property was accessed') ||
+        message.includes('The keys of `searchParams` were accessed') ||
+        message.includes('sync-dynamic-apis')
+      ) {
+        return; // 이 경고는 무시
+      }
+
       const timestamp = new Date().toISOString();
       
       // 안전하게 인자 변환 (SecurityError 방지)
@@ -53,7 +64,7 @@ export default function ConsoleLogger() {
         }
       });
 
-      const message = safeArgs
+      const messageFormatted = safeArgs
         .map((arg) => {
           if (typeof arg === 'object' && arg !== null) {
             try {
@@ -67,20 +78,20 @@ export default function ConsoleLogger() {
         .join(' ');
 
       // 미니맵 관련 로그인지 확인
-      const isMinimapLog = message.includes('Minimap') || 
-                           message.includes('minimap') ||
-                           message.includes('Scale Calculation') ||
-                           message.includes('DOM Actual Size') ||
-                           message.includes('Blob Debug') ||
-                           message.includes('Symbol Debug') ||
-                           message.includes('canvasBounds') ||
-                           message.includes('viewportBounds') ||
-                           message.includes('symbolItems');
+      const isMinimapLog = messageFormatted.includes('Minimap') || 
+                           messageFormatted.includes('minimap') ||
+                           messageFormatted.includes('Scale Calculation') ||
+                           messageFormatted.includes('DOM Actual Size') ||
+                           messageFormatted.includes('Blob Debug') ||
+                           messageFormatted.includes('Symbol Debug') ||
+                           messageFormatted.includes('canvasBounds') ||
+                           messageFormatted.includes('viewportBounds') ||
+                           messageFormatted.includes('symbolItems');
 
       const logEntry = {
         timestamp,
         level,
-        message,
+        message: messageFormatted,
         isMinimap: isMinimapLog,
         args: safeArgs.map((arg) => {
           if (typeof arg === 'object' && arg !== null) {

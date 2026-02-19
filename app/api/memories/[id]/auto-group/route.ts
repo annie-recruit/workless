@@ -61,14 +61,31 @@ export async function POST(
       existingGroups.flatMap(g => g.memoryIds)
     );
     
+    console.log('📊 AI 그룹 묶기 상태:');
+    console.log(`  - 전체 기억: ${allMemories.length}개`);
+    console.log(`  - 기존 그룹: ${existingGroups.length}개`);
+    console.log(`  - 이미 그룹에 속한 기억: ${groupedMemoryIds.size}개`);
+    
     // 그룹에 속하지 않은 메모리들만 후보로 (최대 100개로 증가)
     const candidateMemories = allMemories
       .filter(m => m.id !== id && !groupedMemoryIds.has(m.id))
       .slice(0, 100);
     
+    console.log(`  - 후보 기억 (그룹 미포함): ${candidateMemories.length}개`);
+    
     if (candidateMemories.length === 0) {
+      console.log('⚠️ 묶을 수 있는 관련 기록이 없습니다');
+      console.log('💡 힌트: 모든 기록이 이미 그룹에 속해있거나, 현재 기록만 존재합니다.');
+      
+      // 이미 그룹에 속한 기록이 있는지 확인
+      if (groupedMemoryIds.size > 0) {
+        return NextResponse.json({
+          error: '이미 그룹화된 기록이 있습니다. 그룹 관리 메뉴에서 확인하세요.',
+        }, { status: 400 });
+      }
+      
       return NextResponse.json({
-        error: '묶을 수 있는 관련 기록이 없습니다',
+        error: '묶을 수 있는 다른 기록이 없습니다. 기록을 더 추가해주세요.',
       }, { status: 400 });
     }
 
@@ -151,6 +168,9 @@ JSON 형식:
     const topRelated = similarityScores.slice(0, 5);
     
     if (topRelated.length === 0) {
+      console.log('⚠️ 유사도가 충분히 높은 관련 기록을 찾지 못했습니다');
+      console.log(`  - 전체 후보: ${candidateMemories.length}개`);
+      console.log(`  - 유사도 50점 이상: ${similarityScores.length}개`);
       return NextResponse.json({
         error: '유사도가 충분히 높은 관련 기록을 찾지 못했습니다',
       }, { status: 400 });
@@ -221,6 +241,7 @@ JSON 형식:
     }
     
     if (!groupResult.shouldGroup) {
+      console.log('⚠️ AI가 묶기를 거부했습니다:', groupResult.reason);
       return NextResponse.json({
         error: '이 기록들을 묶기에는 유사도가 충분하지 않습니다',
       }, { status: 400 });

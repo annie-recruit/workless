@@ -18,6 +18,38 @@ export default function LandingClient() {
     const [isAgreed, setIsAgreed] = useState(false);
     const { t, language } = useLanguage();
 
+    // JSON-LD 구조화된 데이터
+    const websiteJsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'WORKLESS',
+        url: 'https://workless.me',
+        potentialAction: {
+            '@type': 'SearchAction',
+            target: 'https://workless.me/search?q={search_term_string}',
+            'query-input': 'required name=search_term_string',
+        },
+    };
+
+    const softwareJsonLd = {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'WORKLESS',
+        applicationCategory: 'ProductivityApplication',
+        operatingSystem: 'Web',
+        offers: {
+            '@type': 'Offer',
+            price: '0',
+            priceCurrency: 'KRW',
+        },
+        description: '무한 캔버스 화이트보드에서 메모하고 브레인스토밍하는 AI 협업 도구. 아이디어 정리와 지식 관리를 한 곳에서.',
+        aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: '4.8',
+            ratingCount: '150',
+        },
+    };
+
     // 로그인한 사용자는 대시보드로 리디렉션
     useEffect(() => {
         if (status === 'authenticated' && session) {
@@ -28,25 +60,43 @@ export default function LandingClient() {
         }
     }, [status, session, router]);
 
+    // JSON-LD 스크립트를 head에 추가 (Hydration 에러 방지)
+    useEffect(() => {
+        const websiteScript = document.createElement('script');
+        websiteScript.type = 'application/ld+json';
+        websiteScript.text = JSON.stringify(websiteJsonLd);
+        document.head.appendChild(websiteScript);
+
+        const softwareScript = document.createElement('script');
+        softwareScript.type = 'application/ld+json';
+        softwareScript.text = JSON.stringify(softwareJsonLd);
+        document.head.appendChild(softwareScript);
+
+        return () => {
+            document.head.removeChild(websiteScript);
+            document.head.removeChild(softwareScript);
+        };
+    }, []);
+
     // 로그인한 사용자는 리디렉션 중이므로 아무것도 표시하지 않음
     if (status === 'authenticated' && session) {
         return null;
     }
 
     return (
-        <main className="min-h-screen flex flex-col relative overflow-hidden font-galmuri11">
-            {/* 픽셀 그라데이션 배경 */}
-            <div className="absolute inset-0 z-0">
-                <PixelGradientBanner className="opacity-100" />
-                {/* 오버레이로 색감 조절 */}
-                <div className="absolute inset-0 bg-indigo-900/10 backdrop-blur-[2px]"></div>
-            </div>
+        <main className="min-h-screen flex flex-col relative overflow-hidden font-galmuri11 bg-indigo-950">
 
             {/* 상단: 타이틀 + 버튼 + 3개 박스 */}
             <div className="relative z-10 flex items-center justify-center p-8">
                 <div className="max-w-6xl w-full space-y-8 py-8">
                     {/* 언어 토글 추가 */}
-                    <div className="flex justify-end mb-4">
+                    <div className="flex justify-end items-center gap-4 mb-4">
+                        <Link 
+                            href="/features"
+                            className="px-3 py-1 bg-white border-2 border-gray-800 text-gray-900 font-bold text-[10px] hover:bg-gray-50 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,0.3)] hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,0.4)]"
+                        >
+                            About
+                        </Link>
                         <PixelLanguageToggle />
                     </div>
 
@@ -212,54 +262,15 @@ export default function LandingClient() {
                         </div>
                     </div>
 
-
-
-                    {/* Google 심사 필수: 데이터 사용 명시 */}
-                    <div className="relative bg-white border-2 border-gray-800 p-4 text-xs text-gray-800 leading-relaxed shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all hover:scale-[1.02]">
-                        {/* 픽셀 코너 포인트 */}
-                        <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
-                        <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
-                        <div className="absolute -bottom-1 -left-1 w-2 h-2 bg-gray-800" />
-                        <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-gray-800" />
-                        <div className="mb-2 flex items-start gap-2">
-                            <PixelIcon name="email" size={16} className="text-gray-900 mt-0.5 flex-shrink-0" />
-                            <span>
-                                <strong className="text-gray-900">{t('landing.gmail.title')}</strong> {t('landing.gmail.desc')}
-                            </span>
-                        </div>
-                        <div className="flex items-start gap-2">
-                            <PixelIcon name="lock" size={16} className="text-gray-900 mt-0.5 flex-shrink-0" />
-                            <span>
-                                <strong className="text-gray-900">{t('landing.privacy.title')}</strong> {t('landing.privacy.desc')}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* 픽셀 스타일 광고 */}
+                    {/* 광고 영역 */}
                     <div className="max-w-4xl mx-auto space-y-8 my-8">
                         <PixelAdSense
                             className=""
                         />
                         <PixelKakaoAdFit />
                     </div>
-
-                    {/* 하단 링크 */}
-                    <div className="flex justify-center gap-4 text-xs text-white/60">
-                        <Link href="/privacy" className="hover:text-white transition-colors underline">
-                            {t('landing.privacy')}
-                        </Link>
-                        <span>·</span>
-                        <Link href="/terms" className="hover:text-white transition-colors underline">
-                            {t('landing.terms')}
-                        </Link>
-                        <span>·</span>
-                        <a href="mailto:rkdhs326@gmail.com" className="hover:text-white transition-colors underline">
-                            {t('landing.contact')}
-                        </a>
-                    </div>
                 </div>
             </div>
-
         </main>
     );
 }

@@ -155,12 +155,12 @@ export default function WidgetSynergyToast({
 
   return (
     <div className="fixed bottom-6 right-6 z-[9999] animate-slide-up font-galmuri11">
-      <div className="bg-white border-4 border-purple-700 p-4 min-w-[320px] max-w-[380px] shadow-[8px_8px_0px_0px_rgba(126,34,206,0.4)] relative">
+      <div className="bg-white border-3 border-gray-900 p-4 min-w-[320px] max-w-[380px] shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative">
         {/* 픽셀 코너 장식 */}
-        <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-purple-700" />
-        <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-purple-700" />
-        <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-purple-700" />
-        <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-purple-700" />
+        <div className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+        <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
+        <div className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-gray-900" />
+        <div className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-gray-900" />
 
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -198,7 +198,7 @@ export default function WidgetSynergyToast({
                 </div>
                 {isProcessing && selectedSynergy === synergy.type && (
                   <div className="flex-shrink-0">
-                    <ProcessingLoader size={14} variant="inline" tone="indigo" />
+                    <ProcessingLoader size={14} variant="inline" tone="graphite" />
                   </div>
                 )}
               </div>

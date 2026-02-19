@@ -31,13 +31,13 @@ export default function GroupMenuBar({
   };
 
   return (
-    <div className="shrink-0 sticky top-0 z-20 flex items-center gap-2 px-3 py-2 text-xs text-gray-500 bg-gray-50/30 backdrop-blur-xl border-b border-gray-200/30 shadow-none overflow-x-auto no-scrollbar flex-nowrap">
+    <div className="shrink-0 sticky top-0 z-20 flex items-center gap-2 px-3 py-2 text-xs text-gray-500 bg-gray-50/90 border-b border-gray-200/30 shadow-none overflow-x-auto no-scrollbar flex-nowrap">
       {/* 전체 버튼 */}
       <button
         onClick={() => onSelectGroup(null)}
         className={`px-3 py-1 text-xs rounded border flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${selectedGroupId === null
             ? 'bg-gray-900 text-white border-transparent'
-            : 'bg-white/40 text-gray-700 border-white/30 hover:bg-white/60 backdrop-blur-sm'
+            : 'bg-white/70 text-gray-700 border-white/30 hover:bg-white'
           }`}
       >
         <div className="relative flex items-center">
@@ -73,7 +73,7 @@ export default function GroupMenuBar({
                 ? 'bg-gray-900 text-white border-transparent'
                 : isDropTarget
                   ? 'bg-indigo-50 border-indigo-300 text-indigo-700 scale-105'
-                  : 'bg-white/40 text-gray-700 border-white/30 hover:bg-white/60 backdrop-blur-sm'
+                  : 'bg-white/70 text-gray-700 border-white/30 hover:bg-white'
               }`}
           >
             <div className="relative flex items-center">

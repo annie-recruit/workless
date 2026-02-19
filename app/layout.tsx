@@ -29,7 +29,7 @@ const galmuri = localFont({
 export const metadata: Metadata = {
   metadataBase: new URL('https://workless.me'),
   title: "WORKLESS - 맥락을 구체화. 비정형 애자일 워크스페이스",
-  description: "WORKLESS는 Gmail 연동을 통해 이메일을 자동으로 메모로 변환하고, 무한 캔버스에서 아이디어를 자유롭게 배치하고 연결할 수 있는 개인 비서입니다.",
+  description: "WORKLESS는 무한 캔버스에서 아이디어를 자유롭게 배치하고 연결할 수 있는 비정형 애자일 워크스페이스입니다. AI와 함께 생각의 흐름을 시각화하세요.",
   manifest: "/manifest.json",
   alternates: {
     canonical: '/',
@@ -75,13 +75,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" suppressHydrationWarning className={galmuri.variable} style={{ background: 'linear-gradient(135deg, #4338ca 0%, #6366f1 50%, #fb923c 100%)' }}>
+    <html lang="ko" suppressHydrationWarning className={galmuri.variable} style={{ background: '#1e1b4b' }}>
       <head>
         <link rel="preconnect" href="https://api.iconify.design" />
         <link rel="apple-touch-icon" href="/real_logo.png" />
         <link rel="icon" href="/real_logo.png" />
-        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1164366157890050"
-          crossOrigin="anonymous"></script>
       </head>
       <body className="flex flex-col min-h-screen" suppressHydrationWarning>
         <WebVitals />
@@ -90,7 +88,7 @@ export default function RootLayout({
           <LanguageProvider>
             <ViewerProvider>
               <FlagProvider>
-                <div className="flex-1">
+                <div className="flex-1" suppressHydrationWarning>
                   {children}
                 </div>
                 <Footer />

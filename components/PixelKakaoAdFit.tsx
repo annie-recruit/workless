@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import Script from 'next/script';
 
 interface PixelKakaoAdFitProps {
@@ -30,11 +30,23 @@ export default function PixelKakaoAdFit({
 }: PixelKakaoAdFitProps) {
     const containerRef = useRef<HTMLDivElement>(null);
 
+    useEffect(() => {
+        // 스크립트가 로드된 후 광고 초기화
+        const timer = setTimeout(() => {
+            if (window.adfit) {
+                console.log('카카오 애드핏 스크립트 로드됨');
+            }
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, []);
+
     return (
         <>
             <Script
                 src="//t1.daumcdn.net/kas/static/ba.min.js"
                 strategy="afterInteractive"
+                onLoad={() => console.log('카카오 애드핏 스크립트 로드 완료')}
             />
             <div className={`pixel-adfit-wrapper ${className} flex justify-center`}>
                 {/* 카카오 애드핏 광고 영역 - 장식 없이 순수 광고만 표시 */}

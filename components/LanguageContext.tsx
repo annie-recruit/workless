@@ -454,6 +454,175 @@ export const translations: Record<Language, Record<string, string>> = {
     // Terms & Privacy Page Headings
     'terms.title': '서비스 약관',
     'privacy.title': '개인정보처리방침',
+
+    // Features Page
+    'features.header.back': '대시보드로 돌아가기',
+    'features.nav.prev': '이전',
+    'features.nav.next': '다음',
+    'features.nav.keyboard': '키보드 방향키 ← → 로 이동할 수 있습니다',
+    
+    // Feature 1: Memory Management
+    'features.memory.title': '기억 관리',
+    'features.memory.subtitle': 'Memory Management',
+    'features.memory.desc': '생각의 조각들을 자유롭게 기록하고 저장하세요',
+    'features.memory.detail1': '빠른 메모 입력으로 생각을 즉시 캡처',
+    'features.memory.detail2': '텍스트, 음성, 파일 등 다양한 형식 지원',
+    'features.memory.detail3': '자동 타임스탬프로 시간 흐름 추적',
+    'features.memory.detail4': '태그와 그룹으로 체계적 정리',
+    
+    // Feature 2: Infinite Canvas
+    'features.canvas.title': '무한 캔버스',
+    'features.canvas.subtitle': 'Infinite Canvas',
+    'features.canvas.desc': '공간의 제약 없이 아이디어를 배치하고 연결하세요',
+    'features.canvas.detail1': '드래그 앤 드롭으로 자유로운 배치',
+    'features.canvas.detail2': '줌인/줌아웃으로 큰 그림 파악',
+    'features.canvas.detail3': '연결선으로 관계 시각화',
+    'features.canvas.detail4': '미니맵으로 전체 구조 한눈에 보기',
+    
+    // Feature 3: Smart Grouping
+    'features.grouping.title': 'AI 스마트 그룹화',
+    'features.grouping.subtitle': 'Smart Grouping',
+    'features.grouping.desc': '관련된 기억들을 묶어 맥락을 구체화하세요',
+    'features.grouping.detail1': 'AI 기반 자동 그룹 제안',
+    'features.grouping.detail2': '컬러 코딩으로 시각적 구분',
+    'features.grouping.detail3': '그룹별 필터링과 전역 검색',
+    'features.grouping.detail4': '계층 구조로 복잡한 프로젝트 관리',
+    
+    // Feature 4: AI Insights
+    'features.insights.title': 'AI 인사이트',
+    'features.insights.subtitle': 'AI Insights',
+    'features.insights.desc': '축적된 기억에서 패턴과 인사이트를 발견하세요',
+    'features.insights.detail1': '자주 등장하는 주제 자동 추출',
+    'features.insights.detail2': '관련 기억 스마트 연결',
+    'features.insights.detail3': '생산성 패턴 분석',
+    'features.insights.detail4': '개인화된 제안과 리마인더',
+    
+    // Feature 5: Local-First
+    'features.localfirst.title': '로컬 우선',
+    'features.localfirst.subtitle': 'Local-First',
+    'features.localfirst.desc': '오프라인에서도 완벽하게 작동하는 진정한 개인 공간',
+    'features.localfirst.detail1': '인터넷 없이도 모든 기능 사용 가능',
+    'features.localfirst.detail2': 'IndexedDB 기반 로컬 저장소',
+    'features.localfirst.detail3': '수동/자동 동기화를 선택하여 데이터 안전 보장',
+    'features.localfirst.detail4': '프라이버시 완벽 보호',
+    
+    // Feature 6: Voice Recording
+    'features.voice.title': '음성 녹음',
+    'features.voice.subtitle': 'Voice Recording',
+    'features.voice.desc': '말로 생각을 기록하고 자동으로 텍스트로 변환',
+    'features.voice.detail1': '실시간 음성-텍스트 변환',
+    'features.voice.detail2': '고품질 음성 파일 저장',
+    'features.voice.detail3': '회의록 자동 생성',
+    'features.voice.detail4': '다국어 지원',
+    
+    // Feature 7: File Integration
+    'features.files.title': '파일 통합',
+    'features.files.subtitle': 'File Integration',
+    'features.files.desc': 'PDF, 이미지, 문서를 하나의 공간에서 관리',
+    'features.files.detail1': 'PDF 자동 텍스트 추출',
+    'features.files.detail2': '이미지 OCR 텍스트 인식',
+    'features.files.detail3': '문서 내용 검색 가능',
+    'features.files.detail4': '클라우드 스토리지 연동',
+    
+    // Feature 8: Widgets
+    'features.widgets.title': '여러가지 위젯들',
+    'features.widgets.subtitle': 'Various Widgets',
+    'features.widgets.desc': '캔버스에 추가할 수 있는 다양한 위젯으로 생산성 향상',
+    'features.widgets.detail1': '캘린더 위젯으로 일정 관리',
+    'features.widgets.detail2': '액션 플랜 위젯으로 진행 상황 추적',
+    'features.widgets.detail3': '데이터베이스 위젯으로 정보를 표 형태로 체계적 관리',
+    'features.widgets.detail4': '깃발 위젯으로 메모 분류 및 중요 항목 표시',
+    
+    // Visual Elements - Default Cards
+    'features.visual.card.summary': '요약',
+    'features.visual.card.suggestion': '제안',
+    'features.visual.card.tag.memo': '@빠른메모',
+    'features.visual.card.tag.memo.desc': ' 입력으로 생각을 즉시 캡처',
+    'features.visual.card.tag1': '프로젝트',
+    'features.visual.card.tag2': '아이디어',
+
+    // Visual Elements - Canvas Slide
+    'features.visual.canvas.card1.title': '프로젝트 아이디어',
+    'features.visual.canvas.card1.desc': '무한 캔버스에서 자유롭게 생각을 배치하고 연결할 수 있습니다',
+    'features.visual.canvas.card2.title': '다음 단계',
+    'features.visual.canvas.card2.desc': '드래그로 카드 위치를 자유롭게 조정하세요',
+    'features.visual.canvas.card3.title': '회의 노트',
+    'features.visual.canvas.card3.desc': '관련된 카드들을 가까이 배치하여 연결하세요',
+    'features.visual.canvas.calendar': '2026년 2월',
+    'features.visual.canvas.days': ['일', '월', '화', '수', '목', '금', '토'],
+    'features.visual.time.justnow': '방금 전',
+    'features.visual.time.min5': '5분 전',
+    'features.visual.time.min10': '10분 전',
+    
+    // Visual Elements - Grouping Slide
+    'features.visual.grouping.card.title': '이직 면접 준비',
+    'features.visual.grouping.card.desc': '면접에서 자주 묻는 질문들을 정리하고 답변을 준비해야 합니다.',
+    'features.visual.grouping.modal.title': '이렇게 묶을까요?',
+    'features.visual.grouping.modal.subtitle': '묶일 기록들 (2개)',
+    'features.visual.grouping.modal.card1': '이직 면접 준비',
+    'features.visual.grouping.modal.card1desc': '면접에서 자주 묻는 질문들...',
+    'features.visual.grouping.modal.card2': 'STAR 기법 정리',
+    'features.visual.grouping.modal.card2desc': '경험을 구조화하는 방법...',
+    'features.visual.grouping.modal.groupname': '취업 준비',
+    'features.visual.grouping.modal.cancel': '취소',
+    'features.visual.grouping.modal.submit': '묶기',
+    'features.visual.grouping.modal.aitext': 'AI가 자동으로\n관련 기록 제안',
+    'features.visual.grouping.aibtn': 'AI 자동 묶기',
+    
+    // Visual Elements - Insights Slide
+    'features.visual.insights.title': '데일리 정리 시간',
+    'features.visual.insights.desc': '오늘 하루를 돌아보고\n내일을 준비해요',
+    'features.visual.insights.date': '2월 16일 (월)',
+    'features.visual.insights.mode': '기본 모드',
+    'features.visual.insights.refresh': '새로고침',
+    'features.visual.insights.summary.title': '요약',
+    'features.visual.insights.summary.content': '사용자는 최근 이직 면접 준비와 관련된 자료에 많은 관심을 보이고 있으며, 경력 및 경험을 효과적으로 정리하는 데 중점을 두고 있습니다. 특히, 면접 질문과 답변 전략을 고민하고 있으며, 이를 통해 성공적인 이직을 목표로 하고 있습니다.',
+    'features.visual.insights.suggestions.title': '제안',
+    'features.visual.insights.suggestions.1': '면접 준비를 위해 모의 면접을 진행하여 실전 감각을 익혀보세요.',
+    'features.visual.insights.suggestions.2': '자신의 경험을 체계적으로 정리하고, 면접에서의 답변 전략을 고민해보는 것이 도움이 될 겁니다.',
+    
+    // Visual Elements - Voice Recording Slide
+    'features.visual.voice.title': '미팅 레코더',
+    'features.visual.voice.recording': '녹음 중',
+    'features.visual.voice.pause': '일시정지',
+    'features.visual.voice.speaker1': '김민수',
+    'features.visual.voice.speaker2': '이지원',
+    'features.visual.voice.speaker3': '박서준',
+    'features.visual.voice.line1': '네, 그럼 이번 프로젝트의 주요 일정에 대해서 논의해볼까요?',
+    'features.visual.voice.line2': '좋습니다. 먼저 1차 베타 테스트는 다음 주 금요일까지 완료하는 것으로 하고요.',
+    'features.visual.voice.line3': 'UI 디자인은 이번 주 안에 마무리할 수 있을 것 같습니다.',
+    'features.visual.voice.line4': '좋네요. 그럼 개발 일정도 조정해서...',
+    
+    // Visual Elements - Widgets Slide
+    'features.visual.widgets.action.label': '액션 프로젝트',
+    'features.visual.widgets.action.duration': '약 3주',
+    'features.visual.widgets.action.title': '신규 프로젝트 기획',
+    'features.visual.widgets.action.summary': '"시장 조사부터 베타 테스트까지 체계적으로 진행하여 성공적인 프로젝트 런칭을 목표로 합니다."',
+    'features.visual.widgets.action.step': '[1단계: 시장 조사]',
+    'features.visual.widgets.action.task': '경쟁사 분석 및 시장 동향 파악',
+    'features.visual.widgets.table.title': '팀원 관리',
+    'features.visual.widgets.table.rows': '(3개 행)',
+    'features.visual.widgets.table.name': '이름',
+    'features.visual.widgets.table.role': '역할',
+    'features.visual.widgets.table.status': '상태',
+    'features.visual.widgets.table.progress': '진행률',
+    'features.visual.widgets.table.role1': '개발자',
+    'features.visual.widgets.table.role2': '디자이너',
+    'features.visual.widgets.table.role3': '기획자',
+    'features.visual.widgets.table.status1': '진행중',
+    'features.visual.widgets.table.status2': '완료',
+    'features.visual.widgets.table.status3': '대기',
+    
+    // Visual Elements - Local First Slide  
+    'features.visual.localfirst.local': '로컬 저장소',
+    'features.visual.localfirst.indexeddb': 'IndexedDB',
+    'features.visual.localfirst.offline': '오프라인 작동',
+    'features.visual.localfirst.cloud': '클라우드',
+    'features.visual.localfirst.backup': '백업 & 동기화',
+    'features.visual.localfirst.safe': '안전한 보관',
+    'features.visual.localfirst.sync': '자동 동기화',
+    'features.visual.localfirst.infotext': '인터넷 연결 없이도 작동',
+    'features.visual.localfirst.infodesc': '모든 데이터가 로컬에 저장되어 오프라인에서도 작업 가능. 온라인 시 자동 동기화',
   },
   en: {
     // Landing
@@ -862,5 +1031,174 @@ export const translations: Record<Language, Record<string, string>> = {
     // Terms & Privacy Page Headings
     'terms.title': 'Terms of Service',
     'privacy.title': 'Privacy Policy',
+
+    // Features Page
+    'features.header.back': 'Back to Dashboard',
+    'features.nav.prev': 'Previous',
+    'features.nav.next': 'Next',
+    'features.nav.keyboard': 'Use arrow keys ← → to navigate',
+    
+    // Feature 1: Memory Management
+    'features.memory.title': 'Memory Management',
+    'features.memory.subtitle': 'Memory Management',
+    'features.memory.desc': 'Record and save your thoughts freely',
+    'features.memory.detail1': 'Capture thoughts instantly with quick memo input',
+    'features.memory.detail2': 'Support for various formats: text, voice, files',
+    'features.memory.detail3': 'Track time flow with automatic timestamps',
+    'features.memory.detail4': 'Organize systematically with tags and groups',
+    
+    // Feature 2: Infinite Canvas
+    'features.canvas.title': 'Infinite Canvas',
+    'features.canvas.subtitle': 'Infinite Canvas',
+    'features.canvas.desc': 'Place and connect ideas without spatial constraints',
+    'features.canvas.detail1': 'Free positioning with drag and drop',
+    'features.canvas.detail2': 'See the big picture with zoom in/out',
+    'features.canvas.detail3': 'Visualize relationships with connection lines',
+    'features.canvas.detail4': 'View entire structure at a glance with minimap',
+    
+    // Feature 3: Smart Grouping
+    'features.grouping.title': 'Smart Grouping',
+    'features.grouping.subtitle': 'Smart Grouping',
+    'features.grouping.desc': 'Group related memories to clarify context',
+    'features.grouping.detail1': 'AI-based automatic group suggestions',
+    'features.grouping.detail2': 'Visual distinction with color coding',
+    'features.grouping.detail3': 'Filtering and search by group',
+    'features.grouping.detail4': 'Manage complex projects with hierarchical structure',
+    
+    // Feature 4: AI Insights
+    'features.insights.title': 'AI Insights',
+    'features.insights.subtitle': 'AI Insights',
+    'features.insights.desc': 'Discover patterns and insights from accumulated memories',
+    'features.insights.detail1': 'Auto-extract frequently appearing topics',
+    'features.insights.detail2': 'Smart connection of related memories',
+    'features.insights.detail3': 'Productivity pattern analysis',
+    'features.insights.detail4': 'Personalized suggestions and reminders',
+    
+    // Feature 5: Local-First
+    'features.localfirst.title': 'Local-First',
+    'features.localfirst.subtitle': 'Local-First',
+    'features.localfirst.desc': 'A truly personal space that works perfectly offline',
+    'features.localfirst.detail1': 'All features available without internet',
+    'features.localfirst.detail2': 'IndexedDB-based local storage',
+    'features.localfirst.detail3': 'Choose manual/automatic sync to ensure data safety',
+    'features.localfirst.detail4': 'Complete privacy protection',
+    
+    // Feature 6: Voice Recording
+    'features.voice.title': 'Voice Recording',
+    'features.voice.subtitle': 'Voice Recording',
+    'features.voice.desc': 'Record thoughts by voice and auto-convert to text',
+    'features.voice.detail1': 'Real-time voice-to-text conversion',
+    'features.voice.detail2': 'High-quality audio file storage',
+    'features.voice.detail3': 'Automatic meeting minutes generation',
+    'features.voice.detail4': 'Multi-language support',
+    
+    // Feature 7: File Integration
+    'features.files.title': 'File Integration',
+    'features.files.subtitle': 'File Integration',
+    'features.files.desc': 'Manage PDFs, images, and documents in one space',
+    'features.files.detail1': 'Automatic PDF text extraction',
+    'features.files.detail2': 'Image OCR text recognition',
+    'features.files.detail3': 'Searchable document content',
+    'features.files.detail4': 'Cloud storage integration',
+    
+    // Feature 8: Widgets
+    'features.widgets.title': 'Various Widgets',
+    'features.widgets.subtitle': 'Various Widgets',
+    'features.widgets.desc': 'Boost productivity with various widgets for your canvas',
+    'features.widgets.detail1': 'Schedule management with calendar widget',
+    'features.widgets.detail2': 'Track progress with action plan widget',
+    'features.widgets.detail3': 'Manage information in table format with database widget',
+    'features.widgets.detail4': 'Classify memos and mark important items with flag widget',
+    
+    // Visual Elements - Default Cards
+    'features.visual.card.summary': 'Summary',
+    'features.visual.card.suggestion': 'Suggest',
+    'features.visual.card.tag.memo': '@QuickMemo',
+    'features.visual.card.tag.memo.desc': ' to capture thoughts instantly',
+    'features.visual.card.tag1': 'Project',
+    'features.visual.card.tag2': 'Ideas',
+
+    // Visual Elements - Canvas Slide
+    'features.visual.canvas.card1.title': 'Project Ideas',
+    'features.visual.canvas.card1.desc': 'Freely place and connect thoughts on an infinite canvas',
+    'features.visual.canvas.card2.title': 'Next Steps',
+    'features.visual.canvas.card2.desc': 'Freely adjust card positions by dragging',
+    'features.visual.canvas.card3.title': 'Meeting Notes',
+    'features.visual.canvas.card3.desc': 'Place related cards close to connect them',
+    'features.visual.canvas.calendar': 'February 2026',
+    'features.visual.canvas.days': ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'],
+    'features.visual.time.justnow': 'Just now',
+    'features.visual.time.min5': '5 min ago',
+    'features.visual.time.min10': '10 min ago',
+    
+    // Visual Elements - Grouping Slide
+    'features.visual.grouping.card.title': 'Job Interview Prep',
+    'features.visual.grouping.card.desc': 'Organize frequently asked questions and prepare answers.',
+    'features.visual.grouping.modal.title': 'Group these together?',
+    'features.visual.grouping.modal.subtitle': 'Records to group (2)',
+    'features.visual.grouping.modal.card1': 'Job Interview Prep',
+    'features.visual.grouping.modal.card1desc': 'Frequently asked questions...',
+    'features.visual.grouping.modal.card2': 'STAR Method',
+    'features.visual.grouping.modal.card2desc': 'How to structure experiences...',
+    'features.visual.grouping.modal.groupname': 'Career Prep',
+    'features.visual.grouping.modal.cancel': 'Cancel',
+    'features.visual.grouping.modal.submit': 'Group',
+    'features.visual.grouping.modal.aitext': 'AI automatically\nsuggests related records',
+    'features.visual.grouping.aibtn': 'AI Auto Group',
+    
+    // Visual Elements - Insights Slide
+    'features.visual.insights.title': 'Daily Review Time',
+    'features.visual.insights.desc': 'Reflect on today\nand prepare for tomorrow',
+    'features.visual.insights.date': 'Feb 16 (Mon)',
+    'features.visual.insights.mode': 'Default Mode',
+    'features.visual.insights.refresh': 'Refresh',
+    'features.visual.insights.summary.title': 'Summary',
+    'features.visual.insights.summary.content': 'You have been showing great interest in job interview preparation materials and focusing on effectively organizing your career and experiences. You are particularly thinking about interview questions and answer strategies to achieve a successful career transition.',
+    'features.visual.insights.suggestions.title': 'Suggestions',
+    'features.visual.insights.suggestions.1': 'Practice with mock interviews to get a feel for real situations.',
+    'features.visual.insights.suggestions.2': 'Systematically organize your experiences and consider answer strategies for interviews.',
+    
+    // Visual Elements - Voice Recording Slide
+    'features.visual.voice.title': 'Meeting Recorder',
+    'features.visual.voice.recording': 'Recording',
+    'features.visual.voice.pause': 'Pause',
+    'features.visual.voice.speaker1': 'Alex',
+    'features.visual.voice.speaker2': 'Sarah',
+    'features.visual.voice.speaker3': 'James',
+    'features.visual.voice.line1': 'So, shall we discuss the main schedule for this project?',
+    'features.visual.voice.line2': 'Sure. First, let\'s aim to finish the 1st beta test by next Friday.',
+    'features.visual.voice.line3': 'I think we can wrap up the UI design within this week.',
+    'features.visual.voice.line4': 'Great. Then let\'s adjust the dev schedule too...',
+    
+    // Visual Elements - Widgets Slide
+    'features.visual.widgets.action.label': 'Action Project',
+    'features.visual.widgets.action.duration': '~3 weeks',
+    'features.visual.widgets.action.title': 'New Project Planning',
+    'features.visual.widgets.action.summary': '"Aiming for a successful project launch by systematically progressing from market research to beta testing."',
+    'features.visual.widgets.action.step': '[Phase 1: Market Research]',
+    'features.visual.widgets.action.task': 'Competitor analysis & market trend research',
+    'features.visual.widgets.table.title': 'Team Management',
+    'features.visual.widgets.table.rows': '(3 rows)',
+    'features.visual.widgets.table.name': 'Name',
+    'features.visual.widgets.table.role': 'Role',
+    'features.visual.widgets.table.status': 'Status',
+    'features.visual.widgets.table.progress': 'Progress',
+    'features.visual.widgets.table.role1': 'Developer',
+    'features.visual.widgets.table.role2': 'Designer',
+    'features.visual.widgets.table.role3': 'Planner',
+    'features.visual.widgets.table.status1': 'In Progress',
+    'features.visual.widgets.table.status2': 'Done',
+    'features.visual.widgets.table.status3': 'Waiting',
+    
+    // Visual Elements - Local First Slide  
+    'features.visual.localfirst.local': 'Local Storage',
+    'features.visual.localfirst.indexeddb': 'IndexedDB',
+    'features.visual.localfirst.offline': 'Offline Ready',
+    'features.visual.localfirst.cloud': 'Cloud',
+    'features.visual.localfirst.backup': 'Backup & Sync',
+    'features.visual.localfirst.safe': 'Safe Storage',
+    'features.visual.localfirst.sync': 'Auto Sync',
+    'features.visual.localfirst.infotext': 'Works without internet',
+    'features.visual.localfirst.infodesc': 'All data stored locally for offline work. Auto-syncs when online',
   },
 };
