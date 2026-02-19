@@ -460,6 +460,16 @@ export const translations: Record<Language, Record<string, string>> = {
     'features.nav.prev': '이전',
     'features.nav.next': '다음',
     'features.nav.keyboard': '키보드 방향키 ← → 로 이동할 수 있습니다',
+
+    // Feature Cover: Intro Slide
+    'features.cover.title': 'WORKLESS 기능 소개',
+    'features.cover.subtitle': 'Feature Guide',
+    'features.cover.desc': '당신의 액션을 위한 스마트 워크스페이스. 7가지 핵심 기능으로 생각을 정리하고 실행으로 연결하세요.',
+    'features.cover.detail1': '총 7가지 핵심 기능',
+    'features.cover.detail2': 'AI 기반 기억 관리 및 자동 그룹화',
+    'features.cover.detail3': '로컬 우선, 오프라인 완벽 지원',
+    'features.cover.detail4': '← → 화살표 키로 슬라이드 탐색',
+    'features.cover.hint': '다음 버튼 또는 화살표 키로 탐색',
     
     // Feature 1: Memory Management
     'features.memory.title': '기억 관리',
@@ -1037,6 +1047,16 @@ export const translations: Record<Language, Record<string, string>> = {
     'features.nav.prev': 'Previous',
     'features.nav.next': 'Next',
     'features.nav.keyboard': 'Use arrow keys ← → to navigate',
+
+    // Feature Cover: Intro Slide
+    'features.cover.title': 'WORKLESS Features',
+    'features.cover.subtitle': 'Feature Guide',
+    'features.cover.desc': 'A smart workspace for your actions. Organize thoughts and connect them to execution with 7 core features.',
+    'features.cover.detail1': '7 core features total',
+    'features.cover.detail2': 'AI-powered memory management & grouping',
+    'features.cover.detail3': 'Local-first, fully offline capable',
+    'features.cover.detail4': '← → arrow keys to navigate slides',
+    'features.cover.hint': 'Navigate with the Next button or arrow keys',
     
     // Feature 1: Memory Management
     'features.memory.title': 'Memory Management',

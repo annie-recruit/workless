@@ -20,6 +20,22 @@ export default function FeaturesPage() {
 
   const features = [
     {
+      id: 0,
+      isCover: true,
+      title: t('features.cover.title'),
+      subtitle: t('features.cover.subtitle'),
+      description: t('features.cover.desc'),
+      icon: 'zap',
+      details: [
+        t('features.cover.detail1'),
+        t('features.cover.detail2'),
+        t('features.cover.detail3'),
+        t('features.cover.detail4'),
+      ],
+      gradient: 'from-indigo-600 to-purple-600',
+      color: 'indigo'
+    },
+    {
       id: 1,
       title: t('features.memory.title'),
       subtitle: t('features.memory.subtitle'),
@@ -189,8 +205,42 @@ export default function FeaturesPage() {
           <div className="grid md:grid-cols-[1.2fr_0.8fr] gap-8 items-center">
             {/* 왼쪽 - 이미지/아이콘 영역 */}
             <div className="rounded-2xl p-8 flex items-center justify-center relative overflow-hidden min-h-[500px] bg-white">
-              {/* 무한 캔버스 기능 (2번째 슬라이드) */}
-              {currentSlide === 1 ? (
+              {/* 표지 슬라이드 (첫 번째 슬라이드) */}
+              {currentSlide === 0 ? (
+                <div className="relative w-full h-[450px] bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-gray-300 overflow-hidden flex flex-col items-center justify-center gap-8 p-6">
+                  {/* 픽셀 로고 배너 */}
+                  <div className="relative inline-block">
+                    <div className="absolute -top-0.5 -left-0.5 w-2 h-2 bg-gray-800" />
+                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-gray-800" />
+                    <div className="absolute -bottom-0.5 -left-0.5 w-2 h-2 bg-gray-800" />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-gray-800" />
+                    <div className="bg-indigo-600 px-10 py-5 border-2 border-gray-800 shadow-[6px_6px_0px_0px_rgba(0,0,0,0.2)]">
+                      <h1 className="text-4xl font-black text-white tracking-tighter uppercase">WORKLESS</h1>
+                      <p className="text-xs text-indigo-200 text-center tracking-widest mt-1">FEATURE GUIDE</p>
+                    </div>
+                  </div>
+
+                  {/* 기능 아이콘 그리드 */}
+                  <div className="grid grid-cols-4 gap-2 w-full">
+                    {features.slice(1).map((f) => (
+                      <div key={f.id} className="relative bg-white border-2 border-gray-800 p-2 flex flex-col items-center gap-1 shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]">
+                        <div className="absolute -top-0.5 -left-0.5 w-1 h-1 bg-gray-800" />
+                        <div className="absolute -top-0.5 -right-0.5 w-1 h-1 bg-gray-800" />
+                        <div className="absolute -bottom-0.5 -left-0.5 w-1 h-1 bg-gray-800" />
+                        <div className="absolute -bottom-0.5 -right-0.5 w-1 h-1 bg-gray-800" />
+                        <PixelIcon name={f.icon} size={14} className="text-indigo-600" />
+                        <span className="text-[7px] font-bold text-gray-700 text-center leading-tight">{f.title}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 탐색 힌트 */}
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                    <PixelIcon name="chevronRight" size={12} />
+                    <span>{t('features.cover.hint')}</span>
+                  </div>
+                </div>
+              ) : /* 무한 캔버스 기능 (3번째 슬라이드) */ currentSlide === 2 ? (
                 <div className="relative w-full h-[450px] bg-gradient-to-br from-orange-50 to-indigo-50 border-2 border-gray-300 overflow-hidden">
                   {/* 사이드바 */}
                   <div className="absolute left-0 top-0 bottom-0 w-12 bg-indigo-600 border-r-2 border-gray-800 z-20 flex flex-col items-center py-3 gap-2">
@@ -301,7 +351,7 @@ export default function FeaturesPage() {
                     </div>
                   </div>
                 </div>
-              ) : currentSlide === 2 ? (
+              ) : currentSlide === 3 ? (
                 /* 스마트 그룹화 기능 - AI 자동 묶기 UI */
                 <div className="relative w-full h-[500px] bg-gradient-to-br from-orange-50 to-indigo-50 border-2 border-gray-300 overflow-visible">
                   {/* 메모리 카드 (그룹 묶기 버튼 하이라이트) */}
@@ -397,7 +447,7 @@ export default function FeaturesPage() {
                     </div>
                   </div>
                 </div>
-              ) : currentSlide === 3 ? (
+              ) : currentSlide === 4 ? (
                 /* AI 인사이트 패널 - 정적 콘텐츠 */
                 <div className="relative w-full h-[500px] flex items-center justify-start pl-4">
                   <div className="w-[320px] h-[500px] overflow-hidden border-2 border-gray-300 rounded-lg shadow-lg bg-white font-galmuri11">
@@ -462,7 +512,7 @@ export default function FeaturesPage() {
                     </div>
                   </div>
                 </div>
-              ) : currentSlide === 4 ? (
+              ) : currentSlide === 5 ? (
                 /* 로컬 우선 기능 - 로컬 저장소 & 동기화 UI */
                 <div className="relative w-full h-[500px] flex items-center justify-center">
                   <div className="relative w-[380px] h-[280px]">
@@ -543,7 +593,7 @@ export default function FeaturesPage() {
                     </div>
                   </div>
                 </div>
-              ) : currentSlide === 5 ? (
+              ) : currentSlide === 6 ? (
                 /* 음성 녹음 - 미팅 레코더 위젯 */
                 <div className="relative w-full h-[500px] flex items-center justify-center">
                   <div className="w-[400px] h-[280px] bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] border-[3px] border-black overflow-hidden font-galmuri11">
@@ -604,7 +654,7 @@ export default function FeaturesPage() {
                     </div>
                   </div>
                 </div>
-              ) : currentSlide === 6 ? (
+              ) : currentSlide === 7 ? (
                 /* 여러가지 위젯들 - 위젯 갤러리 */
                 <div className="relative w-full h-[500px] flex items-center justify-start pl-8">
                   <div className="space-y-4 w-full max-w-lg">
@@ -742,7 +792,7 @@ export default function FeaturesPage() {
                         </h3>
                         
                         {/* AI 기능 버튼 (기억 관리 슬라이드일 때만) */}
-                        {currentSlide === 0 && (
+                        {currentSlide === 1 && (
                           <div className="flex items-center gap-1 mb-2">
                             <button className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[8px] font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors">
                               {t('features.visual.card.summary')}
@@ -754,7 +804,7 @@ export default function FeaturesPage() {
                         )}
                         
                         {/* 첫 번째 텍스트 - 태깅 하이라이트 포함 */}
-                        {currentSlide === 0 ? (
+                        {currentSlide === 1 ? (
                           <p className="text-xs text-black leading-relaxed">
                             <span className="inline-flex items-center px-1 py-0.5 bg-blue-100 text-blue-700 font-medium">{t('features.visual.card.tag.memo')}</span>{t('features.visual.card.tag.memo.desc')}
                           </p>
@@ -769,7 +819,7 @@ export default function FeaturesPage() {
                         </p>
                         
                         {/* 태깅 표시 (기억 관리 슬라이드일 때만) */}
-                        {currentSlide === 0 && (
+                        {currentSlide === 1 && (
                           <div className="mt-2 flex items-center gap-1 flex-wrap">
                             <span className="inline-flex items-center px-1.5 py-0.5 text-[8px] font-medium bg-blue-100 text-blue-700">
                               {t('features.visual.card.tag1')}
