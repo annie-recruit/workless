@@ -207,7 +207,7 @@ export default function FeaturesPage() {
             <div className={currentSlide === 0 ? 'w-full' : 'rounded-2xl p-8 flex items-center justify-center relative overflow-hidden min-h-[500px] bg-white'}>
               {/* 표지 슬라이드 (첫 번째 슬라이드) */}
               {currentSlide === 0 ? (
-                <div className="relative w-full h-[420px] bg-indigo-950 border-2 border-gray-800 overflow-hidden flex items-center px-12 gap-16 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.15)]">
+                <div className="relative w-full h-[420px] bg-indigo-950 border-2 border-gray-800 overflow-hidden flex flex-col justify-center px-12 py-10 gap-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.15)]">
                   {/* 픽셀 도트 패턴 배경 */}
                   <div className="absolute inset-0 opacity-[0.07] bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:14px_14px]" />
                   {/* 픽셀 코너 장식 */}
@@ -216,33 +216,31 @@ export default function FeaturesPage() {
                   <div className="absolute bottom-3 left-3 w-3 h-3 border-l-2 border-b-2 border-indigo-400" />
                   <div className="absolute bottom-3 right-3 w-3 h-3 border-r-2 border-b-2 border-indigo-400" />
 
-                  {/* 왼쪽: 로고 + 설명 */}
-                  <div className="flex-1 text-white z-10 space-y-5">
-                    <div className="relative inline-block">
-                      <div className="border border-indigo-400 px-2 py-0.5">
-                        <span className="text-[10px] font-bold tracking-[0.35em] text-indigo-300 uppercase">Feature Guide</span>
-                      </div>
+                  {/* 상단: 로고 + 설명 */}
+                  <div className="text-white z-10 space-y-3">
+                    <div className="inline-block border border-indigo-400 px-2 py-0.5">
+                      <span className="text-[10px] font-bold tracking-[0.35em] text-indigo-300 uppercase">Feature Guide</span>
                     </div>
                     <h1 className="text-6xl md:text-7xl font-black tracking-tighter uppercase leading-none text-white">
-                      WORK<br />LESS
+                      WORKLESS
                     </h1>
-                    <p className="text-sm text-indigo-200 leading-relaxed max-w-xs">
+                    <p className="text-sm text-indigo-200 leading-relaxed max-w-lg">
                       {t('features.cover.desc')}
                     </p>
-                    <div className="flex items-center gap-2 text-xs text-indigo-400 pt-2">
+                  </div>
+
+                  {/* 하단: 기능 목록 가로 한 줄 */}
+                  <div className="flex items-center gap-2 z-10 flex-wrap">
+                    {features.slice(1).map((f) => (
+                      <div key={f.id} className="bg-white/10 border border-white/20 px-3 py-2 flex items-center gap-1.5 hover:bg-white/15 transition-all flex-shrink-0">
+                        <PixelIcon name={f.icon} size={12} className="text-indigo-300 flex-shrink-0" />
+                        <span className="text-[9px] font-bold text-white/80 whitespace-nowrap">{f.title}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-2 ml-auto text-xs text-indigo-400">
                       <PixelIcon name="chevronRight" size={12} />
                       <span>{t('features.cover.hint')}</span>
                     </div>
-                  </div>
-
-                  {/* 오른쪽: 기능 그리드 */}
-                  <div className="grid grid-cols-2 gap-2 z-10 flex-shrink-0">
-                    {features.slice(1).map((f) => (
-                      <div key={f.id} className="relative bg-white/10 border border-white/20 px-3 py-2 flex items-center gap-2 hover:bg-white/15 transition-all">
-                        <PixelIcon name={f.icon} size={13} className="text-indigo-300 flex-shrink-0" />
-                        <span className="text-[9px] font-bold text-white/80 leading-tight">{f.title}</span>
-                      </div>
-                    ))}
                   </div>
                 </div>
               ) : /* 무한 캔버스 기능 (3번째 슬라이드) */ currentSlide === 2 ? (
