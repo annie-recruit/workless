@@ -173,8 +173,87 @@ export default function FeaturesPage() {
 
   const feature = features[currentSlide];
 
-  // 디버깅
-  console.log('Current slide:', currentSlide, 'Feature:', feature.title);
+  const handleExportPDF = () => {
+    const coverFeature = features[0];
+    const slideFeatures = features.slice(1);
+
+    const slidesHTML = slideFeatures.map((f, i) => `
+      <div class="slide" style="page-break-before: ${i === 0 ? 'avoid' : 'always'};">
+        <div class="slide-number">${i + 1} / ${slideFeatures.length}</div>
+        <div class="slide-subtitle">${f.subtitle || ''}</div>
+        <h2 class="slide-title">${f.title}</h2>
+        <p class="slide-desc">${f.description}</p>
+        <ul class="slide-details">
+          ${f.details.map(d => `<li>${d}</li>`).join('')}
+        </ul>
+      </div>
+    `).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>WORKLESS Feature Guide</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif; background: #fff; color: #111; }
+    .cover {
+      min-height: 100vh; display: flex; flex-direction: column;
+      justify-content: center; padding: 60px;
+      background: #1e1b4b; color: #fff; page-break-after: always;
+    }
+    .cover-badge {
+      display: inline-block; border: 1px solid #818cf8;
+      padding: 4px 12px; font-size: 10px; letter-spacing: 0.3em;
+      color: #a5b4fc; text-transform: uppercase; margin-bottom: 24px;
+    }
+    .cover-title { font-size: 72px; font-weight: 900; letter-spacing: -2px; line-height: 1; margin-bottom: 20px; }
+    .cover-desc { font-size: 15px; color: #c7d2fe; line-height: 1.7; max-width: 480px; margin-bottom: 40px; }
+    .cover-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .cover-item {
+      border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08);
+      padding: 8px 14px; font-size: 11px; color: rgba(255,255,255,0.8); font-weight: 600;
+    }
+    .slide {
+      min-height: 100vh; display: flex; flex-direction: column;
+      justify-content: center; padding: 60px; position: relative;
+    }
+    .slide-number { font-size: 11px; color: #999; font-weight: 600; letter-spacing: 0.1em; margin-bottom: 12px; }
+    .slide-subtitle { font-size: 11px; font-weight: 700; color: #4f46e5; text-transform: uppercase; letter-spacing: 0.2em; margin-bottom: 10px; }
+    .slide-title { font-size: 40px; font-weight: 900; letter-spacing: -1px; margin-bottom: 16px; }
+    .slide-desc { font-size: 14px; color: #555; line-height: 1.7; margin-bottom: 32px; max-width: 520px; }
+    .slide-details { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .slide-details li {
+      padding: 14px 18px; border: 2px solid #111; font-size: 13px;
+      font-weight: 600; position: relative;
+    }
+    .slide-details li::before { content: '■'; margin-right: 10px; font-size: 8px; vertical-align: middle; }
+    @media print {
+      @page { margin: 0; size: A4; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="cover">
+    <div class="cover-badge">Feature Guide</div>
+    <div class="cover-title">WORKLESS</div>
+    <p class="cover-desc">${coverFeature.description}</p>
+    <div class="cover-grid">
+      ${slideFeatures.map(f => `<div class="cover-item">${f.title}</div>`).join('')}
+    </div>
+  </div>
+  ${slidesHTML}
+  <script>window.onload = function(){ window.print(); }<\/script>
+</body>
+</html>`;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+    }
+  };
 
   return (
     <main className="min-h-screen bg-white font-galmuri11">
@@ -934,18 +1013,33 @@ export default function FeaturesPage() {
               ))}
             </div>
 
-            <button
-              onClick={nextSlide}
-              disabled={currentSlide === features.length - 1}
-              className={`relative flex items-center gap-2 px-5 py-3 font-bold text-sm transition-all border-2 border-gray-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] ${
-                currentSlide === features.length - 1
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-indigo-600 text-white hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.15)]'
-              }`}
-            >
-              {t('features.nav.next')}
-              <PixelIcon name="chevronRight" size={18} />
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={nextSlide}
+                disabled={currentSlide === features.length - 1}
+                className={`relative flex items-center gap-2 px-5 py-3 font-bold text-sm transition-all border-2 border-gray-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] ${
+                  currentSlide === features.length - 1
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-indigo-600 text-white hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.15)]'
+                }`}
+              >
+                {t('features.nav.next')}
+                <PixelIcon name="chevronRight" size={18} />
+              </button>
+
+              {/* PDF 내보내기 */}
+              <button
+                onClick={handleExportPDF}
+                className="relative flex items-center gap-2 px-4 py-3 font-bold text-sm border-2 border-gray-800 bg-white text-gray-700 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.15)] hover:bg-gray-50"
+                title="전체 PDF로 내보내기"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 1v9M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"/>
+                  <path d="M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="square"/>
+                </svg>
+                <span className="hidden sm:inline">PDF</span>
+              </button>
+            </div>
           </div>
 
           {/* 키보드 힌트 */}
