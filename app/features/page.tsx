@@ -232,7 +232,7 @@ export default function FeaturesPage() {
                   {/* 하단: 기능 목록 가로 한 줄 */}
                   <div className="flex items-center gap-2 z-10 flex-wrap">
                     {features.slice(1).map((f) => (
-                      <div key={f.id} className="bg-white/10 border border-white/20 px-3 py-2 flex items-center gap-1.5 hover:bg-white/15 transition-all flex-shrink-0">
+                      <div key={f.id} className="bg-white/10 border border-white/20 px-3 py-2 flex items-center gap-1.5 flex-shrink-0">
                         <PixelIcon name={f.icon} size={12} className="text-indigo-300 flex-shrink-0" />
                         <span className="text-[9px] font-bold text-white/80 whitespace-nowrap">{f.title}</span>
                       </div>
@@ -783,7 +783,7 @@ export default function FeaturesPage() {
                 /* 다른 슬라이드는 기존 메모리 카드 대각선 배치 */
                 <div className="relative w-full max-w-sm h-[400px]">
                   {/* 카드 1 - 왼쪽 위 */}
-                  <div className="absolute top-0 left-0 w-48 h-64 p-4 border-2 border-gray-800 bg-orange-50 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all z-10">
+                  <div className="absolute top-0 left-0 w-48 h-64 p-4 border-2 border-gray-800 bg-orange-50 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] z-10">
                     {/* 코너 포인트 */}
                     <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
@@ -799,10 +799,10 @@ export default function FeaturesPage() {
                         {/* AI 기능 버튼 (기억 관리 슬라이드일 때만) */}
                         {currentSlide === 1 && (
                           <div className="flex items-center gap-1 mb-2">
-                            <button className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[8px] font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors">
+                            <button className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[8px] font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100">
                               {t('features.visual.card.summary')}
                             </button>
-                            <button className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[8px] font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors">
+                            <button className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[8px] font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100">
                               {t('features.visual.card.suggestion')}
                             </button>
                           </div>
@@ -843,7 +843,7 @@ export default function FeaturesPage() {
                   </div>
 
                   {/* 카드 2 - 오른쪽 아래 (살짝 겹침) */}
-                  <div className="absolute bottom-0 right-0 w-48 h-64 p-4 border-2 border-gray-800 bg-indigo-50 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,0.15)] transition-all z-20">
+                  <div className="absolute bottom-0 right-0 w-48 h-64 p-4 border-2 border-gray-800 bg-indigo-50 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] z-20">
                     {/* 코너 포인트 */}
                     <div className="absolute -top-1 -left-1 w-2 h-2 bg-gray-800" />
                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-gray-800" />
@@ -884,7 +884,7 @@ export default function FeaturesPage() {
                 {feature.details.map((detail, index) => (
                   <div
                     key={index}
-                    className="relative flex items-start gap-3 bg-white p-4 border-2 border-gray-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.15)] transition-all select-none"
+                    className="relative flex items-start gap-3 bg-white p-4 border-2 border-gray-800 shadow-[4px_4px_0px_0px_rgba(0,0,0,0.1)] select-none"
                     draggable={false}
                     onDragStart={(e) => e.preventDefault()}
                   >
@@ -924,11 +924,11 @@ export default function FeaturesPage() {
                 <button
                   key={index}
                   onClick={() => goToSlide(index)}
-                  className={`transition-all ${
+                  className={
                     index === currentSlide
                       ? 'w-10 h-2.5 bg-indigo-600'
                       : 'w-2.5 h-2.5 bg-gray-300 hover:bg-gray-400'
-                  }`}
+                  }
                   aria-label={`${t('features.nav.prev')} ${index + 1}`}
                 />
               ))}
