@@ -266,6 +266,7 @@ export default function LandingClient() {
                     <div className="max-w-4xl mx-auto space-y-8 my-8">
                         <PixelAdSense
                             className=""
+                            adSlot="2717431439"
                         />
                         <PixelKakaoAdFit />
                     </div>

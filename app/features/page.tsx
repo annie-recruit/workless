@@ -902,7 +902,7 @@ export default function FeaturesPage() {
 
           {/* 광고 영역 */}
           <div className="max-w-4xl mx-auto space-y-8 mt-12">
-            <PixelAdSense className="" />
+            <PixelAdSense className="" adSlot="2717431439" />
             <PixelKakaoAdFit />
           </div>
         </div>
